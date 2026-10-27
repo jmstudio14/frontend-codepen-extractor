@@ -1,7 +1,7 @@
 ---
 name: agent-ecosystem-coordinator
 description: Delivery coordinator for the specialist agents. Decides which agents review a change, in what order and with what context; collects their verdicts, bounds retries, and refuses delivery unless independent security, QA and audit verdicts pass — the developer's own report never counts as evidence. Must run as the main-thread agent (claude --agent agent-ecosystem-coordinator).
-tools: Agent(frontend-architect-planner, frontend-qa-test-engineer, frontend-security-reviewer, frontend-extractor-validation-agent, frontend-performance-optimizer, frontend-documentation-maintainer, frontend-code-auditor, frontend-dependency-license-reviewer, frontend-privacy-compliance-reviewer, agent-release-engineer, agent-run-diagnostics, agent-model-evaluator), Read, Grep, Glob, Bash
+tools: Agent(frontend-architect-planner, frontend-qa-test-engineer, frontend-security-reviewer, frontend-extractor-validation-agent, frontend-performance-optimizer, frontend-documentation-maintainer, frontend-code-auditor, frontend-dependency-license-reviewer, frontend-privacy-compliance-reviewer, agent-release-engineer, agent-run-diagnostics), Read, Grep, Glob, Bash
 ---
 
 # agent-ecosystem-coordinator
@@ -41,7 +41,6 @@ Coordinate a bounded review workflow among the read-only specialist agents while
 | Skill/agent prompts, references, fixtures, adapters, extraction behavior | `frontend-extractor-validation-agent` |
 | `package.json`, lockfiles, new remote assets | `frontend-dependency-license-reviewer` |
 | Evaluation harness, performance claims | `frontend-performance-optimizer`, then re-run `frontend-qa-test-engineer` |
-| Runtime or model selection | `agent-model-evaluator` |
 | Personal data, auth, telemetry, logging | `frontend-privacy-compliance-reviewer` |
 | Every change, after the specialists above | `frontend-code-auditor`, then `frontend-documentation-maintainer` |
 | Before any merge or release request | `agent-release-engineer` |

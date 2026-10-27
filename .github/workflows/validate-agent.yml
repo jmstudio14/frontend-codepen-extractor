@@ -4,19 +4,6 @@ on:
   push:
   pull_request:
   workflow_dispatch:
-    inputs:
-      case_id:
-        description: Scenario for the selected runtime; live execution is gated by AGENT_EVAL_SELECTED_RUNTIME
-        required: true
-        default: web-extraction-regression
-        type: string
-      repeat:
-        description: Number of repeated runs (1-5)
-        required: true
-        default: "1"
-        type: string
-  schedule:
-    - cron: "17 8 * * 1"
 
 permissions:
   contents: read
@@ -39,148 +26,14 @@ jobs:
         run: node scripts/validate-plugin.mjs
       - name: Syntax-check evaluation scripts
         run: |
-          node --check scripts/evaluation/evaluate-planner-live.mjs
           node --check scripts/evaluation/validate-architect-plan.mjs
-          node --check scripts/evaluation/assess-runtimes.mjs
-          node --check scripts/evaluation/probe-runtimes.mjs
-          node --check scripts/adapters/claude-agent-sdk.mjs
           node --check scripts/evaluation/check-web-fixture.mjs
-          node --check scripts/evaluation/compare-baseline.mjs
-          node --check scripts/evaluation/run-repeated.mjs
           node --check scripts/evaluation/fixtures.mjs
           node --check scripts/evaluation/browser-check.mjs
-          python -m py_compile scripts/evaluation/run_deepeval.py
+          node --check scripts/evaluation/manual-eval.mjs
       - name: Run deterministic security gate
         run: node scripts/security-gate.mjs
       - name: Run smoke tests
         run: node scripts/test-agent.mjs
       - name: Run evaluation harness fixture
         run: node scripts/evaluate-agent.mjs --adapter "node tests/fixtures/evaluation-adapter.mjs" --output "$RUNNER_TEMP/agent-evaluation-smoke.json"
-
-  runtime-compatibility-assessment:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Assess documented runtime compatibility without installing SDKs
-        run: node scripts/evaluation/assess-runtimes.mjs --output "$RUNNER_TEMP/runtime-compatibility.json"
-      - name: Upload runtime compatibility report
-        uses: actions/upload-artifact@v4
-        with:
-          name: runtime-compatibility-${{ github.run_id }}
-          path: ${{ runner.temp }}/runtime-compatibility.json
-          retention-days: 90
-
-  runtime-sdk-compatibility-smoke:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install and import each candidate in isolated temporary directories
-        run: node scripts/evaluation/probe-runtimes.mjs --output "$RUNNER_TEMP/runtime-sdk-smoke.json"
-      - name: Upload SDK compatibility smoke report
-        uses: actions/upload-artifact@v4
-        with:
-          name: runtime-sdk-smoke-${{ github.run_id }}
-          path: ${{ runner.temp }}/runtime-sdk-smoke.json
-          retention-days: 90
-
-  runtime-selection-pending:
-    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && vars.AGENT_EVAL_SELECTED_RUNTIME != 'claude-agent-sdk'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Record why live model evaluation was not run
-        env:
-          SELECTED_RUNTIME: ${{ vars.AGENT_EVAL_SELECTED_RUNTIME || 'NOT_SELECTED' }}
-        run: |
-          python -c 'import json, os; print(json.dumps({"status":"NOT RUN", "selected_runtime": os.getenv("SELECTED_RUNTIME", "NOT_SELECTED"), "reason": "Live evaluation is gated until a compatible runtime adapter is explicitly selected; no model invocation occurred."}))' > "$RUNNER_TEMP/runtime-selection.json"
-          cat "$RUNNER_TEMP/runtime-selection.json"
-      - name: Upload runtime selection status
-        uses: actions/upload-artifact@v4
-        with:
-          name: runtime-selection-${{ github.run_id }}
-          path: ${{ runner.temp }}/runtime-selection.json
-          retention-days: 90
-
-  live-agent-evaluation:
-    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && vars.AGENT_EVAL_SELECTED_RUNTIME == 'claude-agent-sdk'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      EVAL_CASE_ID: ${{ inputs.case_id || 'web-extraction-regression' }}
-      EVAL_REPEAT: ${{ inputs.repeat || '1' }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Restore rolling evaluation history
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/agent-evaluation-history.jsonl
-          key: agent-evaluation-history-${{ github.run_id }}
-          restore-keys: |
-            agent-evaluation-history-
-      - name: Initialize evaluation history
-        run: touch "$RUNNER_TEMP/agent-evaluation-history.jsonl"
-      - name: Install Claude Agent SDK
-        if: env.ANTHROPIC_API_KEY != ''
-        run: npm install --no-save @anthropic-ai/claude-agent-sdk@0.3.301
-      - name: Run repeated real-agent evaluation
-        if: env.ANTHROPIC_API_KEY != ''
-        run: |
-          node scripts/evaluation/run-repeated.mjs \
-            --adapter "node scripts/adapters/claude-agent-sdk.mjs" \
-            --case "$EVAL_CASE_ID" --repeat "$EVAL_REPEAT" \
-            --output "$RUNNER_TEMP/agent-evaluation-report.json" \
-            --history "$RUNNER_TEMP/agent-evaluation-history.jsonl" \
-            --baseline evaluation/baselines/current.json
-      - name: Record skipped live evaluation when Anthropic credentials are absent
-        if: env.ANTHROPIC_API_KEY == ''
-        run: |
-          printf '{"status":"NOT RUN","reason":"ANTHROPIC_API_KEY is not configured; no Claude Agent SDK invocation occurred."}\n' > "$RUNNER_TEMP/agent-evaluation-report.json"
-          printf '{"generated_at":"%s","git_sha":"%s","github_run_id":"%s","status":"NOT RUN","reason":"ANTHROPIC_API_KEY not configured"}\n' "$(date -u +%FT%TZ)" "$GITHUB_SHA" "$GITHUB_RUN_ID" >> "$RUNNER_TEMP/agent-evaluation-history.jsonl"
-          echo "Live evaluation skipped honestly: ANTHROPIC_API_KEY is not configured."
-      - name: Install optional DeepEval judge
-        if: env.ANTHROPIC_API_KEY != '' && env.OPENAI_API_KEY != ''
-        run: python -m pip install -r evaluation/requirements-deepeval.txt
-      - name: Run optional DeepEval semantic evaluation
-        if: env.ANTHROPIC_API_KEY != '' && env.OPENAI_API_KEY != ''
-        run: |
-          python scripts/evaluation/run_deepeval.py \
-            --report "$RUNNER_TEMP/agent-evaluation-report.json" \
-            --output "$RUNNER_TEMP/agent-evaluation-semantic.json"
-      - name: Mark semantic evaluation as not run
-        if: env.ANTHROPIC_API_KEY == '' || env.OPENAI_API_KEY == ''
-        run: |
-          printf '{"status":"NOT RUN","reason":"Live Anthropic run or OPENAI_API_KEY judge credential is missing."}\n' > "$RUNNER_TEMP/agent-evaluation-semantic.json"
-      - name: Save rolling evaluation history
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/agent-evaluation-history.jsonl
-          key: agent-evaluation-history-${{ github.run_id }}
-      - name: Upload live evaluation reports and history
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-evaluation-${{ github.run_id }}
-          path: |
-            ${{ runner.temp }}/agent-evaluation-report.json
-            ${{ runner.temp }}/agent-evaluation-semantic.json
-            ${{ runner.temp }}/agent-evaluation-history.jsonl
-          if-no-files-found: warn
-          retention-days: 90

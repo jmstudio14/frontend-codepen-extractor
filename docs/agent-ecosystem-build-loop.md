@@ -14,7 +14,7 @@ The existing developer agent and the proposed independent auditor are not recrea
 4. Require explicit human approval of the plan before code changes begin.
 5. Keep each agent's permissions minimal. Reviewer agents default to read-only; no agent may merge or deploy on its own.
 6. Add deterministic contract tests and adversarial/negative cases for every agent.
-7. Evaluate with a real model when credentials and an approved runtime are available. If not run, mark the live evaluation SKIPPED / NOT RUN; never count fixtures as a live pass.
+7. Evaluate the agent manually in Claude Code on its scenarios, with a normal subscription and no API key, and review the output. If not done, mark the live evaluation NOT RUN; never count fixtures as a live pass.
 8. Run the repository's required checks and independent audit before asking for merge.
 9. Stop after two correction rounds by default. Escalate unresolved failures or blocked evidence to a human.
 10. Update `evaluation/agent-build-queue.json` only with evidence-backed status changes. A checklist or plan is not proof that an agent has been implemented.

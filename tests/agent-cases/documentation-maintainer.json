@@ -87,5 +87,5 @@
   "live_evaluation": [
     "Review a synthetic release diff and identify stale docs without inventing facts"
   ],
-  "live_status": "NOT RUN until runtime and credentials are explicitly configured"
+  "live_status": "NOT RUN until run manually in Claude Code and reviewed"
 }

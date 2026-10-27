@@ -87,5 +87,5 @@
   "live_evaluation": [
     "Review a lockfile with known synthetic dependency risks"
   ],
-  "live_status": "NOT RUN until explicit runtime and credentials are configured"
+  "live_status": "NOT RUN until run manually in Claude Code and reviewed"
 }

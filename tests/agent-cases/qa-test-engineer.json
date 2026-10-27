@@ -89,5 +89,5 @@
     "Detect a missing regression test",
     "Report a browser test that was not run"
   ],
-  "live_status": "NOT RUN until an explicit runtime and credentials are configured"
+  "live_status": "NOT RUN until run manually in Claude Code and reviewed"
 }

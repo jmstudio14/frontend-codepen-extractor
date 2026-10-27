@@ -104,5 +104,5 @@
     "Validate a permitted representative page",
     "Report inaccessible source without fabricating content"
   ],
-  "live_status": "NOT RUN until runtime and credentials are explicitly configured"
+  "live_status": "NOT RUN until run manually in Claude Code and reviewed"
 }

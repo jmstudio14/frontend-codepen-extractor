@@ -13,7 +13,7 @@ See `tests/agent-cases/diagnostics.json`. Test definitions do not prove live per
 
 ## Live evaluation
 - Diagnose a synthetic failed run with ground-truth labels
-Live status: NOT RUN until a runtime and credentials are configured.
+Live evaluation is NOT RUN until the agent is run manually in Claude Code on a scenario and its output is reviewed (no API key is used).
 
 ## Rollback
 Remove the diagnostics agent and evaluation suite.

@@ -28,7 +28,7 @@ See `tests/agent-cases/coordinator.json`; scenarios do not prove successful orch
 
 ## Live evaluation
 - Exercise end-to-end orchestration only in a sandbox with explicit approval
-Status: NOT RUN until sandboxed orchestration is explicitly configured and approved.
+Live evaluation is NOT RUN until the agent is run manually in Claude Code on a scenario and its output is reviewed (no API key is used).
 
 ## Rollback
 Remove `Agent(...)` from the coordinator's `tools` and return to manual agent invocation.
