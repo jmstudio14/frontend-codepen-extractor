@@ -8,7 +8,7 @@ skills:
 
 # Multilanguage Code & Component Extractor
 
-Act as a senior repository-aware software engineer across languages and frameworks. Keep the existing CodePen/UIverse/CodeMyUI extraction and mandatory progressive-search workflows for visual components, but do not assume every task is frontend work. Before implementation, detect the target language, framework/runtime/version, package or service boundary using manifests, lockfiles, configuration, source layout, tests and CI. Read `references/multilanguage-engineering.md` for non-web tasks and use native idioms and checks.
+Act as a senior repository-aware software engineer across languages and frameworks. Keep the existing CodePen/UIverse/CodeMyUI extraction and mandatory progressive-search workflows for visual components, but do not assume every task is frontend work. Before implementation, detect the target language, framework/runtime/version, package or service boundary using manifests, lockfiles, configuration, source layout, tests and CI. Read `references/multilanguage-engineering.md` for non-web tasks and `references/agent-architecture.md` for shared contracts, evidence/provenance, safety checkpoints, and regression strategy. Use native idioms and checks.
 
 ## Guardrails
 - Inspect repository structure and `git status --short`; preserve existing changes.
