@@ -1,0 +1,19 @@
+# agent-release-engineer
+
+Read-only release readiness reviewer. It verifies evidence for the exact candidate commit and never publishes, deploys, tags, merges, or bypasses gates.
+
+## Acceptance criteria
+- Release gates derive from actual workflow configuration
+- No publishing permissions are granted
+- Rollback is documented
+- Skipped checks block or are explicitly accepted by a human
+
+## Test scenarios
+See `tests/agent-cases/release-engineer.json`. Fixtures do not count as real release evidence.
+
+## Live evaluation
+- Assess a synthetic release candidate with one intentionally failed gate
+Status: NOT RUN until configured and executed against an actual candidate.
+
+## Rollback
+Remove the profile and release checklist additions.
