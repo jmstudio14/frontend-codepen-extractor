@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0
+
+- Packaged the existing extractor as a native Claude Code plugin with `.claude-plugin/plugin.json`.
+- Added a GitHub-hosted private marketplace at `.claude-plugin/marketplace.json`.
+- Added the plugin-native `agents/` and `skills/` structure while preserving the standalone `.claude/` setup.
+- Documented installation from a Claude Code session and the shell CLI, including private-repository authentication.
+- Added plugin packaging validation to the repository checks.
+
 ## 2.0.0
 
 - Explicitly preload the matching skill in the agent frontmatter.
