@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.10.0
+
+- Connected the evaluation harness to an opt-in Claude Agent SDK adapter for the dedicated web-extraction fixture, capturing actual SDK tool events and command results in an isolated temporary Git repository.
+- Added objective fixture assertions, repeated-run summaries, token/cost accounting when the provider returns usage, JSONL history, approved-baseline regression checks, and an optional DeepEval semantic-judge bridge.
+- Added manual and weekly GitHub Actions live-evaluation flow with explicit NOT RUN reports when credentials are missing; deterministic CI remains separate from live model evaluation.
+- Documented the initial scope honestly: only the web-extraction scenario has a built-in workspace fixture; other scenarios require dedicated fixtures before live scoring.
+
+
 ## 2.9.0
 
 - Added an adapter-driven runtime evaluation harness that executes one real host-adapter run per scenario and writes a JSON report.

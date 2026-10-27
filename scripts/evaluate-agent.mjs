@@ -106,14 +106,15 @@ for (const testCase of cases) {
   const possible = metricBooleans.length + 4;
   const passed = errors.length === 0 && earned === possible;
   reports.push({
-    id: testCase.id, category: testCase.category, status: passed ? 'PASS' : 'FAIL',
+    id: testCase.id, category: testCase.category, prompt: testCase.prompt, status: passed ? 'PASS' : 'FAIL',
     score: { earned, possible, percent: Math.round(earned / possible * 100) },
     elapsed_ms: execution.elapsedMs, tool_calls: toolCalls.length,
     tool_call_names: toolCalls.map((call) => call.name || 'unnamed'),
     project_checks: { passed: checksPassed, failed: checksFailed, not_run: checksNotRun, total: checks.length,
       details: checks.map(({ name, status, command, exit_code }) => ({ name, status, command, exit_code })) },
     stack: result.stack || null, source: result.source || null, repository: result.repository || null,
-    honesty: result.honesty || null, errors, adapter_exit_code: execution.exitCode,
+    honesty: result.honesty || null, agent_output: result.agent_output || null, token_usage: result.token_usage || null,
+    cost_usd: typeof result.cost_usd === 'number' ? result.cost_usd : null, tool_call_trace: toolCalls, errors, adapter_exit_code: execution.exitCode,
     adapter_stdout: execution.stdout, adapter_stderr: execution.stderr,
   });
   console.log(`${passed ? 'PASS' : 'FAIL'}  ${testCase.id}: ${earned}/${possible}, ${execution.elapsedMs} ms, ${toolCalls.length} tools, checks ${checksPassed}/${checks.length}`);
@@ -125,11 +126,14 @@ const allChecks = reports.flatMap((item) => item.project_checks.details);
 const toolCount = reports.reduce((sum, item) => sum + item.tool_calls, 0);
 const elapsed = reports.reduce((sum, item) => sum + item.elapsed_ms, 0);
 const summary = {
-  schema_version: 1, generated_at: new Date().toISOString(), adapter_command: adapter,
+  schema_version: 2, generated_at: new Date().toISOString(), adapter_command: adapter,
   suite: path.relative(root, suitePath), selected_cases: total,
   passed_cases: passing, failed_cases: total - passing, pass_rate_percent: Math.round(passing / total * 100),
   elapsed_ms_total: elapsed, elapsed_ms_average: Math.round(elapsed / total),
   tool_calls_total: toolCount, tool_calls_average: Number((toolCount / total).toFixed(2)),
+  cost_usd_total: reports.every((item) => typeof item.cost_usd === 'number') ? Number(reports.reduce((sum, item) => sum + item.cost_usd, 0).toFixed(6)) : null,
+  token_usage: { input_tokens: reports.every((item) => Number.isFinite(item.token_usage?.input_tokens)) ? reports.reduce((sum, item) => sum + item.token_usage.input_tokens, 0) : null,
+    output_tokens: reports.every((item) => Number.isFinite(item.token_usage?.output_tokens)) ? reports.reduce((sum, item) => sum + item.token_usage.output_tokens, 0) : null },
   project_checks: { passed: allChecks.filter((item) => item.status === 'PASS').length,
     failed: allChecks.filter((item) => item.status === 'FAIL').length,
     not_run: allChecks.filter((item) => item.status === 'NOT RUN').length, total: allChecks.length },

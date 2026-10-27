@@ -73,6 +73,14 @@ test('evaluation suite covers core multilingual and extraction risks', () => {
 
 console.log(`\nSmoke tests finished: ${passed} passed.`);
 
+test('evaluation runtime files and optional integrations exist', () => {
+  for (const rel of ['scripts/adapters/claude-agent-sdk.mjs','scripts/evaluation/run-repeated.mjs','scripts/evaluation/check-web-fixture.mjs','scripts/evaluation/compare-baseline.mjs','scripts/evaluation/run_deepeval.py','evaluation/requirements-deepeval.txt','evaluation/baselines/README.md']) assert.ok(fs.existsSync(path.join(root, rel)), rel + ' should exist');
+  const adapter = fs.readFileSync(path.join(root, 'scripts/adapters/claude-agent-sdk.mjs'), 'utf8');
+  assert.match(adapter, /@anthropic-ai\/claude-agent-sdk/);
+  assert.match(adapter, /PostToolUse/);
+  assert.match(adapter, /AGENT_EVAL_WORKSPACE_ROOT/);
+});
+
 test('runtime evaluation harness executes adapter and writes a measurable report', () => {
   const reportPath = path.join(os.tmpdir(), `agent-evaluation-smoke-${process.pid}.json`);
   try {
@@ -89,6 +97,9 @@ test('runtime evaluation harness executes adapter and writes a measurable report
     assert.ok(report.elapsed_ms_total >= 0);
     assert.ok(report.tool_calls_total >= 8);
     assert.equal(report.project_checks.failed, 0);
+    assert.equal(report.schema_version, 2);
+    assert.ok(Array.isArray(report.cases[0].tool_call_trace));
+    assert.equal(report.cases[0].cost_usd, null);
   } finally {
     fs.rmSync(reportPath, { force: true });
   }

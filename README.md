@@ -240,7 +240,7 @@ claude plugin validate .\plugins\frontend-codepen-extractor
 claude plugin validate .
 ```
 
-GitHub Actions runs structural validation, smoke tests, and a deterministic fixture run of the evaluation harness. To evaluate real model behavior, configure a host adapter as documented in [runtime agent evaluation](docs/agent-evaluation.md); fixture CI does not count as a live LLM evaluation. Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
+GitHub Actions runs structural validation, smoke tests, and a deterministic fixture run of the evaluation harness. The opt-in [Claude Agent SDK evaluation workflow](docs/agent-evaluation.md) captures real tool events, isolated-workspace changes, command results, token/cost usage when available, repeated runs, history, and optional DeepEval scores. It only runs the model when repository Actions secrets are configured; fixture CI is never counted as a live LLM evaluation. Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
 
 ## Documentation
 

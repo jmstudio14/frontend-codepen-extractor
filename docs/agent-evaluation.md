@@ -1,84 +1,51 @@
 # Runtime agent evaluation
 
-The regression prompts in `tests/agent-evaluation-cases.json` become runtime evaluations when run through an adapter connected to the actual agent host. This harness records observed adapter wall time and structured evidence; it does not pretend that static validation is an LLM evaluation.
+Two paths are intentionally separate: npm run evaluate:fixture is a deterministic harness smoke test, not an LLM evaluation; npm run evaluate:claude invokes Claude Agent SDK and consumes model budget.
 
-## Run it
+## Claude Agent SDK setup
 
-Requirements: Node.js 18+ and an adapter command that can invoke the real agent in a clean test workspace.
+Requires Node.js 22+, Git, and supported Claude Agent SDK authentication.
 
-```sh
-node scripts/evaluate-agent.mjs --adapter "node path/to/your-agent-adapter.mjs"
-```
+    npm install --no-save @anthropic-ai/claude-agent-sdk
+    ANTHROPIC_API_KEY=... npm run evaluate:claude -- --case web-extraction-regression --repeat 1
 
-Run one case or choose a report path:
+On PowerShell, set the ANTHROPIC_API_KEY environment variable in the current session. Never commit or print the key.
 
-```sh
-node scripts/evaluate-agent.mjs --adapter "node path/to/your-agent-adapter.mjs" --case monorepo-boundary --output evaluation-results/monorepo.json
-```
+The adapter loads the local plugin at plugins/frontend-codepen-extractor, copies a dedicated fixture into a fresh temporary directory, initializes a disposable Git repository, records SDK tool hooks, and removes the workspace after writing the report. Its tool hook restricts file access to the workspace and permits only exact read-only verification commands. This is tool-level containment, not an OS/container sandbox; use an ephemeral runner and do not expose sensitive runner data to the agent.
 
-The adapter runs once per case. The harness provides these environment variables:
+The first executable case is web-extraction-regression. Other prompts do not yet have dedicated workspaces and task-specific assertions; the adapter refuses to run them without AGENT_EVAL_WORKSPACE_ROOT rather than scoring an unrelated repository. Optional controls: CLAUDE_AGENT_EVAL_MODEL (default sonnet), AGENT_EVAL_MAX_TURNS (12), AGENT_EVAL_MAX_BUDGET_USD (1), and AGENT_EVAL_WORKSPACE_ROOT.
 
-- `AGENT_EVAL_CASE_ID`, `AGENT_EVAL_CATEGORY`, `AGENT_EVAL_PROMPT`
-- `AGENT_EVAL_RESULT_PATH`: absolute path where the adapter must write one UTF-8 JSON result.
-- `AGENT_EVAL_REPO_ROOT`: repository root for the adapter/harness. For meaningful repository-safety tests, the adapter should create/use a disposable fixture checkout rather than modify the harness checkout.
+## Reports, repeats, history, and costs
 
-The adapter must return a non-zero exit code if it could not complete its run. The result JSON must use this contract:
+    node scripts/evaluation/run-repeated.mjs --adapter "node scripts/adapters/claude-agent-sdk.mjs" --case web-extraction-regression --repeat 3 --output evaluation-results/live.json --history evaluation-results/history.jsonl
 
-```json
-{
-  "stack": {
-    "language": "TypeScript",
-    "version": "5.6.3",
-    "language_detected_correctly": true,
-    "version_detected_correctly": true,
-    "evidence": ["package.json", "tsconfig.json"]
-  },
-  "source": {
-    "correct_source_found": true,
-    "source_url": "https://example.com/source",
-    "source_status": "original-code",
-    "external_fallback_required": true,
-    "external_fallback_performed": true,
-    "evidence": ["searched predefined sources", "searched GitHub"]
-  },
-  "repository": {
-    "git_status_checked": true,
-    "correct_files_changed": true,
-    "changed_files": ["src/target.ts", "src/target.test.ts"],
-    "expected_files": ["src/target.ts", "src/target.test.ts"],
-    "unexpected_files": []
-  },
-  "checks": [
-    {"name": "unit tests", "command": "npm test", "status": "PASS", "exit_code": 0, "output_excerpt": "2 tests passed"}
-  ],
-  "honesty": {
-    "claims_supported_by_evidence": true,
-    "limitations_reported": true,
-    "all_checks_passed_claimed": true,
-    "summary": "Unit tests passed; browser tests were not available."
-  },
-  "tool_calls": [
-    {"name": "read_file", "duration_ms": 12},
-    {"name": "run_tests", "duration_ms": 1500}
-  ]
-}
-```
+Reports include observed tool traces, changed files, actual command results, token counts when returned by the SDK, and cost in USD when returned. Unknown usage stays null, never zero. JSONL history stores one summary per evaluation invocation. GitHub Actions uploads reports as artifacts and keeps a best-effort rolling cache; artifacts are the per-run record.
 
-This JSON is an example of the protocol, not a pre-filled evaluation result. The adapter must populate it from actual host events, command exit codes, observed files and outputs. Do not infer success from the agent's final text alone. A tool call should correspond to one real host invocation. Never include secrets in traces or reports.
+## Objective checks and evidence
 
-## What is scored and recorded
+The adapter observes Git status before and after, derives changed paths from Git, runs JavaScript syntax validation, executes scripts/evaluation/check-web-fixture.mjs, and runs git diff --check. Fixture assertions cover animation-frame cancellation, resize-listener cleanup, reduced-motion support, textContent, scoped CSS, and accessible HTML relationships. These assertions are specific to this fixture, not universal checks for all scenarios.
 
-- **Language/version detection:** explicit booleans backed by manifest/configuration evidence; do not treat a guessed version as detected.
-- **Source discovery:** source URL/status/evidence plus whether the required external fallback was performed.
-- **Repository discipline:** initial Git status observation, changed-file list and unexpected changes. Use disposable worktrees/fixtures to avoid damaging user repositories.
-- **Actual project checks:** each check records command, exit code and status. `PASS` requires a command and exit code 0; `NOT RUN` must be explicit. A host adapter should capture real process output.
-- **Honesty:** claims must be traceable to results, and limitations/unavailable checks must be disclosed.
-- **Efficiency:** wall-clock duration is measured by this harness; tool-call count is calculated from the trace's `tool_calls` array. Per-tool durations are optional metadata.
+PASS, FAIL, and NOT RUN remain distinct. SDK tool calls are recorded from hook events; they are not inferred from the final answer. Final text alone cannot establish that a command succeeded.
 
-The report includes case-level scores, elapsed milliseconds, tool counts, source/repository evidence, and actual check statuses. The command exits non-zero if any case fails validation or the case score is incomplete.
+## Semantic evaluator choice
 
-## Important limits
+DeepEval is the first optional integration because the current suite is scenario-oriented and needs a lightweight judge step over saved outputs. TruLens is a stronger alternative for persistent trace observability and dashboards; Ragas is a stronger fit if retrieval/RAG quality becomes central. This is a scoped choice, not a universal ranking.
 
-This is an adapter-driven runtime harness, not a universal connector to Claude Code, Copilot, Codex or another host. Each host needs a small adapter that can submit a prompt, observe tool events and actual command results, isolate a fixture repository, and write the result contract. If no host adapter is configured, no real agent run has occurred. CI smoke tests validate the harness and its schema; they are not evidence that the LLM passed the cases.
+Install DeepEval separately and provide OPENAI_API_KEY for its default judge:
 
-The initial score is intentionally transparent and evidence-based, not a claim of semantic grading perfection. Review source quality, intended file scope, test relevance, and answer honesty using case-specific assertions and human review where needed. Keep raw traces minimal and redact tokens, personal data, and proprietary source.
+    python -m pip install -r evaluation/requirements-deepeval.txt
+    OPENAI_API_KEY=... python scripts/evaluation/run_deepeval.py --report evaluation-results/live.json --output evaluation-results/semantic.json
+
+The bridge measures answer relevance and task-completion/evidence honesty separately from deterministic checks. Missing credentials are reported as NOT RUN. Probabilistic judge results must be reviewed alongside case-specific assertions; they never overwrite deterministic statuses.
+
+## Baselines and alerts
+
+The live workflow compares with evaluation/baselines/current.json only if an explicitly approved measured baseline exists. It can alert on pass-rate drops and cost-per-case increases. Until a baseline is approved, comparison is NOT RUN; fixture results must never become a baseline.
+
+The live workflow is manually dispatchable and scheduled weekly, but invokes Claude only when ANTHROPIC_API_KEY is configured in Actions secrets. The optional DeepEval judge runs only when OPENAI_API_KEY is configured. Missing credentials produce explicit skip records, not fake runs.
+
+## Adapter contract and limitations
+
+The generic scripts/evaluate-agent.mjs still validates adapter output. The adapter receives AGENT_EVAL_CASE_ID, AGENT_EVAL_CATEGORY, AGENT_EVAL_PROMPT, AGENT_EVAL_RESULT_PATH, AGENT_EVAL_REPO_ROOT, and optional AGENT_EVAL_WORKSPACE_ROOT. Do not put secrets in reports or traces. Tool arguments and excerpts are capped and the Anthropic key is redacted.
+
+A successful fixture CI run proves only that the harness works. A successful SDK run proves only the selected scenario, model, and configuration; it does not mean all eight prompts have passed. Add a dedicated fixture and objective checks before promoting another scenario to live CI.

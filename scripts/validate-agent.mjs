@@ -34,6 +34,7 @@ const required = [
   '.claude/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
   '.claude/skills/frontend-codepen-extractor/references/agent-architecture.md',
   'tests/agent-evaluation-cases.json', 'scripts/evaluate-agent.mjs', 'docs/agent-evaluation.md', 'tests/fixtures/evaluation-adapter.mjs',
+  'scripts/adapters/claude-agent-sdk.mjs', 'scripts/evaluation/run-repeated.mjs', 'scripts/evaluation/check-web-fixture.mjs', 'scripts/evaluation/compare-baseline.mjs', 'scripts/evaluation/run_deepeval.py', 'evaluation/requirements-deepeval.txt', 'evaluation/baselines/README.md',
   '.claude/settings.example.json',
   'CLAUDE.md', 'README.md', 'CHANGELOG.md', 'package.json',
   'scripts/block-dangerous-commands.mjs', 'scripts/test-agent.mjs',
@@ -146,7 +147,7 @@ for (const term of ['language_detected_correctly', 'version_detected_correctly',
   evaluationRunner.includes(term) ? pass('Runtime evaluator records ' + term) : fail('Runtime evaluator records ' + term);
 }
 const evaluationGuide = read('docs/agent-evaluation.md') ?? '';
-for (const term of ['AGENT_EVAL_RESULT_PATH', 'wall-clock duration', 'real agent run has occurred', 'NOT RUN']) {
+for (const term of ['AGENT_EVAL_RESULT_PATH', 'wall-clock duration', 'real agent run has occurred', 'NOT RUN', 'DeepEval', 'ANTHROPIC_API_KEY']) {
   evaluationGuide.toLowerCase().includes(term.toLowerCase()) ? pass('Evaluation guide explains ' + term) : fail('Evaluation guide explains ' + term);
 }
 for (const term of ['multilanguage', 'multiframework', 'multilanguage-engineering.md']) {
