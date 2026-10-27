@@ -74,7 +74,7 @@ test('evaluation suite covers core multilingual and extraction risks', () => {
 console.log(`\nSmoke tests finished: ${passed} passed.`);
 
 test('evaluation runtime files and optional integrations exist', () => {
-  for (const rel of ['scripts/adapters/claude-agent-sdk.mjs','scripts/evaluation/run-repeated.mjs','scripts/evaluation/check-web-fixture.mjs','scripts/evaluation/compare-baseline.mjs','scripts/evaluation/run_deepeval.py','evaluation/requirements-deepeval.txt','evaluation/baselines/README.md','scripts/evaluation/assess-runtimes.mjs','evaluation/runtime-compatibility.json','docs/runtime-compatibility.md']) assert.ok(fs.existsSync(path.join(root, rel)), rel + ' should exist');
+  for (const rel of ['scripts/adapters/claude-agent-sdk.mjs','scripts/evaluation/run-repeated.mjs','scripts/evaluation/check-web-fixture.mjs','scripts/evaluation/compare-baseline.mjs','scripts/evaluation/run_deepeval.py','evaluation/requirements-deepeval.txt','evaluation/baselines/README.md','scripts/evaluation/assess-runtimes.mjs','scripts/evaluation/probe-runtimes.mjs','evaluation/runtime-compatibility.json','docs/runtime-compatibility.md']) assert.ok(fs.existsSync(path.join(root, rel)), rel + ' should exist');
   const adapter = fs.readFileSync(path.join(root, 'scripts/adapters/claude-agent-sdk.mjs'), 'utf8');
   assert.match(adapter, /@anthropic-ai\/claude-agent-sdk/);
   assert.match(adapter, /PostToolUse/);
@@ -155,4 +155,19 @@ test('runtime assessment rejects an invalid weighting matrix', () => {
     assert.equal(run.status, 1);
     assert.match(run.stderr, /weights must total 100/);
   } finally { fs.rmSync(matrixPath, { force: true }); }
+});
+
+test('SDK compatibility probe dry-run is credential-free and does not install or invoke runtimes', () => {
+  const reportPath = path.join(os.tmpdir(), `runtime-sdk-dry-run-${process.pid}.json`);
+  try {
+    const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluation/probe-runtimes.mjs'), '--dry-run', '--output', reportPath], { cwd: root, encoding: 'utf8', timeout: 30000 });
+    assert.equal(run.status, 0, `probe dry-run should pass; stdout: ${run.stdout}; stderr: ${run.stderr}`);
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.mode, 'DRY_RUN');
+    assert.equal(report.credential_values_read, false);
+    assert.equal(report.live_model_invocation, 'NOT RUN');
+    assert.equal(report.selection.selected_runtime, null);
+    assert.equal(report.results.length, 4);
+    assert.ok(report.results.every(item => item.status === 'NOT RUN' && item.exact_version === null));
+  } finally { fs.rmSync(reportPath, { force: true }); }
 });

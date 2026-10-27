@@ -35,7 +35,7 @@ const required = [
   '.claude/skills/frontend-codepen-extractor/references/agent-architecture.md',
   'tests/agent-evaluation-cases.json', 'scripts/evaluate-agent.mjs', 'docs/agent-evaluation.md', 'tests/fixtures/evaluation-adapter.mjs',
   'scripts/adapters/claude-agent-sdk.mjs', 'scripts/evaluation/run-repeated.mjs', 'scripts/evaluation/check-web-fixture.mjs', 'scripts/evaluation/compare-baseline.mjs', 'scripts/evaluation/run_deepeval.py', 'evaluation/requirements-deepeval.txt', 'evaluation/baselines/README.md',
-  'scripts/evaluation/assess-runtimes.mjs', 'evaluation/runtime-compatibility.json', 'docs/runtime-compatibility.md',
+  'scripts/evaluation/assess-runtimes.mjs', 'scripts/evaluation/probe-runtimes.mjs', 'evaluation/runtime-compatibility.json', 'docs/runtime-compatibility.md',
   '.claude/settings.example.json',
   'CLAUDE.md', 'README.md', 'CHANGELOG.md', 'package.json',
   'scripts/block-dangerous-commands.mjs', 'scripts/test-agent.mjs',

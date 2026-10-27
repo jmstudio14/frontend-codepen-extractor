@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.12.0
+
+- Added isolated, credential-free import smoke tests for four candidate SDK runtimes, recording exact npm versions and import outcomes without invoking a model.
+- Disabled package lifecycle scripts during runtime probes and kept the selected runtime unset until a dedicated-fixture live evaluation is reviewed.
+- Added dry-run coverage for the smoke-test report and uploaded runtime compatibility artifacts from GitHub Actions.
+
+
 ## 2.11.0
 
 - Added a documented, weighted compatibility assessment for Claude Agent SDK, OpenAI Agents SDK, Google ADK JS, and LangGraph.js before runtime selection.

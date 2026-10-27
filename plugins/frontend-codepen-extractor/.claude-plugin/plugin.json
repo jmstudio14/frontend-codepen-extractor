@@ -1,7 +1,7 @@
 {
   "name": "frontend-codepen-extractor",
   "displayName": "Multilanguage Code & Component Extractor",
-  "version": "2.11.0",
+  "version": "2.12.0",
   "description": "Multilanguage, multiframework engineering agent preserving progressive CodePen/UIverse/CodeMyUI discovery and web-component extraction while implementing, refactoring, and validating code across languages and frameworks.",
   "author": {
     "name": "jmstudio14",
