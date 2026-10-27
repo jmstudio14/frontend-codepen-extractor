@@ -1,0 +1,6 @@
+.widget { box-sizing: border-box; max-width: 480px; margin: 40px auto; padding: 24px; font-family: Georgia, serif; background: white; border-radius: 12px; }
+.widget h2 { margin: 0 0 12px; }
+.widget .list { margin: 0; padding: 0; }
+.widget .list li { list-style: none; display: flex; gap: 12px; align-items: center; padding: 8px 0; }
+.widget .vote { color: #2563eb; cursor: pointer; background: none; border: 1px solid currentColor; border-radius: 6px; }
+.widget .clock { margin: 12px 0 0; color: #6b7280; font-size: 12px; }

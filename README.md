@@ -47,7 +47,7 @@ Illustrative ecosystems include JavaScript/TypeScript and frontend frameworks; P
 
 For general programming tasks, it uses authoritative language/framework documentation, maintainer repositories and version-specific examples. It selects native checks where available (tests, lint, formatting, type checking, static analysis and build). It does not force web-specific rules onto non-web projects.
 
-See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md), [the agent architecture and extension contracts](.agents/skills/frontend-codepen-extractor/references/agent-architecture.md), the [regression scenario suite](tests/agent-evaluation-cases.json), the [runtime compatibility assessment](docs/runtime-compatibility.md), and the [runtime evaluation harness guide](docs/agent-evaluation.md).
+See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md), [the agent architecture and extension contracts](.agents/skills/frontend-codepen-extractor/references/agent-architecture.md), the [regression scenario suite](tests/agent-evaluation-cases.json), the [runtime compatibility assessment](docs/runtime-compatibility.md), and the [runtime evaluation harness guide](docs/agent-evaluation.md), and the [measurement protocol](docs/measurement-protocol.md).
 
 ### Designed to work with your stack
 

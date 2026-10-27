@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added three executable evaluation fixtures (`dynamic-js-widget`, `broken-html-card`, `external-deps-gallery`) with objective assertion scripts, `fixture.json` manifests and three matching suite cases. Reference solutions in `tests/fixture-solutions/` prove that every assertion can be met.
+- The Claude Agent SDK adapter now selects the fixture, allowed files, assertions and prompt from the manifest instead of hard-coding one fixture. Manifests and assertion scripts are not copied into the agent workspace.
+- Added `scripts/evaluation/browser-check.mjs`, an optional Playwright check with the network blocked. It covers page errors, visibility, overflow at 360px, accessible names, interactions, literal text and teardown of timers and listeners, and saves screenshots. Without Playwright it records NOT RUN.
+- Host-check failures now fail the evaluation case. Previously a failing fixture assertion still let the case pass.
+- `run-repeated.mjs --case` accepts a comma-separated list.
+- Added `docs/measurement-protocol.md` for the first measured live evaluation.
 - Added `package-lock.json`, which pins the `yaml` devDependency with its integrity hash. CI now installs with `npm ci --ignore-scripts`, and `npm ci --ignore-scripts` is the first local validation step.
 - The architect-plan YAML test now fails with an actionable message when `yaml` is not installed, instead of a module-resolution stack trace.
 - Ignored `node_modules/`.

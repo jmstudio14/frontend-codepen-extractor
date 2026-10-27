@@ -1,0 +1,21 @@
+{
+  "case_id": "broken-html-card",
+  "description": "Profile card with malformed and inaccessible markup.",
+  "defects": [
+    "Missing lang attribute; h2, p and the card div are never closed; the body has no closing html tag.",
+    "Duplicate id 'card'; the avatar image has no alt text.",
+    "Follow is an anchor without href driven by an inline onclick; close is a span showing 'x' with no accessible name.",
+    "Inline style and inline event handler attributes.",
+    "Global body, h2 and p selectors leak into the host page; the 420px fixed width plus margin overflows at 360px."
+  ],
+  "source_files": ["index.html", "card.css", "card.js", "avatar.svg"],
+  "editable_files": ["index.html", "card.css", "card.js"],
+  "check": "check.mjs",
+  "prompt_suffix": "Repair the markup in place without changing what the card shows: valid, balanced HTML with a lang attribute, unique ids, alt text on the avatar, no inline style or on* handler attributes, a real Follow button that changes its text to 'Following' when clicked, and a real close button with the accessible name 'Close card'. Keep the root element class 'card', scope the CSS to the card, and avoid fixed widths that overflow a 360px viewport.",
+  "browser": {
+    "visible": ".card",
+    "roles": [{ "role": "button", "name": "Follow" }, { "role": "button", "name": "Close card" }, { "role": "img", "name": "." }],
+    "click": { "role": "button", "name": "^Follow$", "expect_text": "Following" },
+    "literal_text": "Ada Lovelace"
+  }
+}

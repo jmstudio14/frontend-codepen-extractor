@@ -7,23 +7,25 @@ Two paths are intentionally separate: npm run evaluate:fixture is a deterministi
 Requires Node.js 22+, Git, and supported Claude Agent SDK authentication.
 
     npm install --no-save @anthropic-ai/claude-agent-sdk
-    ANTHROPIC_API_KEY=... npm run evaluate:claude -- --case web-extraction-regression --repeat 1
+    ANTHROPIC_API_KEY=... npm run evaluate:claude -- --case web-extraction-regression
 
 On PowerShell, set the ANTHROPIC_API_KEY environment variable in the current session. Never commit or print the key.
 
 The adapter loads the local plugin at plugins/frontend-codepen-extractor, copies a dedicated fixture into a fresh temporary directory, initializes a disposable Git repository, records SDK tool hooks, and removes the workspace after writing the report. Its tool hook restricts file access to the workspace and permits only exact read-only verification commands. This is tool-level containment, not an OS/container sandbox; use an ephemeral runner and do not expose sensitive runner data to the agent.
 
-The first executable case is web-extraction-regression. Other prompts do not yet have dedicated workspaces and task-specific assertions; the adapter refuses them even if AGENT_EVAL_WORKSPACE_ROOT is set, rather than scoring an unrelated repository with the wrong assertions. AGENT_EVAL_WORKSPACE_ROOT can override the fixture source for this supported case. The evaluator records wall-clock duration. If no host adapter is configured, no real agent run has occurred. Optional controls: CLAUDE_AGENT_EVAL_MODEL (default sonnet), AGENT_EVAL_MAX_TURNS (12), AGENT_EVAL_MAX_BUDGET_USD (1), and AGENT_EVAL_WORKSPACE_ROOT.
+Four cases are executable. Each one has a fixture under `tests/fixtures/<name>/` with a `fixture.json` manifest that declares its `case_id`, source and editable files, assertion script and browser expectations: `web-extraction-regression` (leaky-animation-prototype), `dynamic-js-widget`, `broken-html-card` and `external-deps-gallery`. The other prompts have no dedicated workspace or task-specific assertions, so the adapter refuses them even if AGENT_EVAL_WORKSPACE_ROOT is set, rather than scoring an unrelated repository with the wrong assertions. The manifest and assertion script are never copied into the agent's workspace, and reference solutions live outside it in `tests/fixture-solutions/`. AGENT_EVAL_WORKSPACE_ROOT can override the fixture source for a supported case. For the step-by-step measurement procedure, see [measurement-protocol.md](measurement-protocol.md). The evaluator records wall-clock duration. If no host adapter is configured, no real agent run has occurred. Optional controls: CLAUDE_AGENT_EVAL_MODEL (default sonnet), AGENT_EVAL_MAX_TURNS (12), AGENT_EVAL_MAX_BUDGET_USD (1), and AGENT_EVAL_WORKSPACE_ROOT.
 
 ## Reports, repeats, history, and costs
 
-    node scripts/evaluation/run-repeated.mjs --adapter "node scripts/adapters/claude-agent-sdk.mjs" --case web-extraction-regression --repeat 3 --output evaluation-results/live.json --history evaluation-results/history.jsonl
+    node scripts/evaluation/run-repeated.mjs --adapter "node scripts/adapters/claude-agent-sdk.mjs" --case web-extraction-regression,dynamic-js-widget,broken-html-card,external-deps-gallery --repeat 3 --output evaluation-results/live.json --history evaluation-results/history.jsonl
 
 Reports include observed tool traces, changed files, actual command results, token counts when returned by the SDK, and cost in USD when returned. Unknown usage stays null, never zero. JSONL history stores one summary per evaluation invocation. GitHub Actions uploads reports as artifacts and keeps a best-effort rolling cache; artifacts are the per-run record.
 
 ## Objective checks and evidence
 
-The adapter observes Git status before and after, derives changed paths from Git, runs JavaScript syntax validation, executes scripts/evaluation/check-web-fixture.mjs, and runs git diff --check. Fixture assertions cover animation-frame cancellation, resize-listener cleanup, reduced-motion support, textContent, scoped CSS, and accessible HTML relationships. These assertions are specific to this fixture, not universal checks for all scenarios.
+The adapter observes Git status before and after, derives changed paths from Git, runs JavaScript syntax validation, runs the fixture's assertion script, runs `scripts/evaluation/browser-check.mjs`, and runs git diff --check. Any FAIL among these host checks marks the case FAIL through the report's `objective` field. Each fixture's assertions are specific to it, not universal checks, and each fails on the untouched fixture and passes on its reference solution in the smoke tests.
+
+The browser check runs only when Playwright is installed; otherwise it records NOT RUN, which is the expected state in CI. It loads `index.html` from `file://` with all other network requests blocked, and fails on page errors, a hidden root element, horizontal overflow at 360px, missing accessible names, a failed interaction or literal-text expectation, or timers and listeners left behind after the declared teardown. Screenshots go to `evaluation-results/screenshots/` for human review; visual parity is judged by a person, not by pixel comparison.
 
 PASS, FAIL, and NOT RUN remain distinct. SDK tool calls are recorded from hook events; they are not inferred from the final answer. Final text alone cannot establish that a command succeeded.
 

@@ -1,0 +1,3 @@
+.gallery { font-family: Inter, system-ui, sans-serif; max-width: 320px; margin: 24px auto; text-align: center; }
+.gallery img { width: 100%; height: auto; border-radius: 8px; }
+.caption { color: #374151; }

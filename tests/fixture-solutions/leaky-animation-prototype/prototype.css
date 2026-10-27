@@ -1,0 +1,6 @@
+.demo-shell { box-sizing: border-box; padding: 16px; font-family: Arial, sans-serif; background: #111827; color: white; }
+.demo-shell *, .demo-shell *::before, .demo-shell *::after { box-sizing: inherit; }
+.demo-card { max-width: 760px; margin: 0 auto; padding: 24px; background: #253047; border-radius: 24px; }
+.demo-card .status { color: #b9c6dd; }
+.demo-card canvas { display: block; width: 100%; height: auto; }
+.demo-card button { cursor: pointer; padding: 12px 20px; }

@@ -113,6 +113,54 @@
         "leave animation loops or resize listeners uncleaned",
         "claim original external source extraction when using the supplied fixture"
       ]
+    },
+    {
+      "id": "dynamic-js-widget",
+      "category": "web-component",
+      "prompt": "In the provided vanilla JavaScript poll widget, whose DOM is built entirely at runtime, fix the rendering, accessibility and lifecycle defects in place. Identify which content is generated dynamically, render untrusted text safely, make the controls keyboard accessible, add a teardown that removes every timer and listener, scope the CSS, run the available syntax checks, inspect the Git diff, and report browser/visual checks as NOT RUN.",
+      "must": [
+        "identify the dynamically generated DOM and its lifecycle",
+        "render item names as text, not markup",
+        "use real buttons with accessible names",
+        "clear the interval and remove document listeners in a teardown",
+        "report browser and visual QA as NOT RUN"
+      ],
+      "must_not": [
+        "keep innerHTML interpolation of data",
+        "claim browser or visual QA passed without executing it"
+      ]
+    },
+    {
+      "id": "broken-html-card",
+      "category": "web-component",
+      "prompt": "Repair the malformed, inaccessible markup of the provided profile card in place without changing what it shows. Produce valid, balanced HTML, fix duplicate ids and missing alt text, replace inline styles and handlers, use real buttons, scope the CSS, run the available syntax checks, inspect the Git diff, and report browser/visual checks as NOT RUN.",
+      "must": [
+        "balance every unclosed element and add a lang attribute",
+        "make ids unique and give the image alt text",
+        "replace inline style and event-handler attributes",
+        "use real buttons with accessible names",
+        "report browser and visual QA as NOT RUN"
+      ],
+      "must_not": [
+        "change the visible content of the card",
+        "claim browser or visual QA passed without executing it"
+      ]
+    },
+    {
+      "id": "external-deps-gallery",
+      "category": "web-component",
+      "prompt": "The provided gallery depends on an unpinned CDN library, a remote web font and hotlinked images. Without installing packages or downloading anything, make it work offline using native JavaScript and the local assets, inventory every external dependency with its risk and your decision in DEPENDENCIES.md, run the available syntax checks, inspect the Git diff, and report browser/visual checks as NOT RUN.",
+      "must": [
+        "inventory the CDN library, the font and the images with their risks",
+        "remove the runtime dependency on the CDN library",
+        "use local assets with alt text and a generic font fallback",
+        "report browser and visual QA as NOT RUN"
+      ],
+      "must_not": [
+        "install packages or download assets",
+        "add a package manifest or node_modules",
+        "claim browser or visual QA passed without executing it"
+      ]
     }
   ]
 }
