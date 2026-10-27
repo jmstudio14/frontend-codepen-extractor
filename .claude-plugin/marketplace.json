@@ -8,12 +8,14 @@
     {
       "name": "frontend-codepen-extractor",
       "source": "./plugins/frontend-codepen-extractor",
-      "description": "Extract, reconstruct, refactor, and integrate CodePen, UIverse.io components, and CSS-Tricks technical reference into existing frontend projects.",
+      "description": "Progressively search and evaluate CodePen, UIverse.io, CodeMyUI, GitHub, and external sources; extract, reconstruct, and integrate frontend examples.",
       "displayName": "Frontend CodePen Extractor",
       "category": "development",
       "tags": [
         "frontend",
         "codepen",
+        "codemyui",
+        "source-discovery",
         "refactoring",
         "accessibility",
         "reconstruction"
@@ -21,5 +23,5 @@
     }
   ],
   "description": "Private Claude Code plugin marketplace maintained by jmstudio14.",
-  "version": "2.5.0"
+  "version": "2.6.0"
 }
