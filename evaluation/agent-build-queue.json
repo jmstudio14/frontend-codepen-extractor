@@ -529,7 +529,7 @@
       "id": "diagnostics",
       "name": "agent-run-diagnostics",
       "priority": "P2",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "model-evaluator-merged",
         "qa-test-engineer-merged"
@@ -577,7 +577,14 @@
         "Sensitive log content"
       ],
       "rollback": "Remove the diagnostics agent and evaluation suite.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "branch": "feat/agent-run-diagnostics",
+      "files": [
+        ".claude/agents/agent-run-diagnostics.md",
+        "docs/agents/agent-run-diagnostics.md",
+        "tests/agent-cases/diagnostics.json"
+      ],
+      "pull_request": "pending"
     },
     {
       "sequence": 10,
