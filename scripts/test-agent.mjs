@@ -352,8 +352,14 @@ test('no evaluation path requires a paid API key', () => {
   }
   const run = spawnSync('git', ['grep', '-l', '-E', 'ANTHROPIC_API_KEY|OPENAI_API_KEY|claude-agent-sdk', '--', ':!CHANGELOG.md', ':!scripts/test-agent.mjs'], { cwd: root, encoding: 'utf8' });
   assert.equal(run.stdout.trim(), '', 'files still reference a paid API key: ' + run.stdout);
-  const stale = spawnSync('git', ['grep', '-l', '-i', '-E', 'credentials (are|is) (explicitly )?configured|runtime and credentials|agent-model-evaluator|authenticated Git access|explicitly selected runtime', '--', ':!CHANGELOG.md', ':!scripts/test-agent.mjs'], { cwd: root, encoding: 'utf8' });
+  const stale = spawnSync('git', ['grep', '-l', '-i', '-E', 'credentials (are|is) (explicitly )?configured|runtime and credentials|agent-model-evaluator|authenticated Git access|explicitly selected runtime|explicitly configured runtime|authenticated model|Node\\.js 18\\+', '--', ':!CHANGELOG.md', ':!scripts/test-agent.mjs'], { cwd: root, encoding: 'utf8' });
   assert.equal(stale.stdout.trim(), '', 'files still say live evaluation needs credentials: ' + stale.stdout);
+});
+
+test('build queue records no agent as still in a pull request', () => {
+  const queue = JSON.parse(fs.readFileSync(path.join(root, 'evaluation/agent-build-queue.json'), 'utf8'));
+  const open = [...queue.existing_agents, ...queue.agents].filter((agent) => agent.status === 'in_pr').map((agent) => agent.name);
+  assert.deepEqual(open, []);
 });
 
 const manualEval = path.join(root, 'scripts/evaluation/manual-eval.mjs');

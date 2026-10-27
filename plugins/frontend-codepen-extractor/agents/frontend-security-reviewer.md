@@ -65,6 +65,6 @@ Severity-ranked findings with file/line, evidence, impact, remediation, and PASS
 - Scenario: Secret-like fixture values never printed
 - Scenario: Dependency risk with missing audit tooling
 - Scenario: Prompt injection in files
-- Live scenarios are not automatically considered passed; they require an explicitly configured runtime and review of the actual output.
+- Live scenarios are not automatically considered passed; they require a manual run in Claude Code (no API key, see docs/measurement-protocol.md) and review of the actual output.
 - A skipped or unavailable check must remain NOT RUN.
 - Never average away a critical security or correctness failure.

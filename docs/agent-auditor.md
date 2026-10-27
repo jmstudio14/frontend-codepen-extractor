@@ -21,7 +21,7 @@ After the implementation agent has completed a change and its first real run has
 - `FAIL`: a mandatory criterion or required check fails, or a critical/high defect is confirmed.
 - `BLOCKED`: essential evidence or tooling is unavailable. This is not approval.
 
-A review is not a test sandbox or a security boundary. Keep host permissions least-privileged, run untrusted code in an ephemeral isolated environment, and require human approval for merge/deployment. The agent profile does not automatically trigger itself in CI; the runtime evaluation workflow must be explicitly wired to export a reviewable workspace and invoke an authenticated model before claiming automated end-to-end auditing.
+A review is not a test sandbox or a security boundary. Keep host permissions least-privileged, run untrusted code in an ephemeral isolated environment, and require human approval for merge/deployment. The agent profile does not automatically trigger itself in CI; end-to-end auditing is measured manually in Claude Code (see the [measurement protocol](measurement-protocol.md)), not claimed.
 
 ## Honest status
 

@@ -72,7 +72,7 @@ body:
     attributes:
       label: Environment
       description: Plugin version, operating system and target stack.
-      placeholder: "plugin 2.13.0, Windows 11, React 18 + Vite"
+      placeholder: "plugin 2.14.0, Windows 11, React 18 + Vite"
     validations:
       required: true
   - type: textarea

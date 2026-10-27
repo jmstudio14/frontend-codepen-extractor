@@ -18,7 +18,7 @@
     {
       "id": "auditor",
       "name": "frontend-code-auditor",
-      "status": "in_pr",
+      "status": "merged",
       "pull_request": 4,
       "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/4"
     }

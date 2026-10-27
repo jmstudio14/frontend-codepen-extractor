@@ -72,7 +72,7 @@ When a requested component appears on CodeMyUI, the skill verifies the exact exa
 
 ## Validate locally
 
-From the repository root, with Node.js 18+:
+From the repository root, with Node.js 22+:
 
 ```powershell
 claude plugin validate .\plugins\frontend-codepen-extractor
