@@ -18,7 +18,7 @@
     {
       "id": "auditor",
       "name": "frontend-code-auditor",
-      "status": "in_pr",
+      "status": "merged",
       "pull_request": 4,
       "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/4"
     }
@@ -29,7 +29,7 @@
       "id": "architect-planner",
       "name": "frontend-architect-planner",
       "priority": "P0",
-      "status": "in_pr",
+      "status": "merged",
       "depends_on": [
         "auditor-pr-4-branch-available"
       ],
@@ -95,7 +95,7 @@
       "id": "qa-test-engineer",
       "name": "frontend-qa-test-engineer",
       "priority": "P0",
-      "status": "in_pr",
+      "status": "merged",
       "depends_on": [
         "architect-planner-merged"
       ],
@@ -159,7 +159,7 @@
       "id": "security-reviewer",
       "name": "frontend-security-reviewer",
       "priority": "P0",
-      "status": "in_pr",
+      "status": "merged",
       "depends_on": [
         "auditor-agent-merged"
       ],
@@ -224,7 +224,7 @@
       "id": "extractor-validation",
       "name": "frontend-extractor-validation-agent",
       "priority": "P1",
-      "status": "in_pr",
+      "status": "merged",
       "depends_on": [
         "qa-test-engineer-merged"
       ],
@@ -288,7 +288,7 @@
       "id": "performance-optimizer",
       "name": "frontend-performance-optimizer",
       "priority": "P1",
-      "status": "in_pr",
+      "status": "merged",
       "depends_on": [
         "qa-test-engineer-merged",
         "extractor-validation-merged"
@@ -349,7 +349,7 @@
       "id": "documentation-maintainer",
       "name": "frontend-documentation-maintainer",
       "priority": "P1",
-      "status": "in_pr",
+      "status": "merged",
       "depends_on": [
         "architect-planner-merged",
         "qa-test-engineer-merged"
@@ -411,7 +411,7 @@
       "id": "dependency-license-reviewer",
       "name": "frontend-dependency-license-reviewer",
       "priority": "P2",
-      "status": "in_pr",
+      "status": "merged",
       "depends_on": [
         "security-reviewer-merged"
       ],
@@ -472,7 +472,7 @@
       "id": "diagnostics",
       "name": "agent-run-diagnostics",
       "priority": "P2",
-      "status": "in_pr",
+      "status": "merged",
       "depends_on": [
         "qa-test-engineer-merged"
       ],
@@ -534,7 +534,7 @@
       "id": "privacy-compliance-reviewer",
       "name": "frontend-privacy-compliance-reviewer",
       "priority": "P2",
-      "status": "in_pr",
+      "status": "merged",
       "depends_on": [
         "security-reviewer-merged",
         "extractor-validation-merged"
@@ -596,7 +596,7 @@
       "id": "release-engineer",
       "name": "agent-release-engineer",
       "priority": "P2",
-      "status": "in_pr",
+      "status": "merged",
       "depends_on": [
         "qa-test-engineer-merged",
         "security-reviewer-merged",
@@ -660,7 +660,7 @@
       "id": "coordinator",
       "name": "agent-ecosystem-coordinator",
       "priority": "P3",
-      "status": "in_pr",
+      "status": "merged",
       "depends_on": [
         "architect-planner-merged",
         "qa-test-engineer-merged",

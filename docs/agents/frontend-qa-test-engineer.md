@@ -30,7 +30,7 @@ Scenario definitions live in `tests/agent-cases/qa-test-engineer.json`. They are
 - Plan tests for a multi-file extractor change
 - Detect a missing regression test
 - Report a browser test that was not run
-A live evaluation has not been performed merely by adding these cases. It must be run with an explicitly selected runtime and available credentials, and the actual output must be inspected. Do not expose credentials or record secrets in artifacts.
+A live evaluation has not been performed merely by adding these cases. Live evaluation is NOT RUN until the agent is run manually in Claude Code on a scenario and its output is reviewed (no API key is used). Do not expose credentials or record secrets in artifacts.
 
 ## Rollback
 Revert the dedicated QA-agent PR without changing the developer agent.

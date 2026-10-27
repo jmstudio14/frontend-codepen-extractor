@@ -34,7 +34,7 @@ while there are queued agents:
   create a dedicated branch from the correct current base
   implement only this agent and its directly required tests/docs
   run deterministic tests and repository validation
-  run live model evaluation if explicitly configured; otherwise record NOT RUN
+  evaluate manually in Claude Code (no API key); otherwise record NOT RUN
   request independent read-only audit and address findings (max two rounds)
   open a PR; do not merge automatically
   after human merge, record merged commit and evidence in the queue

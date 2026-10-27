@@ -1,7 +1,13 @@
 # Changelog
 
-## Unreleased
+## 2.14.0
 
+- Released the changes below as 2.14.0, so `claude plugin update` delivers them. The plugin had changed after 2.13.0 (coordinator delegates, license) without a version bump.
+- Corrected stale text: install docs no longer ask for authenticated Git access, the QA/security agent docs and the build loop describe manual key-free evaluation, and the package description no longer mentions runtime evaluation.
+- Recorded the merged state of all agents in `evaluation/agent-build-queue.json`.
+- Aligned the required Node.js version to 22 (the version CI uses) in `package.json` engines, the README and INSTALL.
+- Removed the remaining stale text found on re-check: the planner, QA and security agents no longer say live scenarios need an explicitly configured runtime, the auditor doc no longer mentions an authenticated model, the plugin README and `validate-agent.ps1` ask for Node.js 22+, and the auditor entry in the build queue is `merged`. A smoke test now fails if any queue entry is left `in_pr`. The stale-wording test also covers untracked files, the Node 18 badge, `engines` and the package description, and fails if `git grep` itself errors; the version test also checks `package-lock.json`. The README layout now lists the `tests/` case files.
+- Completed the README repository layout, and added a smoke test that keeps package, marketplace, plugin, README badge and CHANGELOG versions identical.
 - Added the MIT License (`LICENSE`, copyright jmstudio14) and declared it in `package.json`, the plugin manifest and the README.
 - The repository is public: updated README, INSTALL, the plugin README and the marketplace description, which still described it as private and required Git credentials to install.
 - Added a **Test report** issue form (`.github/ISSUE_TEMPLATE/test-report.yml`) and `docs/testing-guide.md`, so anyone testing the agent can report results in a comparable format: scenario, result, failures, false claims, cost, environment and evidence, plus a required confirmation that secrets were removed.
