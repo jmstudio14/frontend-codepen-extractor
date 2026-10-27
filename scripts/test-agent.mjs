@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { classifyCommand } from './block-dangerous-commands.mjs';
 
@@ -70,3 +72,24 @@ test('evaluation suite covers core multilingual and extraction risks', () => {
 });
 
 console.log(`\nSmoke tests finished: ${passed} passed.`);
+
+test('runtime evaluation harness executes adapter and writes a measurable report', () => {
+  const reportPath = path.join(os.tmpdir(), `agent-evaluation-smoke-${process.pid}.json`);
+  try {
+    const run = spawnSync(process.execPath, [
+      path.join(root, 'scripts/evaluate-agent.mjs'),
+      '--adapter', 'node tests/fixtures/evaluation-adapter.mjs',
+      '--output', reportPath,
+    ], { cwd: root, encoding: 'utf8', timeout: 120000 });
+    assert.equal(run.status, 0, `evaluator should pass fixture run; stdout: ${run.stdout}; stderr: ${run.stderr}`);
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.selected_cases, 8);
+    assert.equal(report.passed_cases, 8);
+    assert.equal(report.failed_cases, 0);
+    assert.ok(report.elapsed_ms_total >= 0);
+    assert.ok(report.tool_calls_total >= 8);
+    assert.equal(report.project_checks.failed, 0);
+  } finally {
+    fs.rmSync(reportPath, { force: true });
+  }
+});
