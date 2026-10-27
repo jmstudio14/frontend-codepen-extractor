@@ -1,0 +1,14 @@
+{
+  "name": "frontend-codepen-extractor-agent",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Claude Code subagent and skill for safely integrating CodePen prototypes into existing frontend projects.",
+  "type": "module",
+  "scripts": {
+    "validate": "node scripts/validate-agent.mjs",
+    "test": "node scripts/test-agent.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
