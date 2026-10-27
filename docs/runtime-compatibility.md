@@ -10,7 +10,7 @@ Run the evidence-based assessment without installing any SDK or invoking a model
 node scripts/evaluation/assess-runtimes.mjs --output /tmp/runtime-compatibility.json
 ```
 
-The script validates the scorecard, computes weighted rankings, checks whether SDK packages are already resolvable, records Node/npm/Git versions, and writes an explicit `NOT RUN` for live invocation and SDK smoke tests. It never reads credential values or installs dependencies.
+The `assess-runtimes.mjs` command validates the scorecard, computes weighted rankings, checks whether SDK packages are already resolvable, records Node/npm/Git versions, and writes an explicit `NOT RUN` for live invocation and SDK smoke tests. It never reads credential values or installs dependencies. The separate `probe-runtimes.mjs` command installs each candidate's exact latest npm registry version into its own temporary directory with lifecycle scripts disabled, then attempts a Node import without invoking a model or reading credentials. It records each candidate's resolved version and PASS/FAIL result. Use `--dry-run` to test report generation without network access or installation.
 
 ## Weighted criteria
 
@@ -36,7 +36,7 @@ The ranking is calculated from `evaluation/runtime-compatibility.json`. Current 
 | LangGraph.js | 55.0 | Flexible orchestration and graph-level control | More custom tracing normalization and sandbox integration |
 | Google ADK JS | 52.0 | TypeScript agent development and evaluation toolkit | More unverified details for this repository's workspace, tracing and usage contract |
 
-Scores are a transparent starting assessment, not runtime measurements. Review the per-criterion evidence and official links in the JSON before changing weights. No SDK has been installed or live-invoked by this assessment.
+Scores are a transparent documentation-based assessment, not runtime measurements. Review the per-criterion evidence and official links in the JSON before changing weights. The separate CI import-smoke job has successfully installed and imported exact package versions without credentials; this does not establish full agent-loop compatibility, and no model has been invoked.
 
 ## Evidence links
 
@@ -50,9 +50,9 @@ Scores are a transparent starting assessment, not runtime measurements. Review t
 **No runtime is selected yet.** The documentation-based leader is Claude Agent SDK because this repository's existing Claude Code plugin can be loaded by local path and hooks expose tool lifecycle events. That advantage is not enough to claim operational compatibility.
 
 Selection requires:
-1. A credential-free import/configuration smoke test on the exact CI Node version.
+1. A passing import smoke test for the candidate on the exact CI Node version (see the `runtime-sdk-smoke` Actions artifact; versions are resolved and recorded per run).
 2. A separately authorized live run on the dedicated fixture.
 3. Verification of observed tool traces, command exit codes, workspace boundaries, token/cost metadata and task-specific assertions.
-4. Review of the report and a recorded decision.
+4. Review of the reports and a recorded decision.
 
-OpenAI Agents SDK remains a strong alternative if explicit sandboxing and deterministic test doubles outweigh native loading of the Claude plugin. The assessment does not install SDKs.
+OpenAI Agents SDK remains a strong alternative if explicit sandboxing and deterministic test doubles outweigh native loading of the Claude plugin. The documentation assessment does not install SDKs; the separate import-smoke job installs each candidate in an isolated temporary directory with lifecycle scripts disabled.

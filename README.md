@@ -9,7 +9,7 @@ A repository-aware engineering agent that detects your project's language, frame
 [Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
 
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
-![Version](https://img.shields.io/badge/version-2.11.0-64748b)
+![Version](https://img.shields.io/badge/version-2.12.0-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/repository-private-8b5cf6)
 
@@ -240,7 +240,7 @@ claude plugin validate .\plugins\frontend-codepen-extractor
 claude plugin validate .
 ```
 
-GitHub Actions runs structural validation, smoke tests, the deterministic evaluation fixture, and a documentation-based runtime compatibility assessment. The assessment does not select or invoke an SDK. Live evaluation is opt-in and remains disabled until `AGENT_EVAL_SELECTED_RUNTIME=claude-agent-sdk` is explicitly configured; fixture CI is never counted as a live LLM evaluation. Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
+GitHub Actions runs structural validation, smoke tests, the deterministic evaluation fixture, and a documentation-based runtime compatibility assessment. The assessment does not select a runtime or invoke a model; a separate CI job performs credential-free package import smoke tests. Live evaluation is opt-in and remains disabled until `AGENT_EVAL_SELECTED_RUNTIME=claude-agent-sdk` is explicitly configured; fixture CI is never counted as a live LLM evaluation. Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
 
 ## Documentation
 
