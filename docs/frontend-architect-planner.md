@@ -32,7 +32,7 @@ node scripts/test-agent.mjs
 npm run evaluate:fixture
 ```
 
-A live model evaluation is separate. It must use an explicitly selected runtime and available credentials, and its report must include the model/runtime, exact scenario, observed output, failures, and available cost/latency metrics. Missing credentials or an unselected runtime means `NOT RUN`, never PASS.
+A live model evaluation is separate and opt-in. Install the pinned project dependencies and Claude Agent SDK, configure authentication without printing or committing secrets, then run `npm run evaluate:planner:live -- --case clear-repository-backed-plan --output /tmp/planner-live.json`. Omit `--case` to evaluate all six scenarios. The report records model/runtime, output, schema result, elapsed time, and cost/usage where returned. Schema-valid outputs are marked `SCHEMA_PASS_SEMANTIC_REVIEW_REQUIRED`; a human must assess required/forbidden behavior. Missing credentials means no model invocation and `NOT RUN`, never PASS.
 
 ## Limitations
 
