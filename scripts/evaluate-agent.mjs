@@ -72,6 +72,8 @@ let activeChild = null;
 for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) {
   process.on(signal, () => { if (activeChild) killTree(activeChild); process.exit(code); });
 }
+// Also on any other exit, such as an uncaught exception (SIGKILL cannot be handled).
+process.on('exit', () => { if (activeChild) killTree(activeChild); });
 function runAdapter(testCase) {
   return new Promise((resolve) => {
     const resultFile = path.join(os.tmpdir(), `agent-eval-${process.pid}-${testCase.id}.json`);

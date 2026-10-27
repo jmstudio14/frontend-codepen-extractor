@@ -10,6 +10,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isMissingBrowserDownload } from './fixtures.mjs';
 
 const args = process.argv.slice(2);
 const workspace = args[0] && path.resolve(args[0]);
@@ -72,7 +73,7 @@ try {
   // The playwright package can be installed without its browser download; that is NOT RUN, not FAIL.
   // Only a missing browser download is NOT RUN. Any other launch error (crash, sandbox, missing system
   // library) means the check could not verify the page, so it fails.
-  if (/Executable doesn't exist|npx playwright install/i.test(error.message)) {
+  if (isMissingBrowserDownload(error.message)) {
     report({ status: 'NOT RUN', reason: 'Chromium for Playwright is not installed (run npx playwright install chromium); browser check skipped', failures: [] });
     process.exit(0);
   }

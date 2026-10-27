@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 const args = process.argv.slice(2);
 const rootArg = args.indexOf('--root') >= 0 ? args[args.indexOf('--root') + 1] : null;
 const root = path.resolve(rootArg || path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
+// Skipped only at the repository root; a folder with one of these names deeper in the tree is scanned.
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'evaluation-results', '__pycache__']);
 const SHELL_ALLOWLIST = new Set(['scripts/evaluate-agent.mjs']);
 // Every Claude Code subagent, project or plugin, is read-only except the implementation agent.
@@ -18,7 +19,7 @@ const WRITE_ALLOWED_AGENT_NAMES = new Set(['frontend-codepen-extractor']);
 const SECRET_RULES = [
   ['anthropic-api-key', /sk-ant-[A-Za-z0-9_-]{16,}/],
   // Real keys contain digits; requiring one keeps long hyphenated names such as CSS classes from matching.
-  ['openai-api-key', /\bsk-(?!ant-)(?:proj-|svcacct-|admin-)?(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{32,}/],
+  ['openai-api-key', /\bsk-(?!ant-)(?:proj-|svcacct-|admin-)?(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Z])(?=[A-Za-z0-9_-]*[a-z])[A-Za-z0-9_-]{32,}/],
   ['aws-access-key', /\bAKIA[0-9A-Z]{16}\b/],
   ['github-token', /\bgh[pousr]_[A-Za-z0-9]{36,}\b/],
   ['github-fine-grained-token', /\bgithub_pat_[A-Za-z0-9_]{50,}/],
@@ -26,6 +27,7 @@ const SECRET_RULES = [
   ['google-api-key', /\bAIza[0-9A-Za-z_-]{35}\b/],
   ['npm-token', /\bnpm_[A-Za-z0-9]{36}\b/],
   ['private-key', /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/],
+  ['pgp-private-key', /-{5}BEGIN PGP PRIVATE KEY BLOCK-{5}/],
 ];
 const MAX_SCAN_BYTES = 2 * 1024 * 1024;
 const WRITE_TOOLS = ['Edit', 'MultiEdit', 'Write', 'NotebookEdit'];
@@ -39,8 +41,8 @@ const skipped = [];
 const relOf = (full) => path.relative(root, full).split(path.sep).join('/');
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
+    if (SKIP_DIRS.has(entry.name) && dir === root) continue;
     if (entry.isSymbolicLink()) finding('unscanned-symlink', relOf(full), 'symlinks are not followed; commit the real file instead');
     else if (entry.isDirectory()) walk(full, out);
     else if (entry.isFile()) {
@@ -66,24 +68,58 @@ function read(full) {
 }
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 
-// child_process exec/execSync always run through a shell. In a file that loads child_process, any exec or
-// execSync call, property access or destructuring is flagged; a RegExp .exec() there needs the allowlist.
-// This is a heuristic, not a parser: indirect forms such as computed names are not detected.
+// Replaces comments and the contents of string, template and regex literals with spaces (keeping line
+// breaks), so code rules match code, not prose or test fixtures written as literals. A `/` starts a regex
+// literal after an operator, opening punctuation or keyword, the usual tokenizer heuristic; template
+// interpolations are masked with their template. It is a heuristic, not a parser.
+const REGEX_PRECEDER = /(?:^|[(,=:[!&|?{};+\-*%<>~^]|\b(?:return|typeof|case|do|else|in|of|new|delete|void|throw|yield|await))\s*$/;
+function maskLiterals(text) {
+  let out = '';
+  for (let i = 0; i < text.length;) {
+    const two = text.slice(i, i + 2);
+    let end = -1;
+    if (two === '//') end = text.indexOf('\n', i) === -1 ? text.length : text.indexOf('\n', i);
+    else if (two === '/*') end = text.indexOf('*/', i + 2) === -1 ? text.length : text.indexOf('*/', i + 2) + 2;
+    else if (text[i] === '/' && REGEX_PRECEDER.test(out.slice(-40))) {
+      let j = i + 1, inClass = false;
+      while (j < text.length && text[j] !== '\n' && (inClass || text[j] !== '/')) {
+        if (text[j] === '\\') j += 1;
+        else if (text[j] === '[') inClass = true;
+        else if (text[j] === ']') inClass = false;
+        j += 1;
+      }
+      if (text[j] === '/') { out += '/' + text.slice(i + 1, j).replace(/[^\n]/g, ' ') + '/'; i = j + 1; continue; }
+    } else if (text[i] === "'" || text[i] === '"' || text[i] === '`') {
+      const quote = text[i];
+      let j = i + 1;
+      while (j < text.length && text[j] !== quote && (quote === '`' || text[j] !== '\n')) j += text[j] === '\\' ? 2 : 1;
+      end = Math.min(j + 1, text.length);
+      out += quote + text.slice(i + 1, end - 1).replace(/[^\n]/g, ' ') + (end - 1 > i ? text[end - 1] : '');
+      i = end;
+      continue;
+    }
+    if (end >= 0) { out += text.slice(i, end).replace(/[^\n]/g, ' '); i = end; continue; }
+    out += text[i]; i += 1;
+  }
+  return out;
+}
+// child_process exec/execSync always run through a shell. In a file that loads child_process, any code
+// reference to exec or execSync (call, alias, property access, destructuring) is flagged, and so is a
+// RegExp .exec() there, which then needs the allowlist. Computed names built from strings are not detected.
 const LOADS_CHILD_PROCESS = /(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)['"`](?:node:)?child_process['"`]/;
-const SHELL_EXEC_FORMS = [
-  /(?<![\w$.])(?:exec|execSync)\s*\(/,
-  /\.\s*(?:exec|execSync)\s*\(/,
-  /\[\s*['"`](?:exec|execSync)['"`]\s*\]/,
-  /\{[^{}]*\b(?:exec|execSync)\b[^{}]*\}\s*(?:=|from)/,
-];
-function firstIndex(text, patterns) {
-  const indexes = patterns.map((re) => re.exec(text)?.index).filter((index) => index !== undefined);
+const SHELL_EXEC_REFERENCE = /\b(?:exec|execSync)\b|\[\s*['"`](?:exec|execSync)['"`]\s*\]/;
+function shellExecIndex(text, code) {
+  if (!LOADS_CHILD_PROCESS.test(text)) return -1;
+  const indexes = [SHELL_EXEC_REFERENCE.exec(code)?.index, /\[\s*['"`](?:exec|execSync)['"`]\s*\]/.exec(text)?.index].filter((index) => index !== undefined);
   return indexes.length ? Math.min(...indexes) : -1;
 }
-const shellExecIndex = (text) => (LOADS_CHILD_PROCESS.test(text) ? firstIndex(text, SHELL_EXEC_FORMS) : -1);
-// Any shell option other than a literal false, and spawning a shell binary directly, also run a shell.
-const SHELL_OPTION = /\bshell\s*:(?!\s*false\b)/;
-const SHELL_BINARY = /\b(?:spawn|spawnSync|execFile|execFileSync|fork)\s*\(\s*['"`](?:sh|bash|zsh|dash|cmd|cmd\.exe|powershell|powershell\.exe|pwsh)['"`]/;
+// Any shell option other than a literal false (quoted key or not), and spawning a shell binary directly,
+// by bare name or by path, also run a shell.
+const SHELL_OPTION = /['"`]?\bshell['"`]?\s*:(?!\s*false\b)/;
+const SHELL_BINARY = /\b(?:spawn|spawnSync|execFile|execFileSync|fork)\s*\(\s*['"`](?:[^'"`]*[\\/])?(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?['"`]/i;
+// eval, the Function constructor (with or without new) and string callbacks to timers run code from text.
+const DYNAMIC_CODE = /(?<![\w$.])eval\s*\(|(?<![\w$.])(?:new\s+)?Function\s*\(/;
+const STRING_TIMER = /\bset(?:Timeout|Interval|Immediate)\s*\(\s*['"`]/;
 // Node code anywhere, except browser .js files in the fixtures and their solutions (seeded defects).
 const isNodeCode = (rel) => /\.(?:mjs|cjs)$/.test(rel) || (/\.js$/.test(rel) && !/^tests\/(?:fixtures|fixture-solutions)\//.test(rel));
 
@@ -99,12 +135,13 @@ for (const { rel, full } of files) {
     if (match) finding(rule, rel, `line ${lineOf(text, match.index)} (value not printed)`);
   }
   if (isNodeCode(rel)) {
-    const dynamic = /\beval\s*\(|\bnew\s+Function\s*\(/.exec(text);
+    const code = maskLiterals(text);
+    const dynamic = DYNAMIC_CODE.exec(code) ?? STRING_TIMER.exec(text);
     if (dynamic) finding('dynamic-code-execution', rel, `line ${lineOf(text, dynamic.index)}`);
     if (!SHELL_ALLOWLIST.has(rel)) {
-      const shell = SHELL_OPTION.exec(text);
+      const shell = SHELL_OPTION.exec(code) ?? /['"`]shell['"`]\s*:(?!\s*false\b)/.exec(text);
       if (shell) finding('unapproved-shell-true', rel, `line ${lineOf(text, shell.index)} (shell option other than false)`);
-      const exec = shellExecIndex(text);
+      const exec = shellExecIndex(text, code);
       if (exec >= 0) finding('unapproved-shell-exec', rel, `line ${lineOf(text, exec)} (child_process exec/execSync always uses a shell)`);
       const binary = SHELL_BINARY.exec(text);
       if (binary) finding('unapproved-shell-spawn', rel, `line ${lineOf(text, binary.index)} (spawns a shell directly)`);

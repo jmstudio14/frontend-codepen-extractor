@@ -82,15 +82,15 @@ function score(workspaceArg) {
   const fixture = findFixture(root, meta.case_id);
   if (!fixture) { console.error(`Fixture for case "${meta.case_id}" no longer exists.`); process.exit(2); }
   const { manifest } = fixture;
-  // Diff against the prepared commit, not HEAD, so commits made by the agent are still scored. Workspaces
-  // prepared before base_commit existed fall back to HEAD.
-  if (meta.base_commit !== undefined && !COMMIT_ID.test(String(meta.base_commit))) { console.error('meta.json base_commit is not a commit id; prepare the workspace again.'); process.exit(2); }
-  const baseCommit = meta.base_commit || 'HEAD';
+  // Diff against the prepared commit, not HEAD, so commits made by the agent are still scored. It is
+  // required: without it, an agent that edits meta.json could hide its committed changes.
+  if (!COMMIT_ID.test(String(meta.base_commit ?? ''))) { console.error('meta.json has no valid base_commit; prepare the workspace again with this version.'); process.exit(2); }
+  const baseCommit = meta.base_commit;
   const diff = git(['diff', '--name-only', baseCommit, '--'], workspace), untracked = git(['ls-files', '--others', '--exclude-standard'], workspace);
   if (diff.exit_code || untracked.exit_code) { console.error('Could not read the workspace Git state.'); process.exit(1); }
   // The history must still start at the prepared commit; a rewritten or replaced history is not scored.
   const roots = git(['rev-list', '--max-parents=0', 'HEAD'], workspace);
-  const historyIntact = !meta.base_commit || roots.stdout.split(/\r?\n/).includes(meta.base_commit);
+  const historyIntact = roots.stdout.split(/\r?\n/).includes(baseCommit);
   const changed = [...new Set([...diff.stdout.split(/\r?\n/), ...untracked.stdout.split(/\r?\n/)].filter(Boolean))].sort();
   const unexpected = changed.filter((file) => !manifest.editable_files.includes(file));
   const checks = [];

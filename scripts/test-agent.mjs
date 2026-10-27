@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { classifyCommand } from './block-dangerous-commands.mjs';
-import { findFixture, hostOnlyFiles, listFixtures, validateManifest } from './evaluation/fixtures.mjs';
+import { findFixture, hostOnlyFiles, isMissingBrowserDownload, listFixtures, validateManifest } from './evaluation/fixtures.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let passed = 0;
@@ -342,11 +342,54 @@ test('security gate catches other shell forms and unscannable files', () => {
   try {
     fs.writeFileSync(path.join(dir, 'real.md'), 'ok\n');
     try { fs.symlinkSync(path.join(dir, 'real.md'), path.join(dir, 'link.md')); }
-    catch { return; } // Symlinks need extra rights on Windows; the rule is still covered on POSIX CI.
+    catch (error) { throw new NotRun(`cannot create a symlink here (${error.code}); covered on POSIX CI`); }
     const run = spawnSync(process.execPath, [path.join(root, 'scripts/security-gate.mjs'), '--root', dir], { encoding: 'utf8', timeout: 30000 });
     assert.equal(run.status, 1);
     assert.match(run.stderr, /unscanned-symlink: link\.md/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('security gate catches quoted shell keys, shell paths, exec aliases, Function() and string timers', () => {
+  const cp = "'node:child_" + "process'";
+  for (const [source, rule] of [
+    [`import { spawn } from ${cp};\nspawn('ls', [], { 'sh` + `ell': true });\n`, /unapproved-shell-true/],
+    [`import { spawn } from ${cp};\nspawn('/bin/s` + `h', ['-c', 'ls']);\n`, /unapproved-shell-spawn/],
+    [`import { spawn } from ${cp};\nspawn('C:\\\\Windows\\\\System32\\\\cm` + `d.exe', ['/c', 'dir']);\n`, /unapproved-shell-spawn/],
+    [`import * as cp from ${cp};\nconst f = cp.ex` + `ecSync;\nf('ls');\n`, /unapproved-shell-exec/],
+    ['const run = Func' + 'tion("return 1");\n', /dynamic-code-execution/],
+    ["setTim" + "eout('alert(1)', 10);\n", /dynamic-code-execution/],
+  ]) {
+    const run = runGate({ 'scripts/a.mjs': source });
+    assert.equal(run.status, 1, source);
+    assert.match(run.stderr, rule, source);
+  }
+  // Words in strings, comments and regex literals are not code.
+  assert.equal(runGate({ 'scripts/a.mjs': `import { spawnSync } from ${cp};\n// we never ex` + `ec here\nconst label = 'no ex` + `ecSync';\nconst re = /ex` + `ec/;\nspawnSync('git', ['status']);\n` }).status, 0);
+  assert.equal(runGate({ 'scripts/a.mjs': 'const id = setTim' + 'eout(() => {}, 10);\n' }).status, 0);
+});
+
+test('security gate scans folders named like skipped ones below the root, and more key formats', () => {
+  for (const folder of ['node_modules', 'evaluation-results', '.git']) {
+    const run = runGate({ [`.claude/agents/${folder}/frontend-security-reviewer.md`]: '---\nname: frontend-security-reviewer\ntools: Read, Edit\n---\n' });
+    assert.match(run.stderr, /read-only-agent-can-write/, folder);
+  }
+  const pgp = '-----BEGIN PGP ' + 'PRIVATE KEY BLOCK-----';
+  assert.match(runGate({ 'notes.md': pgp + '\n' }).stderr, /pgp-private-key/);
+  assert.equal(runGate({ 'notes.md': 'class="sk-' + 'circle-bounce-and-fade-in-animation-delay-2"\n' }).status, 0, 'one digit in a lowercase class name is not a key');
+});
+
+test('browser launch errors are NOT RUN only when the browser download is missing', () => {
+  assert.equal(isMissingBrowserDownload("browserType.launch: Executable doesn't exist at /x/chrome-linux/headless_shell"), true);
+  assert.equal(isMissingBrowserDownload('Looks like Playwright was just installed or updated. Please run the following command to download new browsers: npx playwright install'), true);
+  assert.equal(isMissingBrowserDownload('browserType.launch: Host system is missing dependencies to run browsers. Please install them with: npx playwright install-deps'), false);
+  assert.equal(isMissingBrowserDownload('browserType.launch: Target page, context or browser has been closed'), false);
+  assert.equal(isMissingBrowserDownload('browserType.launch: Failed to launch: No usable sandbox!'), false);
+});
+
+test('fixture manifests reject host-only entries that are paths', () => {
+  const manifest = { case_id: 'x', editable_files: ['a.js'], source_files: ['a.js'], check: 'check.mjs', prompt_suffix: 'p', browser: { visible: 'body' } };
+  assert.deepEqual(validateManifest({ ...manifest, host_only_files: ['README.md'] }), []);
+  assert.ok(validateManifest({ ...manifest, host_only_files: ['docs/README.md'] }).some((error) => /plain file name/.test(error)));
 });
 
 test('security gate limits delegation to existing read-only agents', () => {
@@ -671,7 +714,7 @@ test('manual evaluation refuses tricky paths into the repository but accepts sib
   assert.equal(fs.existsSync(path.join(root, '..cache')), false);
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-link-'));
   try {
-    try { fs.symlinkSync(root, path.join(base, 'link'), 'junction'); } catch { return; }
+    try { fs.symlinkSync(root, path.join(base, 'link'), 'junction'); } catch (error) { throw new NotRun(`cannot create a link here (${error.code})`); }
     assert.equal(refused(path.join(base, 'link', 'new', 'deeper')).status, 2, 'a symlinked ancestor pointing into the clone is refused');
   } finally { fs.rmSync(base, { recursive: true, force: true }); }
 });
@@ -702,6 +745,10 @@ test('manual evaluation rejects a tampered base commit or a replaced history', (
     const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
     fs.writeFileSync(metaPath, JSON.stringify({ ...meta, base_commit: '--output=x' }));
     assert.equal(spawnSync(process.execPath, [manualEval, 'score', workspace], { encoding: 'utf8' }).status, 2);
+    const { base_commit: removed, ...withoutBase } = meta;
+    assert.ok(removed);
+    fs.writeFileSync(metaPath, JSON.stringify(withoutBase));
+    assert.equal(spawnSync(process.execPath, [manualEval, 'score', workspace], { encoding: 'utf8' }).status, 2, 'a missing base_commit must not fall back to HEAD');
     fs.writeFileSync(metaPath, JSON.stringify(meta));
     for (const args of [['checkout', '-q', '--orphan', 'fresh'], ['-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'new root']]) {
       assert.equal(spawnSync('git', args, { cwd: workspace, encoding: 'utf8' }).status, 0);

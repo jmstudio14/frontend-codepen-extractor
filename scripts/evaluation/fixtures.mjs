@@ -10,6 +10,12 @@ export function hostOnlyFiles(manifest) {
   return new Set([...HOST_ONLY_FILES, ...(Array.isArray(manifest?.host_only_files) ? manifest.host_only_files : [])]);
 }
 
+// Only a missing browser download means the check could not run. Playwright's missing-system-library
+// error suggests `npx playwright install-deps`; that, a crash or a sandbox error is a real failure.
+export function isMissingBrowserDownload(message) {
+  return /Executable doesn't exist/i.test(message) || /npx playwright install(?!-deps)\b/i.test(message);
+}
+
 export function validateManifest(manifest) {
   const errors = [];
   if (typeof manifest?.case_id !== 'string' || !manifest.case_id) errors.push('case_id must be a non-empty string');
@@ -20,6 +26,8 @@ export function validateManifest(manifest) {
   if (typeof manifest?.browser?.visible !== 'string') errors.push('browser.visible selector is required');
   if (manifest?.host_only_files !== undefined && !Array.isArray(manifest.host_only_files)) errors.push('host_only_files must be an array');
   for (const file of Array.isArray(manifest?.host_only_files) ? manifest.host_only_files : []) {
+    // Host-only files are matched by name when the workspace is copied, so a path would never match.
+    if (typeof file !== 'string' || !file || /[\\/]/.test(file)) errors.push(`host-only entry ${JSON.stringify(file)} must be a plain file name`);
     if (manifest.editable_files?.includes(file) || manifest.source_files?.includes(file)) errors.push(`host-only file ${file} cannot also be a source or editable file`);
   }
   return errors;
