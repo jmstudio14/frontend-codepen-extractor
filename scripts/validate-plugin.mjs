@@ -69,20 +69,20 @@ if (manifest) {
   check(manifest.version === '2.1.0', 'Plugin version is 2.1.0');
   check(typeof manifest.description === 'string' && manifest.description.length > 10, 'Plugin manifest description is present');
   check(typeof manifest.author?.name === 'string' && manifest.author.name.length > 0, 'Plugin manifest author.name is present');
-  check(/^https:\\/\\//.test(manifest.homepage || ''), 'Plugin homepage is a valid HTTPS URL');
+  check(/^https:\/\//.test(manifest.homepage || ''), 'Plugin homepage is a valid HTTPS URL');
 }
 
 const agent = readFile(pluginRoot + '/agents/frontend-codepen-extractor.md') || '';
-const agentMeta = agent.match(/^---\\r?\\n([\\s\\S]*?)\\r?\\n---/);
+const agentMeta = agent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 check(Boolean(agentMeta), 'Plugin agent frontmatter is present');
 if (agentMeta) {
-  check(/^name:\\s*frontend-codepen-extractor\\s*$/m.test(agentMeta[1]), 'Plugin agent name is correct');
-  check(/^description:\\s*\\S/m.test(agentMeta[1]), 'Plugin agent description is present');
-  check(/^skills:\\s*\\r?\\n\\s*-\\s*frontend-codepen-extractor\\s*$/m.test(agentMeta[1]), 'Plugin agent declares its matching skill');
+  check(/^name:\s*frontend-codepen-extractor\s*$/m.test(agentMeta[1]), 'Plugin agent name is correct');
+  check(/^description:\s*\S/m.test(agentMeta[1]), 'Plugin agent description is present');
+  check(/^skills:\s*\r?\n\s*-\s*frontend-codepen-extractor\s*$/m.test(agentMeta[1]), 'Plugin agent declares its matching skill');
 }
 
 const skill = readFile(pluginRoot + '/skills/frontend-codepen-extractor/SKILL.md') || '';
-const skillMeta = skill.match(/^---\\r?\\n([\\s\\S]*?)\\r?\\n---/);
+const skillMeta = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 check(Boolean(skillMeta), 'Plugin skill frontmatter is present');
 if (skillMeta) {
   check(/^name:\\s*frontend-codepen-extractor\\s*$/m.test(skillMeta[1]), 'Plugin skill name is correct');
@@ -94,5 +94,5 @@ for (const relativePath of referencePaths) {
   check(readFile(relativePath) !== null, 'Skill reference exists: ' + relativePath);
 }
 
-console.log('\\nPlugin packaging validation: ' + (total - failed) + '/' + total + ' checks passed.');
+console.log('\nPlugin packaging validation: ' + (total - failed) + '/' + total + ' checks passed.');
 if (failed > 0) process.exitCode = 1;
