@@ -47,7 +47,7 @@ const required = [
   '.claude/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
   '.claude/skills/frontend-codepen-extractor/references/agent-architecture.md',
   'tests/agent-evaluation-cases.json', 'scripts/evaluate-agent.mjs', 'docs/agent-evaluation.md', 'tests/fixtures/evaluation-adapter.mjs',
-  'scripts/evaluation/check-web-fixture.mjs', 'scripts/evaluation/manual-eval.mjs',
+  'scripts/evaluation/check-web-fixture.mjs', 'scripts/evaluation/manual-eval.mjs', '.github/ISSUE_TEMPLATE/test-report.yml', 'docs/testing-guide.md',
   '.claude/settings.example.json',
   'CLAUDE.md', 'README.md', 'CHANGELOG.md', 'package.json',
   'scripts/block-dangerous-commands.mjs', 'scripts/test-agent.mjs',
