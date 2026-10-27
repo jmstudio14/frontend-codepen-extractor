@@ -19,11 +19,11 @@ A repository-aware engineering agent that detects your project's language, frame
 
 ## Why this agent?
 
-CodePen prototypes are useful for experimentation, but moving them into a real application often means untangling global styles, CDN dependencies, standalone scripts, and lifecycle assumptions.
+Programming tasks require respecting the project's existing architecture, language versions, dependency manager, and test workflow. Web prototypes add a separate challenge: moving a visual demo into a real application often means untangling global styles, CDN dependencies, standalone scripts, and lifecycle assumptions.
 
-**Frontend CodePen Extractor** helps bridge that gap. It treats the destination repository—not the prototype—as the architectural source of truth.
+**Frontend CodePen Extractor** has grown into a general-purpose, repository-aware coding agent. For programming tasks it works in the project's existing language and framework; for UI component tasks it retains its specialist extraction and reconstruction workflow.
 
-It can search CodePen, UIverse.io, CodeMyUI, GitHub, and other external sources; it works from a source URL when code is accessible, exported files, or pasted HTML/CSS/JavaScript panels. It then inspects the project, plans the conversion, implements focused changes, and reports what was and was not verified.
+It can work from accessible source URLs, exported files, supplied code, or the existing repository. It inspects project conventions, researches progressively, implements focused changes, and reports what was and was not verified.
 
 ## What it does
 
