@@ -39,7 +39,17 @@ function loadJson(relativePath) {
 
 const required = [
   '.claude-plugin/marketplace.json',
+  'INSTALL.md',
+  '.agents/skills/frontend-codepen-extractor/SKILL.md',
+  '.agents/skills/frontend-codepen-extractor/references/codepen-ingestion.md',
+  '.agents/skills/frontend-codepen-extractor/references/dependency-policy.md',
+  '.agents/skills/frontend-codepen-extractor/references/framework-patterns.md',
+  '.agents/skills/frontend-codepen-extractor/references/quality-checklist.md',
+  '.github/agents/frontend-codepen-extractor.agent.md',
+  '.github/copilot-instructions.md',
+  '.github/prompts/extract-codepen.prompt.md',
   pluginRoot + '/.claude-plugin/plugin.json',
+  pluginRoot + '/README.md',
   pluginRoot + '/agents/frontend-codepen-extractor.md',
   pluginRoot + '/skills/frontend-codepen-extractor/SKILL.md',
   pluginRoot + '/skills/frontend-codepen-extractor/references/codepen-ingestion.md',
@@ -48,12 +58,13 @@ const required = [
   pluginRoot + '/skills/frontend-codepen-extractor/references/quality-checklist.md',
 ];
 for (const relativePath of required) {
-  check(readFile(relativePath) !== null, 'Required plugin file exists: ' + relativePath);
+  check(readFile(relativePath) !== null, 'Required distribution file exists: ' + relativePath);
 }
 
 const marketplace = loadJson('.claude-plugin/marketplace.json');
 if (marketplace) {
   check(marketplace.name === 'jmstudio14-claude-plugins', 'Marketplace name is correct');
+  check(marketplace.version === '2.2.0', 'Marketplace version is 2.2.0');
   check(typeof marketplace.description === 'string' && marketplace.description.length > 0, 'Marketplace description is present');
   check(typeof marketplace.owner?.name === 'string' && marketplace.owner.name.length > 0, 'Marketplace owner.name is present');
   const entry = Array.isArray(marketplace.plugins)
@@ -66,7 +77,7 @@ if (marketplace) {
 const manifest = loadJson(pluginRoot + '/.claude-plugin/plugin.json');
 if (manifest) {
   check(manifest.name === 'frontend-codepen-extractor', 'Plugin manifest name matches marketplace entry');
-  check(manifest.version === '2.1.0', 'Plugin version is 2.1.0');
+  check(manifest.version === '2.2.0', 'Plugin version is 2.2.0');
   check(typeof manifest.description === 'string' && manifest.description.length > 10, 'Plugin manifest description is present');
   check(typeof manifest.author?.name === 'string' && manifest.author.name.length > 0, 'Plugin manifest author.name is present');
   check(/^https:\/\//.test(manifest.homepage || ''), 'Plugin homepage is a valid HTTPS URL');
@@ -88,6 +99,32 @@ if (skillMeta) {
   check(/^name:\s*frontend-codepen-extractor\s*$/m.test(skillMeta[1]), 'Plugin skill name is correct');
   check(/^description:\s*\S/m.test(skillMeta[1]), 'Plugin skill description is present');
 }
+
+const portableSkillPaths = [
+  ['.agents/skills/frontend-codepen-extractor/SKILL.md', pluginRoot + '/skills/frontend-codepen-extractor/SKILL.md'],
+  ['.agents/skills/frontend-codepen-extractor/references/codepen-ingestion.md', pluginRoot + '/skills/frontend-codepen-extractor/references/codepen-ingestion.md'],
+  ['.agents/skills/frontend-codepen-extractor/references/dependency-policy.md', pluginRoot + '/skills/frontend-codepen-extractor/references/dependency-policy.md'],
+  ['.agents/skills/frontend-codepen-extractor/references/framework-patterns.md', pluginRoot + '/skills/frontend-codepen-extractor/references/framework-patterns.md'],
+  ['.agents/skills/frontend-codepen-extractor/references/quality-checklist.md', pluginRoot + '/skills/frontend-codepen-extractor/references/quality-checklist.md'],
+];
+for (const [portablePath, pluginPath] of portableSkillPaths) {
+  const portableContent = readFile(portablePath);
+  const pluginContent = readFile(pluginPath);
+  check(portableContent !== null, 'Portable skill file exists: ' + portablePath);
+  if (portableContent !== null && pluginContent !== null) {
+    check(portableContent === pluginContent, 'Portable skill stays in sync: ' + portablePath);
+  }
+}
+
+const copilotAgent = readFile('.github/agents/frontend-codepen-extractor.agent.md') || '';
+const copilotMeta = copilotAgent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+check(Boolean(copilotMeta), 'GitHub Copilot custom agent frontmatter is present');
+if (copilotMeta) {
+  check(/^name:\s*frontend-codepen-extractor\s*$/m.test(copilotMeta[1]), 'Copilot agent name is correct');
+  check(/^description:\s*\S/m.test(copilotMeta[1]), 'Copilot agent description is present');
+}
+const copilotInstructions = readFile('.github/copilot-instructions.md') || '';
+check(copilotInstructions.includes('.agents/skills/frontend-codepen-extractor/SKILL.md'), 'Copilot instructions reference the portable skill');
 
 const referencePaths = required.filter((item) => item.includes('/references/'));
 for (const relativePath of referencePaths) {
