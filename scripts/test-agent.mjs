@@ -56,6 +56,87 @@ test('independent auditor agent exists, is read-only, and defines a strict verdi
   assert.match(guide, /does not automatically trigger itself in CI/);
 });
 
+test('architect planner is read-only and requires pending human approval', () => {
+  const profile = fs.readFileSync(path.join(root, '.claude/agents/frontend-architect-planner.md'), 'utf8');
+  const guide = fs.readFileSync(path.join(root, 'docs/frontend-architect-planner.md'), 'utf8');
+  assert.match(profile, /name: frontend-architect-planner/);
+  assert.match(profile, /tools: Read, Grep, Glob, Bash/);
+  assert.doesNotMatch(profile.match(/^---[\s\S]*?---/m)?.[0] || '', /\b(Edit|Write)\b/);
+  for (const key of ['schema_version', 'repository_evidence', 'requirements', 'approach', 'tasks', 'dependencies', 'risks', 'verification', 'rollback', 'human_approval']) assert.ok(profile.includes(key), 'missing YAML contract key ' + key);
+  assert.match(profile, /status: PENDING/);
+  assert.match(profile, /required_before_implementation: true/);
+  assert.match(guide, /only after explicit human approval/i);
+});
+
+test('architect planner scenarios parse and have unique IDs with positive and negative criteria', () => {
+  const suite = JSON.parse(fs.readFileSync(path.join(root, 'tests/architect-planner-cases.json'), 'utf8'));
+  assert.equal(suite.schema_version, 1);
+  assert.ok(suite.cases.length >= 6);
+  const ids = suite.cases.map(item => item.id);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const item of suite.cases) {
+    assert.ok(item.prompt?.trim(), item.id + ' needs a prompt');
+    assert.ok(item.must?.length, item.id + ' needs positive criteria');
+    assert.ok(item.must_not?.length, item.id + ' needs negative criteria');
+  }
+  assert.ok(suite.cases.some(item => item.id === 'missing-live-runtime'));
+});
+
+test('architect plan YAML parser accepts a valid plan and rejects missing approval gate', () => {
+  const validator = path.join(root, 'scripts/evaluation/validate-architect-plan.mjs');
+  const validPath = path.join(os.tmpdir(), 'architect-plan-valid-' + process.pid + '.yaml');
+  const invalidPath = path.join(os.tmpdir(), 'architect-plan-invalid-' + process.pid + '.yaml');
+  const valid = `schema_version: 1
+status: READY
+request_summary: Add a small feature
+repository_evidence:
+  - path: package.json
+    observation: ESM project
+    relevance: Existing runtime convention
+requirements:
+  - id: R1
+    requirement: Preserve compatibility
+    acceptance_test: Existing tests pass
+    source: User request
+approach:
+  recommendation: Extend existing module
+  alternatives_considered: []
+  rationale: Smallest change
+tasks:
+  - id: T1
+    description: Implement the bounded change
+    files: [src/example.js]
+    depends_on: []
+    verification: [npm test]
+dependencies: []
+risks: []
+verification:
+  automated_tests: [npm test]
+  manual_checks: []
+  live_evaluation: NOT RUN
+  not_run: [Live model credentials unavailable]
+rollback: Revert the dedicated change
+open_questions: []
+human_approval:
+  status: PENDING
+  required_before_implementation: true
+  approved_by: null
+`;
+  const invalid = valid.replace('status: PENDING', 'status: APPROVED');
+  try {
+    fs.writeFileSync(validPath, valid);
+    fs.writeFileSync(invalidPath, invalid);
+    const good = spawnSync(process.execPath, [validator, validPath], { encoding: 'utf8' });
+    assert.equal(good.status, 0, good.stdout + good.stderr);
+    const bad = spawnSync(process.execPath, [validator, invalidPath], { encoding: 'utf8' });
+    assert.notEqual(bad.status, 0, 'invalid approval state must fail');
+    assert.match(bad.stderr, /human_approval/);
+  } finally {
+    fs.rmSync(validPath, { force: true });
+    fs.rmSync(invalidPath, { force: true });
+  }
+});
+
 test('evaluation scenario suite parses and declares schema version', () => {
   const suite = JSON.parse(fs.readFileSync(path.join(root, 'tests/agent-evaluation-cases.json'), 'utf8'));
   assert.equal(suite.schema_version, 1);

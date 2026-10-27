@@ -31,12 +31,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install pinned validation dependencies without lifecycle scripts
+        run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
       - name: Validate standalone agent package
         run: node scripts/validate-agent.mjs
       - name: Validate Claude Code plugin and marketplace
         run: node scripts/validate-plugin.mjs
       - name: Syntax-check evaluation scripts
         run: |
+          node --check scripts/evaluation/evaluate-planner-live.mjs
+          node --check scripts/evaluation/validate-architect-plan.mjs
           node --check scripts/evaluation/assess-runtimes.mjs
           node --check scripts/evaluation/probe-runtimes.mjs
           node --check scripts/adapters/claude-agent-sdk.mjs

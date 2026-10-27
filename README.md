@@ -127,7 +127,7 @@ Or invoke the agent:
 @agent-frontend-codepen-extractor:frontend-codepen-extractor
 ```
 
-For an independent, read-only review after implementation, delegate to the `frontend-code-auditor` subagent. It reports PASS / FAIL / BLOCKED with findings and evidence; it does not modify code. See [the auditor workflow](docs/agent-auditor.md).
+For planning before implementation, delegate to the read-only `frontend-architect-planner` subagent. It returns a versioned YAML plan and leaves human approval pending; it cannot modify files or start implementation. See [the planner workflow](docs/frontend-architect-planner.md).\n\nFor an independent, read-only review after implementation, delegate to the `frontend-code-auditor` subagent. It reports PASS / FAIL / BLOCKED with findings and evidence; it does not modify code. See [the auditor workflow](docs/agent-auditor.md).
 
 Example request:
 
