@@ -46,7 +46,7 @@ Coordinate a bounded review workflow among the read-only specialist agents while
 | Before any merge or release request | `agent-release-engineer` |
 | A specialist run fails twice | `agent-run-diagnostics` |
 
-Plugin note: this plugin bundles only the delegates listed in `tools`. Specialists in this table that are not bundled (dependency/license, privacy, model evaluation, release, run diagnostics) run only if your project provides them; otherwise record them as NOT RUN.
+Plugin note: this copy of the coordinator can launch only the specialists bundled with the plugin, which are the ones listed in `tools`. The dependency/license, privacy, release and run-diagnostics specialists ship only with the extractor repository and cannot be launched from here. When the procedure or the routing table names one of them, record it as NOT RUN with the reason "not bundled with the plugin" and list it in `unresolved_items`; like any routed specialist that does not PASS, a human must accept it before delivery.
 
 ## Delivery decision
 DELIVER only if all of these hold. Otherwise DO NOT DELIVER.

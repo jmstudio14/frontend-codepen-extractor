@@ -4,6 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { listFixtures, validateManifest } from './evaluation/fixtures.mjs';
+import { toLF } from './sync-plugin-agents.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let failures = 0;
@@ -14,7 +15,7 @@ function fail(message) { checks += 1; failures += 1; console.error(`FAIL  ${mess
 function read(rel) {
   const target = path.join(root, rel);
   if (!fs.existsSync(target) || !fs.statSync(target).isFile()) return null;
-  return fs.readFileSync(target, 'utf8');
+  return toLF(fs.readFileSync(target, 'utf8'));
 }
 function exists(rel) {
   const target = path.join(root, rel);
@@ -33,7 +34,7 @@ const required = [
   '.claude/agents/frontend-security-reviewer.md', 'docs/agents/frontend-security-reviewer.md', 'tests/agent-cases/security-reviewer.json',
   '.claude/agents/frontend-qa-test-engineer.md', 'docs/agents/frontend-qa-test-engineer.md', 'tests/agent-cases/qa-test-engineer.json',
   '.claude/agents/frontend-codepen-extractor.md',
-  '.claude/agents/frontend-code-auditor.md', 'docs/agent-auditor.md',
+  '.claude/agents/frontend-code-auditor.md', 'docs/agent-auditor.md', 'tests/agent-cases/code-auditor.json',
   '.claude/agents/frontend-architect-planner.md', 'docs/frontend-architect-planner.md', 'tests/architect-planner-cases.json', 'scripts/evaluation/validate-architect-plan.mjs',
   '.claude/skills/frontend-codepen-extractor/SKILL.md',
   '.claude/skills/frontend-codepen-extractor/references/codepen-ingestion.md',
@@ -60,6 +61,27 @@ const required = [
   ...['leaky-animation-prototype', 'dynamic-js-widget', 'broken-html-card', 'external-deps-gallery'].flatMap((name) => [`tests/fixtures/${name}/fixture.json`, `tests/fixture-solutions/${name}`]),
 ];
 for (const rel of required) exists(rel) ? pass(`Required file exists: ${rel}`) : fail(`Missing required file: ${rel}`);
+
+// Every review agent needs a case file whose "agent" field names it. The developer agent is measured by
+// tests/agent-evaluation-cases.json and the planner by tests/architect-planner-cases.json.
+const CASES_ELSEWHERE = new Set(['frontend-codepen-extractor', 'frontend-architect-planner']);
+const agentNames = fs.readdirSync(path.join(root, '.claude/agents')).filter((file) => file.endsWith('.md')).map((file) => file.slice(0, -3));
+const casedAgents = new Set();
+for (const file of fs.readdirSync(path.join(root, 'tests/agent-cases')).filter((name) => name.endsWith('.json')).sort()) {
+  const rel = `tests/agent-cases/${file}`;
+  try {
+    const data = JSON.parse(read(rel) ?? '');
+    const cases = Array.isArray(data.cases) ? data.cases : [];
+    const ids = cases.map((item) => item.id);
+    const wellFormed = data.schema_version === 1 && agentNames.includes(data.agent) && cases.length >= 3
+      && new Set(ids).size === ids.length && cases.every((item) => item.id && item.prompt && item.must?.length && item.must_not?.length);
+    wellFormed ? pass(`Agent case file is well formed: ${rel}`) : fail(`Agent case file is well formed (schema_version 1, existing agent, 3+ unique cases with prompt/must/must_not): ${rel}`);
+    if (agentNames.includes(data.agent)) casedAgents.add(data.agent);
+  } catch (error) { fail(`Agent case file parses: ${rel} (${error.message})`); }
+}
+for (const name of agentNames.filter((item) => !CASES_ELSEWHERE.has(item))) {
+  casedAgents.has(name) ? pass(`Agent has evaluation cases: ${name}`) : fail(`Agent has evaluation cases in tests/agent-cases: ${name}`);
+}
 
 const agent = read('.claude/agents/frontend-codepen-extractor.md') ?? '';
 const skill = read('.claude/skills/frontend-codepen-extractor/SKILL.md') ?? '';
@@ -106,7 +128,7 @@ if (skillFm && /\bname:\s*frontend-codepen-extractor\b/.test(skillFm[1]) && /\bd
 }
 
 for (const fixture of listFixtures(root)) {
-  const errors = validateManifest(fixture.manifest);
+  const errors = fixture.error ? [fixture.error] : validateManifest(fixture.manifest);
   errors.length ? fail(`Fixture manifest ${fixture.name} is valid (${errors.join('; ')})`) : pass(`Fixture manifest ${fixture.name} is valid`);
 }
 
@@ -160,7 +182,7 @@ if (evaluationCases) {
   for (const category of ['multilanguage', 'progressive-search', 'provenance', 'verification', 'safety', 'security', 'web-component']) {
     categories.has(category) ? pass('Evaluation scenarios cover ' + category) : fail('Evaluation scenarios cover ' + category);
   }
-  evaluationCases.cases.every((item) => item.prompt && item.must?.length && item.must_not?.length) ? pass('Every evaluation scenario defines prompt, required behavior and forbidden behavior') : fail('Every evaluation scenario defines prompt, required behavior and forbidden behavior');
+  Array.isArray(evaluationCases.cases) && evaluationCases.cases.every((item) => item.prompt && item.must?.length && item.must_not?.length) ? pass('Every evaluation scenario defines prompt, required behavior and forbidden behavior') : fail('Every evaluation scenario defines prompt, required behavior and forbidden behavior');
 }
 
 const multiGuide = read('.claude/skills/frontend-codepen-extractor/references/multilanguage-engineering.md') ?? '';

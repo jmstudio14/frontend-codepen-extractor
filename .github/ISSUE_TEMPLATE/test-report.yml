@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for testing. Every report, including a failure, helps.
         **Do not paste secrets, API keys, tokens, or confidential code.** Describe or redact them instead.
-        Guide: [docs/testing-guide.md](../blob/main/docs/testing-guide.md)
+        Guide: [docs/testing-guide.md](https://github.com/jmstudio14/frontend-codepen-extractor/blob/main/docs/testing-guide.md)
   - type: dropdown
     id: scenario
     attributes:
@@ -72,7 +72,7 @@ body:
     attributes:
       label: Environment
       description: Plugin version, operating system and target stack.
-      placeholder: "plugin 2.14.0, Windows 11, React 18 + Vite"
+      placeholder: "plugin 2.15.0, Windows 11, React 18 + Vite"
     validations:
       required: true
   - type: textarea

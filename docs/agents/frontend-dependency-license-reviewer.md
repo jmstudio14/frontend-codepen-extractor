@@ -20,6 +20,7 @@ See `tests/agent-cases/dependency-license-reviewer.json`. Scenario definitions a
 
 ## Live evaluation
 - Review a lockfile with known synthetic dependency risks
+
 Live evaluation is NOT RUN until the agent is run manually in Claude Code on a scenario and its output is reviewed (no API key is used).
 
 ## Rollback

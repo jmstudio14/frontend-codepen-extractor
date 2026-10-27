@@ -9,7 +9,7 @@ A repository-aware engineering agent that detects your project's language, frame
 [Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
 
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
-![Version](https://img.shields.io/badge/version-2.14.0-64748b)
+![Version](https://img.shields.io/badge/version-2.15.0-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)
 ![Repository](https://img.shields.io/badge/repository-public-22c55e)
 ![License: MIT](https://img.shields.io/badge/license-MIT-0ea5e9)
@@ -128,7 +128,9 @@ Or invoke the agent:
 @agent-frontend-codepen-extractor:frontend-codepen-extractor
 ```
 
-For planning before implementation, delegate to the read-only `frontend-architect-planner` subagent. It returns a versioned YAML plan and leaves human approval pending; it cannot modify files or start implementation. See [the planner workflow](docs/frontend-architect-planner.md).\n\nFor an independent, read-only review after implementation, delegate to the `frontend-code-auditor` subagent. It reports PASS / FAIL / BLOCKED with findings and evidence; it does not modify code. See [the auditor workflow](docs/agent-auditor.md).
+For planning before implementation, delegate to the read-only `frontend-architect-planner` subagent. It returns a versioned YAML plan and leaves human approval pending; it has no Edit/Write tools, is instructed not to modify files, and cannot start implementation. See [the planner workflow](docs/frontend-architect-planner.md).
+
+For an independent, read-only review after implementation, delegate to the `frontend-code-auditor` subagent. It reports PASS / FAIL / BLOCKED with findings and evidence; it does not modify code. See [the auditor workflow](docs/agent-auditor.md).
 
 Example request:
 
@@ -241,11 +243,19 @@ node scripts\test-agent.mjs
 node scripts\security-gate.mjs
 ```
 
-Or run the complete validation sequence:
+Or run all four with one command:
 
 ```powershell
 npm run validate:all
 ```
+
+CI also syntax-checks the evaluation scripts and runs the deterministic evaluation fixture. To run that fixture locally:
+
+```powershell
+npm run evaluate:fixture
+```
+
+`npm run evaluate:manual` prepares and scores a fixture workspace for measuring the real agent in Claude Code; see the [measurement protocol](docs/measurement-protocol.md).
 
 Claude Code's native validator can also validate the plugin and marketplace:
 
@@ -254,7 +264,7 @@ claude plugin validate .\plugins\frontend-codepen-extractor
 claude plugin validate .
 ```
 
-GitHub Actions runs structural validation, the security gate, smoke tests and the deterministic evaluation fixture. None of it needs an API key or calls a model. Measuring the real agent is done in the manual mode, with Claude Code and your normal subscription (see the [measurement protocol](docs/measurement-protocol.md)). Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
+GitHub Actions runs structural validation, the security gate, smoke tests and the deterministic evaluation fixture on Ubuntu and Windows. None of it needs an API key or calls a model. Measuring the real agent is done in the manual mode, with Claude Code and your normal subscription (see the [measurement protocol](docs/measurement-protocol.md)). Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
 
 ### Delivery review with the coordinator
 

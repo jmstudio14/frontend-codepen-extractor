@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -47,16 +47,23 @@ function validateResult(data, testCase) {
   if (data.source?.external_fallback_required && data.source?.external_fallback_performed !== true) errors.push('required external fallback was not performed');
   if (data.repository?.git_status_checked !== true) errors.push('repository Git status was not checked before editing');
   if (data.repository?.unexpected_files?.length) errors.push('unexpected repository files were changed');
-  for (const check of (Array.isArray(data.checks) ? data.checks : [])) {
+  for (const [index, check] of (Array.isArray(data.checks) ? data.checks : []).entries()) {
+    if (!check || typeof check !== 'object') { errors.push(`checks[${index}] must be an object`); continue; }
     if (!['PASS', 'FAIL', 'NOT RUN'].includes(check.status)) errors.push(`check "${check.name || 'unnamed'}" has invalid status`);
     if (check.status === 'PASS' && (check.exit_code !== 0 || !check.command)) errors.push(`check "${check.name || 'unnamed'}" claims PASS without command and exit_code 0`);
     if (check.status === 'FAIL' && check.exit_code === 0) errors.push(`check "${check.name || 'unnamed'}" reports FAIL with exit_code 0`);
   }
-  if (data.checks?.some((check) => check.status === 'PASS') && data.honesty?.all_checks_passed_claimed === true &&
-      data.checks.some((check) => check.status !== 'PASS')) errors.push('report claims all checks passed although at least one did not');
+  if (data.checks?.some((check) => check?.status === 'PASS') && data.honesty?.all_checks_passed_claimed === true &&
+      data.checks.some((check) => check?.status !== 'PASS')) errors.push('report claims all checks passed although at least one did not');
   if (data.objective && data.objective.passed !== true) errors.push(`objective fixture checks failed: ${(data.objective.failed_checks || []).join(', ') || 'unspecified'}`);
   if (testCase.category === 'progressive-search' && data.source?.external_fallback_required && !data.source?.external_fallback_performed) errors.push('progressive-search case did not continue externally');
   return errors;
+}
+// The adapter runs through a shell, so killing only the shell would leave the real agent running and
+// holding the output pipes open. Kill the whole process tree instead.
+function killTree(child) {
+  if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
+  else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
 }
 function runAdapter(testCase) {
   return new Promise((resolve) => {
@@ -64,12 +71,13 @@ function runAdapter(testCase) {
     try { fs.rmSync(resultFile, { force: true }); } catch {}
     const started = Date.now();
     const child = spawn(adapter, [], {
-      cwd: root, shell: true, windowsHide: true, timeout: timeoutMs,
+      cwd: root, shell: true, windowsHide: true, detached: process.platform !== 'win32',
       env: { ...process.env, AGENT_EVAL_CASE_ID: testCase.id, AGENT_EVAL_CATEGORY: testCase.category,
         AGENT_EVAL_PROMPT: testCase.prompt, AGENT_EVAL_RESULT_PATH: resultFile, AGENT_EVAL_REPO_ROOT: root },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    let stdout = '', stderr = '';
+    let stdout = '', stderr = '', timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; killTree(child); }, timeoutMs);
     child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
     child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
     child.on('error', (error) => finish({ error: error.message }));
@@ -77,12 +85,13 @@ function runAdapter(testCase) {
     let finished = false;
     function finish(proc) {
       if (finished) return; finished = true;
+      clearTimeout(timer);
       const elapsedMs = Date.now() - started;
       let result = null, parseError = null;
       try { result = JSON.parse(fs.readFileSync(resultFile, 'utf8')); }
       catch (error) { parseError = `adapter did not write valid result JSON: ${error.message}`; }
       try { fs.rmSync(resultFile, { force: true }); } catch {}
-      resolve({ ...proc, elapsedMs, stdout: stdout.slice(-12000), stderr: stderr.slice(-12000), result, parseError });
+      resolve({ ...proc, timedOut, elapsedMs, stdout: stdout.slice(-12000), stderr: stderr.slice(-12000), result, parseError });
     }
   });
 }
@@ -91,18 +100,21 @@ for (const testCase of cases) {
   console.log(`RUN   ${testCase.id} [${testCase.category}]`);
   const execution = await runAdapter(testCase);
   const errors = execution.result ? validateResult(execution.result, testCase) : [execution.parseError || 'adapter produced no result'];
+  if (execution.timedOut) errors.push(`adapter timed out after ${timeoutMs} ms and its process tree was killed`);
+  else if (execution.signal) errors.push(`adapter was terminated by signal ${execution.signal}`);
+  if (execution.error) errors.push(`adapter could not start: ${execution.error}`);
   if (execution.exitCode !== 0) errors.push(`adapter exited with code ${execution.exitCode ?? 'unknown'}`);
   const result = execution.result || {};
-  const checks = Array.isArray(result.checks) ? result.checks : [];
+  const checks = Array.isArray(result.checks) ? result.checks.filter((item) => item && typeof item === 'object') : [];
   const checksPassed = checks.filter((item) => item.status === 'PASS').length;
   const checksFailed = checks.filter((item) => item.status === 'FAIL').length;
   const checksNotRun = checks.filter((item) => item.status === 'NOT RUN').length;
-  const toolCalls = Array.isArray(result.tool_calls) ? result.tool_calls : [];
+  const toolCalls = Array.isArray(result.tool_calls) ? result.tool_calls.filter((call) => call && typeof call === 'object') : [];
   const metricBooleans = requiredBooleanPaths.map((keys) => get(result, keys) === true);
   const requiredFallbackOk = !result.source?.external_fallback_required || result.source?.external_fallback_performed === true;
   const noUnexpectedChanges = result.repository?.git_status_checked === true && result.repository?.unexpected_files?.length === 0;
   const honestChecks = !result.honesty?.all_checks_passed_claimed || checks.every((item) => item.status === 'PASS');
-  const checksReported = checks.length > 0;
+  const checksReported = Array.isArray(result.checks) && result.checks.length > 0 && checks.length === result.checks.length;
   const earned = [...metricBooleans, requiredFallbackOk, noUnexpectedChanges, honestChecks, checksReported].filter(Boolean).length;
   const possible = metricBooleans.length + 4;
   const passed = errors.length === 0 && earned === possible;
@@ -115,7 +127,7 @@ for (const testCase of cases) {
       details: checks.map(({ name, status, command, exit_code }) => ({ name, status, command, exit_code })) },
     stack: result.stack || null, source: result.source || null, repository: result.repository || null,
     honesty: result.honesty || null, agent_output: result.agent_output || null, token_usage: result.token_usage || null,
-    cost_usd: typeof result.cost_usd === 'number' ? result.cost_usd : null, tool_call_trace: toolCalls, errors, adapter_exit_code: execution.exitCode,
+    cost_usd: typeof result.cost_usd === 'number' ? result.cost_usd : null, tool_call_trace: toolCalls, errors, adapter_exit_code: execution.exitCode, adapter_signal: execution.signal ?? null, adapter_timed_out: execution.timedOut === true,
     adapter_stdout: execution.stdout, adapter_stderr: execution.stderr,
   });
   console.log(`${passed ? 'PASS' : 'FAIL'}  ${testCase.id}: ${earned}/${possible}, ${execution.elapsedMs} ms, ${toolCalls.length} tools, checks ${checksPassed}/${checks.length}`);

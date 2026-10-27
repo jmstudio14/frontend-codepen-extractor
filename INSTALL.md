@@ -1,4 +1,4 @@
-# Install Frontend CodePen Extractor in Claude Code
+# Install Multilanguage Code & Component Extractor in Claude Code
 
 This repository is a **public Claude Code plugin marketplace**. You only need to install the plugin once per machine if you choose **User scope**.
 
@@ -77,7 +77,7 @@ claude plugin list
 claude plugin details frontend-codepen-extractor
 ```
 
-In a Claude Code session, run `/plugin` and open the **Installed** tab. Look for **Frontend CodePen Extractor** and confirm its status is enabled.
+In a Claude Code session, run `/plugin` and open the **Installed** tab. Look for **Multilanguage Code & Component Extractor** (plugin `frontend-codepen-extractor`) and confirm its status is enabled.
 
 Use the skill with:
 
@@ -93,7 +93,7 @@ Or ask Claude Code to use the agent explicitly:
 
 Example request:
 
-> Use the Frontend CodePen Extractor plugin to convert this CodePen into my existing frontend project: [URL]. Inspect the repository and Git status first, preserve current work, scope styles, implement lifecycle cleanup, and run the available checks. Do not install dependencies or download assets without asking.
+> Use the frontend-codepen-extractor plugin to convert this CodePen into my existing frontend project: [URL]. Inspect the repository and Git status first, preserve current work, scope styles, implement lifecycle cleanup, and run the available checks. Do not install dependencies or download assets without asking.
 
 If the plugin was installed while a session was already open and Claude Code asks for a reload, run:
 
@@ -138,14 +138,13 @@ You can also manage, update, disable, or uninstall it from the `/plugin` panel.
 From a local clone, with Node.js 22+ installed:
 
 ```powershell
+npm ci --ignore-scripts
+npm run validate:all
 claude plugin validate .\plugins\frontend-codepen-extractor
 claude plugin validate .
-node scripts\validate-agent.mjs
-node scripts\validate-plugin.mjs
-node scripts\test-agent.mjs
 ```
 
-The first validation command checks the plugin directory; the second checks the marketplace catalog. GitHub Actions runs the automated structural checks and smoke tests on pushes and pull requests.
+`npm ci --ignore-scripts` installs the pinned validation dependency without running install scripts. `npm run validate:all` runs the structural validators, the smoke tests and the security gate. The last two commands check the plugin directory and the marketplace catalog with Claude Code's own validator. GitHub Actions runs the same checks on Ubuntu and Windows for every push and pull request.
 
 ## Install for Codex, GitHub Copilot, Cursor, Gemini CLI and other agents
 

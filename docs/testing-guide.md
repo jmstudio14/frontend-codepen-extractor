@@ -9,7 +9,7 @@ This guide is for anyone who wants to try the extractor agent and report what ha
    ```
    claude plugin install frontend-codepen-extractor --marketplace jmstudio14/frontend-codepen-extractor
    ```
-   If it is already installed, update it with `claude plugin update frontend-codepen-extractor`.
+   If it is already installed, update it with `claude plugin update frontend-codepen-extractor@jmstudio14-claude-plugins`.
 3. To run the fixtures, you also need Node.js 22 or later, Git, and a clone of this repository. Run `npm ci --ignore-scripts` in the clone. Optionally install Playwright (`npm install --no-save playwright` and then `npx playwright install chromium`) so the browser check runs.
 
 ## 2. Choose a test
@@ -22,7 +22,7 @@ node scripts/evaluation/manual-eval.mjs prepare dynamic-js-widget
 
 The cases are `dynamic-js-widget`, `broken-html-card`, `external-deps-gallery` and `web-extraction-regression`. Then:
 
-1. Open `claude` in the printed workspace folder.
+1. Open `claude` in the printed workspace folder. It is created in your system's temporary folder, outside the clone, so the agent does not see this repository's instructions or solutions.
 2. Paste the printed prompt and let the agent finish without helping it.
 3. Score the result:
    ```

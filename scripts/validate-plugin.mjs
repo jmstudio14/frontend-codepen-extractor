@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { BUNDLED_SPECIALISTS, COORDINATOR, PLUGIN_NAME, expectedPluginAgents } from './sync-plugin-agents.mjs';
+import { BUNDLED_SPECIALISTS, COORDINATOR, PLUGIN_NAME, expectedPluginAgents, toLF } from './sync-plugin-agents.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pluginRoot = 'plugins/frontend-codepen-extractor';
@@ -19,8 +19,16 @@ function check(condition, label) {
   }
 }
 function readFile(relativePath) {
-  try { return fs.readFileSync(path.join(root, relativePath), 'utf8'); }
+  try { return toLF(fs.readFileSync(path.join(root, relativePath), 'utf8')); }
   catch { return null; }
+}
+function listFiles(relativeDir) {
+  const base = path.join(root, relativeDir);
+  if (!fs.existsSync(base)) return [];
+  return fs.readdirSync(base, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.relative(base, path.join(entry.parentPath ?? entry.path, entry.name)).split(path.sep).join('/'))
+    .sort();
 }
 function loadJson(relativePath) {
   const content = readFile(relativePath);
@@ -38,20 +46,19 @@ function loadJson(relativePath) {
   }
 }
 
+const SKILL_COPIES = [
+  '.agents/skills/frontend-codepen-extractor',
+  '.claude/skills/frontend-codepen-extractor',
+  pluginRoot + '/skills/frontend-codepen-extractor',
+];
+const REQUIRED_REFERENCES = [
+  'agent-architecture.md', 'codemyui-ingestion.md', 'codepen-ingestion.md', 'css-tricks-reference.md',
+  'dependency-policy.md', 'framework-patterns.md', 'multilanguage-engineering.md', 'progressive-search.md',
+  'quality-checklist.md', 'reconstruction-playbook.md', 'uiverse-ingestion.md',
+];
 const required = [
   '.claude-plugin/marketplace.json',
   'INSTALL.md',
-  '.agents/skills/frontend-codepen-extractor/SKILL.md',
-  '.agents/skills/frontend-codepen-extractor/references/codepen-ingestion.md',
-  '.agents/skills/frontend-codepen-extractor/references/uiverse-ingestion.md',
-  '.agents/skills/frontend-codepen-extractor/references/dependency-policy.md',
-  '.agents/skills/frontend-codepen-extractor/references/framework-patterns.md',
-  '.agents/skills/frontend-codepen-extractor/references/quality-checklist.md',
-  '.agents/skills/frontend-codepen-extractor/references/reconstruction-playbook.md',
-  '.agents/skills/frontend-codepen-extractor/references/progressive-search.md',
-  '.agents/skills/frontend-codepen-extractor/references/codemyui-ingestion.md',
-  '.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
-  '.agents/skills/frontend-codepen-extractor/references/agent-architecture.md',
   'tests/agent-evaluation-cases.json', 'scripts/evaluate-agent.mjs', 'docs/agent-evaluation.md', 'tests/fixtures/evaluation-adapter.mjs',
   'scripts/evaluation/check-web-fixture.mjs', 'scripts/evaluation/manual-eval.mjs',
   '.github/agents/frontend-codepen-extractor.agent.md',
@@ -60,26 +67,18 @@ const required = [
   pluginRoot + '/.claude-plugin/plugin.json',
   pluginRoot + '/README.md',
   pluginRoot + '/agents/frontend-codepen-extractor.md',
-  pluginRoot + '/skills/frontend-codepen-extractor/SKILL.md',
-  pluginRoot + '/skills/frontend-codepen-extractor/references/codepen-ingestion.md',
-  pluginRoot + '/skills/frontend-codepen-extractor/references/uiverse-ingestion.md',
-  pluginRoot + '/skills/frontend-codepen-extractor/references/dependency-policy.md',
-  pluginRoot + '/skills/frontend-codepen-extractor/references/framework-patterns.md',
-  pluginRoot + '/skills/frontend-codepen-extractor/references/quality-checklist.md',
-  pluginRoot + '/skills/frontend-codepen-extractor/references/reconstruction-playbook.md',
-  pluginRoot + '/skills/frontend-codepen-extractor/references/progressive-search.md',
-  pluginRoot + '/skills/frontend-codepen-extractor/references/codemyui-ingestion.md',
-  pluginRoot + '/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
-  pluginRoot + '/skills/frontend-codepen-extractor/references/agent-architecture.md',
+  ...SKILL_COPIES.flatMap((dir) => [dir + '/SKILL.md', ...REQUIRED_REFERENCES.map((name) => dir + '/references/' + name)]),
 ];
 for (const relativePath of required) {
   check(readFile(relativePath) !== null, 'Required distribution file exists: ' + relativePath);
 }
 
+const packageVersion = loadJson('package.json')?.version;
+check(/^\d+\.\d+\.\d+$/.test(packageVersion ?? ''), 'package.json version is semantic: ' + packageVersion);
 const marketplace = loadJson('.claude-plugin/marketplace.json');
 if (marketplace) {
   check(marketplace.name === 'jmstudio14-claude-plugins', 'Marketplace name is correct');
-  check(marketplace.version === '2.14.0', 'Marketplace version is 2.14.0');
+  check(marketplace.version === packageVersion, 'Marketplace version matches package.json (' + packageVersion + ')');
   check(typeof marketplace.description === 'string' && marketplace.description.length > 0, 'Marketplace description is present');
   check(typeof marketplace.owner?.name === 'string' && marketplace.owner.name.length > 0, 'Marketplace owner.name is present');
   const entry = Array.isArray(marketplace.plugins)
@@ -92,7 +91,7 @@ if (marketplace) {
 const manifest = loadJson(pluginRoot + '/.claude-plugin/plugin.json');
 if (manifest) {
   check(manifest.name === 'frontend-codepen-extractor', 'Plugin manifest name matches marketplace entry');
-  check(manifest.version === '2.14.0', 'Plugin version is 2.14.0');
+  check(manifest.version === packageVersion, 'Plugin version matches package.json (' + packageVersion + ')');
   check(typeof manifest.description === 'string' && manifest.description.length > 10, 'Plugin manifest description is present');
   check(typeof manifest.author?.name === 'string' && manifest.author.name.length > 0, 'Plugin manifest author.name is present');
   check(/^https:\/\//.test(manifest.homepage || ''), 'Plugin homepage is a valid HTTPS URL');
@@ -130,26 +129,20 @@ if (skillMeta) {
   check(/^description:\s*\S/m.test(skillMeta[1]), 'Plugin skill description is present');
 }
 
-const portableSkillPaths = [
-  ['.agents/skills/frontend-codepen-extractor/SKILL.md', pluginRoot + '/skills/frontend-codepen-extractor/SKILL.md'],
-  ['.agents/skills/frontend-codepen-extractor/references/codepen-ingestion.md', pluginRoot + '/skills/frontend-codepen-extractor/references/codepen-ingestion.md'],
-  ['.agents/skills/frontend-codepen-extractor/references/uiverse-ingestion.md', pluginRoot + '/skills/frontend-codepen-extractor/references/uiverse-ingestion.md'],
-  ['.agents/skills/frontend-codepen-extractor/references/dependency-policy.md', pluginRoot + '/skills/frontend-codepen-extractor/references/dependency-policy.md'],
-  ['.agents/skills/frontend-codepen-extractor/references/framework-patterns.md', pluginRoot + '/skills/frontend-codepen-extractor/references/framework-patterns.md'],
-  ['.agents/skills/frontend-codepen-extractor/references/quality-checklist.md', pluginRoot + '/skills/frontend-codepen-extractor/references/quality-checklist.md'],
-  ['.agents/skills/frontend-codepen-extractor/references/reconstruction-playbook.md', pluginRoot + '/skills/frontend-codepen-extractor/references/reconstruction-playbook.md'],
-  ['.agents/skills/frontend-codepen-extractor/references/progressive-search.md', pluginRoot + '/skills/frontend-codepen-extractor/references/progressive-search.md'],
-  ['.agents/skills/frontend-codepen-extractor/references/codemyui-ingestion.md', pluginRoot + '/skills/frontend-codepen-extractor/references/codemyui-ingestion.md'],
-  ['.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md', pluginRoot + '/skills/frontend-codepen-extractor/references/multilanguage-engineering.md'],
-  ['.agents/skills/frontend-codepen-extractor/references/agent-architecture.md', pluginRoot + '/skills/frontend-codepen-extractor/references/agent-architecture.md'],
-];
-for (const [portablePath, pluginPath] of portableSkillPaths) {
-  const portableContent = readFile(portablePath);
-  const pluginContent = readFile(pluginPath);
-  check(portableContent !== null, 'Portable skill file exists: ' + portablePath);
-  if (portableContent !== null && pluginContent !== null) {
-    check(portableContent === pluginContent, 'Portable skill stays in sync: ' + portablePath);
+// Every copy of the skill must hold exactly the same files with the same content.
+const [canonicalSkill, ...otherSkills] = SKILL_COPIES;
+const canonicalFiles = listFiles(canonicalSkill);
+check(canonicalFiles.includes('SKILL.md'), 'Canonical skill has SKILL.md: ' + canonicalSkill);
+for (const copy of otherSkills) {
+  const files = listFiles(copy);
+  check(JSON.stringify(files) === JSON.stringify(canonicalFiles), 'Skill copy has the same files as ' + canonicalSkill + ': ' + copy);
+  for (const file of canonicalFiles) {
+    if (files.includes(file)) check(readFile(copy + '/' + file) === readFile(canonicalSkill + '/' + file), 'Skill copy stays in sync: ' + copy + '/' + file);
   }
+}
+const canonicalSkillText = readFile(canonicalSkill + '/SKILL.md') || '';
+for (const ref of new Set(canonicalSkillText.match(/references\/[\w.-]+\.md/g) ?? [])) {
+  check(canonicalFiles.includes(ref), 'SKILL.md reference exists: ' + ref);
 }
 
 const evaluationRunner = readFile('scripts/evaluate-agent.mjs') || '';
@@ -188,11 +181,6 @@ if (copilotMeta) {
 }
 const copilotInstructions = readFile('.github/copilot-instructions.md') || '';
 check(copilotInstructions.includes('.agents/skills/frontend-codepen-extractor/SKILL.md'), 'Copilot instructions reference the portable skill');
-
-const referencePaths = required.filter((item) => item.includes('/references/'));
-for (const relativePath of referencePaths) {
-  check(readFile(relativePath) !== null, 'Skill reference exists: ' + relativePath);
-}
 
 console.log('\nPlugin packaging validation: ' + (total - failed) + '/' + total + ' checks passed.');
 if (failed > 0) process.exitCode = 1;

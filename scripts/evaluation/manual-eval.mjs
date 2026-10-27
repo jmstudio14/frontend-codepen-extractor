@@ -7,11 +7,12 @@
  *   node scripts/evaluation/manual-eval.mjs score <workspace> [--output <report.json>]
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { buildPrompt, findFixture, HOST_ONLY_FILES } from './fixtures.mjs';
+import { buildPrompt, findFixture, hostOnlyFiles } from './fixtures.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const [command, target, ...rest] = process.argv.slice(2);
@@ -22,23 +23,44 @@ const run = (cmd, args, cwd) => {
   return { command: [cmd, ...args].join(' '), exit_code: r.status ?? 1, stdout: r.stdout || '', stderr: r.stderr || '', error: r.error?.message || null };
 };
 const git = (args, cwd) => run('git', args, cwd);
+// The workspace must live outside this clone: Claude Code loads CLAUDE.md from every parent directory,
+// and the solutions and assertion scripts would be a few directories away from the agent.
+const isInside = (child, parent) => {
+  const rel = path.relative(parent, child);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+};
+const realOrSelf = (target) => { try { return fs.realpathSync(target); } catch { return target; } };
 
 function prepare(caseId) {
   const suite = JSON.parse(fs.readFileSync(path.join(root, 'tests/agent-evaluation-cases.json'), 'utf8'));
   const testCase = suite.cases.find((item) => item.id === caseId);
   const fixture = testCase && findFixture(root, caseId);
   if (!fixture) { console.error(`No executable fixture for case "${caseId}". Cases with fixtures: see tests/fixtures/*/fixture.json.`); process.exit(2); }
-  const base = path.resolve(option('--dir') || path.join(root, 'evaluation-results', 'manual', `${caseId}-${new Date().toISOString().replace(/[:.]/g, '-')}`));
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const base = path.resolve(option('--dir') || path.join(os.tmpdir(), 'frontend-extractor-eval', `${caseId}-${stamp}`));
+  if (isInside(realOrSelf(path.dirname(base)), realOrSelf(root)) || isInside(base, root)) {
+    console.error(`The workspace must be outside this repository (${root}); Claude Code would load its CLAUDE.md and the solutions would be reachable. Choose another --dir.`);
+    process.exit(2);
+  }
   const workspace = path.join(base, 'workspace');
   if (fs.existsSync(workspace)) { console.error(`Workspace already exists: ${workspace}`); process.exit(2); }
+  const hidden = hostOnlyFiles(fixture.manifest);
   fs.mkdirSync(base, { recursive: true });
-  fs.cpSync(fixture.dir, workspace, { recursive: true, filter: (src) => !['.git', 'node_modules', ...HOST_ONLY_FILES].includes(path.basename(src)) });
-  for (const args of [['init', '-q'], ['config', 'user.name', 'Manual Evaluation'], ['config', 'user.email', 'manual-evaluation@localhost'], ['add', '.'], ['commit', '-q', '-m', 'Initial fixture']]) {
+  fs.cpSync(fixture.dir, workspace, { recursive: true, filter: (src) => !['.git', 'node_modules', ...hidden].includes(path.basename(src)) });
+  // Signing and hooks from the user's global Git config must not break or alter the initial commit.
+  const steps = [['init', '-q'], ['config', 'user.name', 'Manual Evaluation'], ['config', 'user.email', 'manual-evaluation@localhost'], ['add', '.'], ['-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'Initial fixture'], ['rev-parse', 'HEAD']];
+  let baseCommit = null;
+  for (const args of steps) {
     const r = git(args, workspace);
-    if (r.exit_code) { console.error('Could not initialize the workspace Git repository: ' + r.stderr); process.exit(1); }
+    if (r.exit_code) {
+      fs.rmSync(base, { recursive: true, force: true });
+      console.error('Could not initialize the workspace Git repository: ' + (r.stderr || r.error));
+      process.exit(1);
+    }
+    baseCommit = r.stdout.trim();
   }
   const prompt = buildPrompt(testCase, fixture.manifest);
-  fs.writeFileSync(path.join(base, 'meta.json'), JSON.stringify({ case_id: caseId, fixture: path.relative(root, fixture.dir), prepared_at: new Date().toISOString() }, null, 2) + '\n');
+  fs.writeFileSync(path.join(base, 'meta.json'), JSON.stringify({ case_id: caseId, fixture: path.relative(root, fixture.dir), base_commit: baseCommit, prepared_at: new Date().toISOString() }, null, 2) + '\n');
   fs.writeFileSync(path.join(base, 'prompt.txt'), prompt + '\n');
   console.log(`Workspace: ${workspace}\nPrompt saved to: ${path.join(base, 'prompt.txt')}\n\nNext:\n  1. cd "${workspace}"\n  2. claude   (with the frontend-codepen-extractor plugin installed)\n  3. Paste the prompt below, let the agent finish, and save its final answer.\n  4. node "${path.join(root, 'scripts/evaluation/manual-eval.mjs')}" score "${workspace}"\n\n--- prompt ---\n${prompt}`);
 }
@@ -51,7 +73,9 @@ function score(workspaceArg) {
   const fixture = findFixture(root, meta.case_id);
   if (!fixture) { console.error(`Fixture for case "${meta.case_id}" no longer exists.`); process.exit(2); }
   const { manifest } = fixture;
-  const diff = git(['diff', '--name-only', 'HEAD'], workspace), untracked = git(['ls-files', '--others', '--exclude-standard'], workspace);
+  // Diff against the prepared commit, not HEAD, so commits made by the agent are still scored.
+  const baseCommit = meta.base_commit || 'HEAD';
+  const diff = git(['diff', '--name-only', baseCommit], workspace), untracked = git(['ls-files', '--others', '--exclude-standard'], workspace);
   if (diff.exit_code || untracked.exit_code) { console.error('Could not read the workspace Git state.'); process.exit(1); }
   const changed = [...new Set([...diff.stdout.split(/\r?\n/), ...untracked.stdout.split(/\r?\n/)].filter(Boolean))].sort();
   const unexpected = changed.filter((file) => !manifest.editable_files.includes(file));
@@ -66,8 +90,9 @@ function score(workspaceArg) {
   let browser = null;
   try { browser = JSON.parse(browserRun.stdout.trim().split(/\r?\n/).pop()); } catch {}
   checks.push({ name: 'Browser check (Playwright, network blocked)', command: browserRun.command, status: browser?.status || 'FAIL', exit_code: browserRun.exit_code, output_excerpt: browser ? JSON.stringify(browser) : [browserRun.stdout, browserRun.stderr].join('\n').slice(-2500) });
-  add('Git diff whitespace', git(['diff', '--check'], workspace));
-  if (unexpected.length) checks.push({ name: 'Only editable files changed', command: 'git diff --name-only HEAD', status: 'FAIL', exit_code: 1, output_excerpt: unexpected.join('\n') });
+  // CRLF line endings (common on Windows) are not trailing whitespace; real trailing spaces still fail.
+  add('Git diff whitespace', git(['-c', 'core.whitespace=cr-at-eol', 'diff', '--check', baseCommit], workspace));
+  if (unexpected.length) checks.push({ name: 'Only editable files changed', command: `git diff --name-only ${baseCommit}`, status: 'FAIL', exit_code: 1, output_excerpt: unexpected.join('\n') });
 
   const failed = checks.filter((check) => check.status === 'FAIL').map((check) => check.name);
   const report = {

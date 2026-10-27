@@ -32,18 +32,32 @@ try {
   process.exit(0);
 }
 
-// Counts timers and window/document listeners so teardown can be verified.
+// Tracks timers and window/document listeners so teardown can be verified. A listener counts once per
+// (target, type, callback, capture), as in the DOM, and removing one that was never added changes nothing.
 const trackerScript = () => {
-  const state = { intervals: new Set(), rafCalls: 0, listeners: 0 };
+  const state = { intervals: new Set(), rafCalls: 0, listeners: new Set() };
   window.__lifecycle = state;
   const setI = window.setInterval.bind(window), clearI = window.clearInterval.bind(window), raf = window.requestAnimationFrame.bind(window);
   window.setInterval = (...a) => { const id = setI(...a); state.intervals.add(id); return id; };
   window.clearInterval = (id) => { state.intervals.delete(id); return clearI(id); };
   window.requestAnimationFrame = (cb) => { state.rafCalls += 1; return raf(cb); };
-  for (const target of [window, document]) {
+  const callbackIds = new WeakMap();
+  let nextId = 0;
+  const keyOf = (targetName, type, callback, options) => {
+    if (!callbackIds.has(callback)) callbackIds.set(callback, ++nextId);
+    const capture = typeof options === 'boolean' ? options : Boolean(options?.capture);
+    return `${targetName}|${type}|${callbackIds.get(callback)}|${capture}`;
+  };
+  for (const [targetName, target] of [['window', window], ['document', document]]) {
     const add = target.addEventListener.bind(target), remove = target.removeEventListener.bind(target);
-    target.addEventListener = (...a) => { state.listeners += 1; return add(...a); };
-    target.removeEventListener = (...a) => { state.listeners -= 1; return remove(...a); };
+    target.addEventListener = (type, callback, options) => {
+      if (callback && (typeof callback === 'function' || typeof callback === 'object')) state.listeners.add(keyOf(targetName, type, callback, options));
+      return add(type, callback, options);
+    };
+    target.removeEventListener = (type, callback, options) => {
+      if (callback && (typeof callback === 'function' || typeof callback === 'object')) state.listeners.delete(keyOf(targetName, type, callback, options));
+      return remove(type, callback, options);
+    };
   }
 };
 
@@ -51,7 +65,17 @@ const failures = [];
 const errors = [];
 const blocked = [];
 const screenshots = [];
-const browser = await chromium.launch();
+let browser;
+try {
+  browser = await chromium.launch();
+} catch (error) {
+  // The playwright package can be installed without its browser download; that is NOT RUN, not FAIL.
+  if (/Executable doesn't exist|npx playwright install|browserType\.launch/i.test(error.message)) {
+    report({ status: 'NOT RUN', reason: 'Chromium for Playwright is not installed (run npx playwright install chromium); browser check skipped', failures: [] });
+    process.exit(0);
+  }
+  throw error;
+}
 try {
   const viewport = { width: config.viewport_width ?? 360, height: 800 };
   const page = await browser.newPage({ viewport });
@@ -80,12 +104,17 @@ try {
   const bodyText = () => page.evaluate(() => document.body.innerText);
   if (config.literal_text && !(await bodyText()).includes(config.literal_text)) failures.push(`text "${config.literal_text}" not shown literally`);
   if (config.click) {
+    // The expected result must appear because of the click: it is checked absent before and present after.
+    const expected = config.click.expect_pattern ? new RegExp(config.click.expect_pattern) : null;
+    const label = expected ? `/${config.click.expect_pattern}/` : `"${config.click.expect_text}"`;
+    const shows = (text) => (expected ? expected.test(text) : text.includes(config.click.expect_text));
     const target = page.getByRole(config.click.role, { name: new RegExp(config.click.name, 'i') }).first();
     if (await target.count() === 0) failures.push(`cannot click ${config.click.role} /${config.click.name}/i`);
     else {
+      if (shows(await bodyText())) failures.push(`${label} is already shown before the click`);
       await target.click();
       await page.waitForTimeout(200);
-      if (!(await bodyText()).includes(config.click.expect_text)) failures.push(`after click, "${config.click.expect_text}" is not shown`);
+      if (!shows(await bodyText())) failures.push(`after click, ${label} is not shown`);
     }
   }
   await shot('after');
@@ -94,7 +123,7 @@ try {
     await page.evaluate(config.teardown);
     const rafBefore = await page.evaluate(() => window.__lifecycle.rafCalls);
     await page.waitForTimeout(1200);
-    const state = await page.evaluate(() => ({ intervals: window.__lifecycle.intervals.size, raf: window.__lifecycle.rafCalls, listeners: window.__lifecycle.listeners }));
+    const state = await page.evaluate(() => ({ intervals: window.__lifecycle.intervals.size, raf: window.__lifecycle.rafCalls, listeners: window.__lifecycle.listeners.size }));
     if (state.intervals) failures.push(`${state.intervals} interval(s) still active after teardown`);
     if (state.raf > rafBefore + 1) failures.push('requestAnimationFrame still running after teardown');
     if (state.listeners > 0) failures.push(`${state.listeners} window/document listener(s) not removed by teardown`);

@@ -6,8 +6,8 @@
     "human_plan_approval_required": true,
     "human_merge_approval_required": true,
     "max_correction_rounds": 2,
-    "live_evaluation_may_be_skipped_if_unconfigured": true,
-    "skipped_live_evaluation_counts_as_pass": false
+    "live_evaluation_may_be_not_run": true,
+    "not_run_live_evaluation_counts_as_pass": false
   },
   "existing_agents": [
     {
@@ -46,17 +46,12 @@
         "Bash for safe read-only inspection"
       ],
       "output_contract": "Versioned YAML with READY, NEEDS_INPUT, or BLOCKED status; requirements, tasks, dependencies, risks, verification, and human approval pending.",
-      "planned_files": [
+      "branch": "feat/frontend-architect-planner",
+      "files": [
         ".claude/agents/frontend-architect-planner.md",
         "docs/frontend-architect-planner.md",
-        "scripts/validate-agent.mjs",
-        "scripts/test-agent.mjs",
         "tests/architect-planner-cases.json",
-        "scripts/evaluation/validate-architect-plan.mjs",
-        "package.json",
-        ".github/workflows/validate-agent.yml",
-        "README.md",
-        "CHANGELOG.md"
+        "scripts/evaluation/validate-architect-plan.mjs"
       ],
       "acceptance_criteria": [
         "Read-only permissions are validated",
@@ -111,16 +106,6 @@
         "Bash for approved test commands"
       ],
       "output_contract": "Structured test matrix and report with PASS, FAIL, or NOT RUN per check, commands, exit codes, and evidence.",
-      "planned_files": [
-        ".claude/agents/frontend-qa-test-engineer.md",
-        "docs/agent-qa.md",
-        "tests/qa-evaluation-cases.json",
-        "scripts/evaluation/evaluate-qa.mjs",
-        "scripts/validate-agent.mjs",
-        "scripts/test-agent.mjs",
-        "README.md",
-        "CHANGELOG.md"
-      ],
       "acceptance_criteria": [
         "Test scope derives from requirements and changed files",
         "Negative and regression cases are included",
@@ -176,16 +161,6 @@
         "Bash for safe, bounded checks"
       ],
       "output_contract": "Severity-ranked findings with file/line, evidence, impact, remediation, and PASS/FAIL/BLOCKED verdict.",
-      "planned_files": [
-        ".claude/agents/frontend-security-reviewer.md",
-        "docs/agent-security-review.md",
-        "tests/security-agent-cases.json",
-        "scripts/evaluation/evaluate-security-agent.mjs",
-        "scripts/validate-agent.mjs",
-        "scripts/test-agent.mjs",
-        "README.md",
-        "CHANGELOG.md"
-      ],
       "acceptance_criteria": [
         "Read-only contract is enforced",
         "Critical findings cannot be averaged away",
@@ -241,15 +216,6 @@
         "Bash for approved fixtures and permitted test URLs"
       ],
       "output_contract": "Extraction fidelity report separating observed, reconstructed, missing, and unverified resources.",
-      "planned_files": [
-        ".claude/agents/frontend-extractor-validation-agent.md",
-        "docs/extractor-validation.md",
-        "tests/extractor-validation-cases.json",
-        "tests/fixtures/extractor-validation/",
-        "scripts/evaluation/evaluate-extractor-validation.mjs",
-        "README.md",
-        "CHANGELOG.md"
-      ],
       "acceptance_criteria": [
         "HTML/CSS/JS/resource checks are distinct",
         "Dynamic limitations are explicit",
@@ -305,14 +271,6 @@
         "Bash for benchmark commands"
       ],
       "output_contract": "Benchmark report with environment, baseline, measurements, uncertainty, recommendation, and regression checks.",
-      "planned_files": [
-        ".claude/agents/frontend-performance-optimizer.md",
-        "docs/agent-performance.md",
-        "tests/performance-cases.json",
-        "scripts/evaluation/benchmark-extractor.mjs",
-        "README.md",
-        "CHANGELOG.md"
-      ],
       "acceptance_criteria": [
         "Baseline is recorded before recommendation",
         "Claims cite reproducible measurements",
@@ -367,14 +325,6 @@
         "Bash for safe link and docs checks"
       ],
       "output_contract": "Documentation diff proposal with source-of-truth references, broken links, stale claims, and suggested updates.",
-      "planned_files": [
-        ".claude/agents/frontend-documentation-maintainer.md",
-        "docs/agent-documentation-maintainer.md",
-        "tests/documentation-agent-cases.json",
-        "scripts/evaluation/evaluate-documentation-agent.mjs",
-        "README.md",
-        "CHANGELOG.md"
-      ],
       "acceptance_criteria": [
         "Claims map to verified code or tests",
         "Links and examples are checked",
@@ -407,7 +357,7 @@
       "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/11"
     },
     {
-      "sequence": 8,
+      "sequence": 7,
       "id": "dependency-license-reviewer",
       "name": "frontend-dependency-license-reviewer",
       "priority": "P2",
@@ -428,14 +378,6 @@
         "Bash for safe package metadata/audit commands"
       ],
       "output_contract": "Dependency inventory and severity-ranked recommendations with source, version, license evidence, and confidence.",
-      "planned_files": [
-        ".claude/agents/frontend-dependency-license-reviewer.md",
-        "docs/dependency-license-review.md",
-        "tests/dependency-agent-cases.json",
-        "scripts/evaluation/evaluate-dependency-agent.mjs",
-        "README.md",
-        "CHANGELOG.md"
-      ],
       "acceptance_criteria": [
         "Versions and licenses are evidence-backed",
         "Unknown license is not treated as permissive",
@@ -468,7 +410,7 @@
       "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/13"
     },
     {
-      "sequence": 9,
+      "sequence": 8,
       "id": "diagnostics",
       "name": "agent-run-diagnostics",
       "priority": "P2",
@@ -489,14 +431,6 @@
         "Bash for safe log inspection"
       ],
       "output_contract": "Incident-style report with observed facts, hypotheses, confidence, evidence, and next diagnostic step.",
-      "planned_files": [
-        ".claude/agents/agent-run-diagnostics.md",
-        "docs/agent-run-diagnostics.md",
-        "tests/diagnostics-cases.json",
-        "scripts/evaluation/evaluate-diagnostics.mjs",
-        "README.md",
-        "CHANGELOG.md"
-      ],
       "acceptance_criteria": [
         "Facts are separated from hypotheses",
         "Sensitive values are redacted",
@@ -530,7 +464,7 @@
       "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/14"
     },
     {
-      "sequence": 10,
+      "sequence": 9,
       "id": "privacy-compliance-reviewer",
       "name": "frontend-privacy-compliance-reviewer",
       "priority": "P2",
@@ -552,14 +486,6 @@
         "Bash for safe checks"
       ],
       "output_contract": "Risk register distinguishing technical facts, policy questions, and items requiring human/legal review.",
-      "planned_files": [
-        ".claude/agents/frontend-privacy-compliance-reviewer.md",
-        "docs/privacy-compliance-review.md",
-        "tests/privacy-agent-cases.json",
-        "scripts/evaluation/evaluate-privacy-agent.mjs",
-        "README.md",
-        "CHANGELOG.md"
-      ],
       "acceptance_criteria": [
         "No legal certainty is invented",
         "Authorization and data minimization are explicit",
@@ -592,7 +518,7 @@
       "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/15"
     },
     {
-      "sequence": 11,
+      "sequence": 10,
       "id": "release-engineer",
       "name": "agent-release-engineer",
       "priority": "P2",
@@ -615,14 +541,6 @@
         "Bash for non-destructive validation"
       ],
       "output_contract": "Release readiness report with PASS/FAIL/BLOCKED per gate, artifact identity, version notes, and rollback plan.",
-      "planned_files": [
-        ".claude/agents/agent-release-engineer.md",
-        "docs/agent-release-engineer.md",
-        "tests/release-agent-cases.json",
-        "scripts/evaluation/evaluate-release-agent.mjs",
-        "README.md",
-        "CHANGELOG.md"
-      ],
       "acceptance_criteria": [
         "Release gates derive from actual workflow configuration",
         "No publishing permissions are granted",
@@ -656,7 +574,7 @@
       "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/17"
     },
     {
-      "sequence": 12,
+      "sequence": 11,
       "id": "coordinator",
       "name": "agent-ecosystem-coordinator",
       "priority": "P3",
@@ -686,14 +604,6 @@
         "Bash for approved orchestration only"
       ],
       "output_contract": "Traceable workflow record with task ID, agent invocations, inputs/outputs, gates, approvals, retries, and final status.",
-      "planned_files": [
-        ".claude/agents/agent-ecosystem-coordinator.md",
-        "docs/agent-ecosystem-coordinator.md",
-        "tests/coordinator-cases.json",
-        "scripts/evaluation/evaluate-coordinator.mjs",
-        "README.md",
-        "CHANGELOG.md"
-      ],
       "acceptance_criteria": [
         "Uses stable specialist contracts",
         "Requires human approval before implementation and merge",

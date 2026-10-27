@@ -64,6 +64,6 @@ Structured test matrix and report with PASS, FAIL, or NOT RUN per check, command
 - Scenario: Missing test runner
 - Scenario: Flaky or unavailable browser test
 - Scenario: Regression checklist coverage
-- Live scenarios are not automatically considered passed; they require a manual run in Claude Code (no API key, see docs/measurement-protocol.md) and review of the actual output.
+- Live scenarios are not automatically considered passed; they require a manual run in Claude Code (no API key; see https://github.com/jmstudio14/frontend-codepen-extractor/blob/main/docs/measurement-protocol.md) and review of the actual output.
 - A skipped or unavailable check must remain NOT RUN.
 - Never average away a critical security or correctness failure.

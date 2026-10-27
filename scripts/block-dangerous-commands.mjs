@@ -4,8 +4,9 @@
  * Reads hook JSON from stdin and emits a structured deny for a small set of
  * high-risk command patterns. This is defense-in-depth, NOT a security sandbox.
  */
-import { stdin, stdout } from 'node:process';
-import { pathToFileURL } from 'node:url';
+import fs from 'node:fs';
+import process, { stdin, stdout } from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 const BLOCK_RULES = [
   { name: 'recursive-force-delete', re: /\brm\s+(?:(?:-[a-z]*r[a-z]*f[a-z]*|-[a-z]*f[a-z]*r[a-z]*)(?:\s|$)|--recursive\s+--force|--force\s+--recursive)/i },
@@ -60,8 +61,14 @@ async function main() {
   }) + '\n');
 }
 
-const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
-if (invokedPath === import.meta.url) {
+// realpath on both sides so a symlinked or junction checkout still runs the hook.
+function isMainModule(moduleUrl) {
+  if (!process.argv[1]) return false;
+  try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(moduleUrl)); }
+  catch { return false; }
+}
+
+if (isMainModule(import.meta.url)) {
   main().catch(() => {
     // Never print untrusted payloads. Hook failures should not leak input.
     process.exitCode = 0;
