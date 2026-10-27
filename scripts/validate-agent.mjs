@@ -33,7 +33,7 @@ const required = [
   '.claude/skills/frontend-codepen-extractor/references/codemyui-ingestion.md',
   '.claude/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
   '.claude/skills/frontend-codepen-extractor/references/agent-architecture.md',
-  'tests/agent-evaluation-cases.json',
+  'tests/agent-evaluation-cases.json', 'scripts/evaluate-agent.mjs', 'docs/agent-evaluation.md', 'tests/fixtures/evaluation-adapter.mjs',
   '.claude/settings.example.json',
   'CLAUDE.md', 'README.md', 'CHANGELOG.md', 'package.json',
   'scripts/block-dangerous-commands.mjs', 'scripts/test-agent.mjs',
@@ -141,7 +141,7 @@ for (const term of ['lifecycle', 'responsive', 'accessibility', 'Visual evidence
 }
 
 const agentText = agent + skill;
-for (const term of ['multilanguage', 'multiframework', 'multilanguage-engineering.md']) {
+const evaluationRunner = read('scripts/evaluate-agent.mjs') ?? '';\nfor (const term of ['language_detected_correctly', 'version_detected_correctly', 'external_fallback_performed', 'changed_files', 'checks', 'tool_calls', 'elapsed_ms']) {\n  evaluationRunner.includes(term) ? pass('Runtime evaluator records ' + term) : fail('Runtime evaluator records ' + term);\n}\nconst evaluationGuide = read('docs/agent-evaluation.md') ?? '';\nfor (const term of ['AGENT_EVAL_RESULT_PATH', 'wall-clock duration', 'real agent run has occurred', 'NOT RUN']) {\n  evaluationGuide.toLowerCase().includes(term.toLowerCase()) ? pass('Evaluation guide explains ' + term) : fail('Evaluation guide explains ' + term);\n}\nfor (const term of ['multilanguage', 'multiframework', 'multilanguage-engineering.md']) {
   agentText.toLowerCase().includes(term.toLowerCase()) ? pass(`Agent instructions include ${term}`) : fail(`Agent instructions include ${term}`);
 }
 for (const term of ['git status', 'untrusted', 'Do not install', 'NOT RUN']) {
