@@ -1,8 +1,8 @@
 {
   "name": "frontend-codepen-extractor",
   "displayName": "Frontend CodePen Extractor",
-  "version": "2.5.0",
-  "description": "Extracts, reconstructs, refactors, and validates CodePen, UIverse.io components, and CSS-Tricks technical references into maintainable, accessible frontend projects.",
+  "version": "2.6.0",
+  "description": "Progressively searches and evaluates CodePen, UIverse.io, CodeMyUI, GitHub, and external sources before extracting, reconstructing, validating, and integrating maintainable frontend examples.",
   "author": {
     "name": "jmstudio14",
     "url": "https://github.com/jmstudio14"
@@ -12,6 +12,8 @@
   "keywords": [
     "frontend",
     "codepen",
+    "codemyui",
+    "source-discovery",
     "refactoring",
     "reconstruction",
     "react",
