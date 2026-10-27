@@ -1,7 +1,7 @@
 {
   "name": "frontend-codepen-extractor",
   "displayName": "Frontend CodePen Extractor",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "description": "Progressively searches and evaluates CodePen, UIverse.io, CodeMyUI, GitHub, and external sources before extracting, reconstructing, validating, and integrating maintainable frontend examples.",
   "author": {
     "name": "jmstudio14",
