@@ -223,7 +223,7 @@
       "id": "extractor-validation",
       "name": "frontend-extractor-validation-agent",
       "priority": "P1",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "qa-test-engineer-merged"
       ],
@@ -272,7 +272,14 @@
         "Browser/network access may be unavailable"
       ],
       "rollback": "Revert the dedicated validation-agent PR and retain existing extractor behavior.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "branch": "feat/frontend-extractor-validation-agent",
+      "files": [
+        ".claude/agents/frontend-extractor-validation-agent.md",
+        "docs/agents/frontend-extractor-validation-agent.md",
+        "tests/agent-cases/extractor-validation.json"
+      ],
+      "pull_request": "pending"
     },
     {
       "sequence": 5,
