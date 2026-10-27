@@ -21,6 +21,7 @@ function exists(rel) {
 }
 
 const required = [
+  '.claude/agents/agent-release-engineer.md', 'docs/agents/agent-release-engineer.md', 'tests/agent-cases/release-engineer.json',
   '.claude/agents/frontend-privacy-compliance-reviewer.md', 'docs/agents/frontend-privacy-compliance-reviewer.md', 'tests/agent-cases/privacy-compliance-reviewer.json',
   '.claude/agents/agent-run-diagnostics.md', 'docs/agents/agent-run-diagnostics.md', 'tests/agent-cases/diagnostics.json',
   '.claude/agents/frontend-dependency-license-reviewer.md', 'docs/agents/frontend-dependency-license-reviewer.md', 'tests/agent-cases/dependency-license-reviewer.json',
