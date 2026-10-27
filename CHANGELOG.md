@@ -12,7 +12,7 @@ Fixes from a full review of the repository: three independent read-only reviews 
   - Manual scoring treats a CRLF line ending as a line ending, not trailing whitespace, so Windows edits are not failed for it; real trailing spaces still fail.
 - **Manual measurement integrity.**
   - `manual-eval prepare` creates the workspace in a new private folder (`mkdtemp`) in the system temporary folder and refuses one inside the clone. Inside the clone, Claude Code loaded this repository's `CLAUDE.md` and the reference solutions were a few folders away. It warns when a `CLAUDE.md` sits in any folder above the workspace, refuses a temporary folder inside the clone before creating anything, and reports a `--dir` it cannot create without a stack trace.
-  - Scoring compares against the prepared commit, so changes the agent commits are still scored and checked for unexpected files.
+  - Scoring compares against the prepared commit, so changes the agent commits are still scored and checked for unexpected files. Untracked files are listed without exclude rules, so `.gitignore` or `.git/info/exclude` cannot hide them.
   - The guard against a workspace inside the clone also resolves symlinked ancestors that point into the clone, and it treats folder names that start with `..` correctly.
   - The initial commit ignores global signing and hooks. If `prepare` fails, it removes only what that run created. An existing `--dir` and its files are never deleted.
   - `score` requires a valid `base_commit` in `meta.json`, so workspaces prepared by older versions must be prepared again. It also fails the case when the workspace history no longer starts at the prepared commit.
@@ -21,16 +21,18 @@ Fixes from a full review of the repository: three independent read-only reviews 
 - **Browser check.**
   - A missing Chromium download is NOT RUN instead of FAIL. Any other launch error, including missing system libraries (`npx playwright install-deps`), is still FAIL.
   - Clicks must change the page: the expected result is checked absent before and present after. `dynamic-js-widget` checks Alpha's own vote count, so a ticking clock can no longer satisfy it.
-  - The listener tracker counts each listener once, ignores removals of listeners that were never added, and treats `once` listeners that fired and `signal` listeners whose signal aborted as removed.
+  - The listener tracker follows the DOM. It counts each listener once and ignores removals of listeners that were never added. It does not count an add with an already aborted signal. It treats `once` listeners that fired and `signal` listeners whose signal aborted as removed, and a `once` listener that is removed and then added again for good is still a leak.
   - `web-extraction-regression` now asks for `window.orbitDemo.destroy()` and verifies its teardown in the browser.
 - **Evaluation harness.**
   - On timeout, interrupt (Ctrl-C, SIGTERM, SIGHUP) or any other exit, the harness kills the adapter's whole process tree. It used to wait for orphaned processes holding the pipes.
-  - It reports timeouts and signals and rejects a `--timeout-ms` that is not a plain positive integer. Malformed `checks` or `tool_calls` entries (null, numbers, arrays) fail the case instead of crashing the run, and every FAIL names its reason.
+  - It reports timeouts and signals. It rejects a `--timeout-ms` that is not a plain positive integer up to 2147483647 (larger values would make Node fire after 1 ms), and an option given without a value. Malformed `checks` or `tool_calls` entries (null, numbers, arrays) fail the case instead of crashing the run, and every FAIL names its reason.
 - **Smoke tests.**
   - Async tests are awaited, so a failing async test is reported as FAIL instead of PASS.
   - Browser tests that cannot run are reported as NOT RUN and counted separately, not as PASS.
   - A malformed fixture manifest no longer stops the whole suite, and tests that cannot create symlinks report NOT RUN.
-  - Every logic fix in this release has a test that fails without it; mutation runs confirmed it for the main ones.
+  - Single-change mutation runs confirmed that reverting a fix fails a named test. Two code paths are only partly covered:
+    - The exit-time cleanup in `evaluate-agent.mjs` overlaps with the signal handlers, and a harness crash is not simulated.
+    - The cleanup after a failed fixture copy in `manual-eval prepare` is not exercised.
 - **Hook and sync script.** `block-dangerous-commands.mjs` and `sync-plugin-agents.mjs` compared paths without resolving symlinks. Run through a symlinked or junction checkout, the hook silently did nothing and `--check` passed without checking. They now compare real paths.
 - **Agent frontmatter.** `frontend-documentation-maintainer` had invalid YAML: an unquoted colon in its description. It is now quoted.
 - **Plugin coordinator.** It no longer promises reviewers it cannot launch. Unbundled specialists (dependency/license, privacy, release, run diagnostics) are recorded as NOT RUN and need human acceptance; the removed model evaluator is no longer mentioned.
@@ -65,7 +67,9 @@ Fixes from a full review of the repository: three independent read-only reviews 
   - UTF-16 files are scanned. Symlinks, files over 2 MB and binaries without a binary extension are findings rather than silently skipped. Ignored folder names (`node_modules`, `.git`, `evaluation-results`, `__pycache__`) are skipped only at the repository root.
 - **Skill copies.** The plugin validator compares the three skill copies file by file, including `css-tricks-reference.md`, and takes the expected version from `package.json`.
 - **Agent cases.** Every review agent must have evaluation cases; `frontend-code-auditor` now has them. Case files and fixture manifests are parsed, and errors are reported instead of crashing.
-- **Build queue.** `evaluation/agent-build-queue.json` lists the files each agent delivered, numbers the agents without gaps, and drops the superseded `planned_files`.
+- **Build queue.**
+  - `evaluation/agent-build-queue.json` lists the files each agent delivered, numbers the agents without gaps, and drops the superseded `planned_files`.
+  - The policy keys `live_evaluation_may_be_skipped_if_unconfigured` and `skipped_live_evaluation_counts_as_pass` are renamed `live_evaluation_may_be_not_run` and `not_run_live_evaluation_counts_as_pass`. Nothing reads them.
 - **CI.** CI also runs on Windows, including the PowerShell wrapper in PowerShell 7 and Windows PowerShell 5.1.
 - **Skill and Copilot prompts.** `SKILL.md` steps are numbered without duplicates. The Copilot prompt covers CodeMyUI, progressive search, multilanguage tasks and the custom agent, and the developer agent lists CodeMyUI as a source type.
 

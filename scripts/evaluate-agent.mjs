@@ -7,12 +7,20 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
-function arg(name) { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; }
+// An option given without a value (end of the list, or followed by another option) is an error.
+function arg(name) {
+  const i = args.indexOf(name);
+  if (i < 0) return null;
+  const value = args[i + 1];
+  if (value === undefined || value.startsWith('--')) { console.error(`${name} needs a value.`); process.exit(2); }
+  return value;
+}
 const adapter = arg('--adapter');
 const caseFilter = arg('--case');
 const outputPath = arg('--output') || path.join(root, 'evaluation-results', `run-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
 const timeoutMs = Number(arg('--timeout-ms') || 15 * 60 * 1000);
-if (!/^\d+$/.test(String(arg('--timeout-ms') ?? '900000')) || !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) { console.error('--timeout-ms must be a positive integer number of milliseconds.'); process.exit(2); }
+// setTimeout clamps anything above 2^31-1 ms to 1 ms, so larger values are rejected.
+if (!/^\d+$/.test(String(arg('--timeout-ms') ?? '900000')) || timeoutMs <= 0 || timeoutMs > 2147483647) { console.error('--timeout-ms must be a positive integer number of milliseconds.'); process.exit(2); }
 const suitePath = arg('--suite') || path.join(root, 'tests/agent-evaluation-cases.json');
 
 function usage() {

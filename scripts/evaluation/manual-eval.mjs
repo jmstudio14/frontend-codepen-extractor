@@ -16,7 +16,12 @@ import { buildPrompt, findFixture, hostOnlyFiles } from './fixtures.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const [command, target, ...rest] = process.argv.slice(2);
-const option = (name) => { const i = rest.indexOf(name); return i >= 0 ? rest[i + 1] : null; };
+const option = (name) => {
+  const i = rest.indexOf(name);
+  if (i < 0) return null;
+  if (rest[i + 1] === undefined || rest[i + 1].startsWith('--')) { console.error(`${name} needs a value.`); process.exit(2); }
+  return rest[i + 1];
+};
 const usage = () => { console.error('Usage: manual-eval.mjs prepare <case-id> [--dir <path>] | score <workspace> [--output <report.json>]'); process.exit(2); };
 const run = (cmd, args, cwd) => {
   const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', timeout: 60000 });
@@ -65,7 +70,12 @@ function prepare(caseId) {
   let createdRoot;
   try { createdRoot = fs.mkdirSync(base, { recursive: true }); }
   catch (error) { console.error(`Cannot create ${base}: ${error.code || error.message}. Choose another --dir.`); process.exit(2); }
-  fs.cpSync(fixture.dir, workspace, { recursive: true, filter: (src) => !['.git', 'node_modules', ...hidden].includes(path.basename(src)) });
+  try { fs.cpSync(fixture.dir, workspace, { recursive: true, filter: (src) => !['.git', 'node_modules', ...hidden].includes(path.basename(src)) }); }
+  catch (error) {
+    fs.rmSync(privateTemp ?? createdRoot ?? workspace, { recursive: true, force: true });
+    console.error(`Could not copy the fixture into ${workspace}: ${error.code || error.message}`);
+    process.exit(1);
+  }
   // Signing and hooks from the user's global Git config must not break or alter the initial commit.
   const steps = [['init', '-q'], ['config', 'user.name', 'Manual Evaluation'], ['config', 'user.email', 'manual-evaluation@localhost'], ['add', '.'], ['-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'Initial fixture'], ['rev-parse', 'HEAD']];
   let baseCommit = null;
@@ -103,7 +113,8 @@ function score(workspaceArg) {
   // required: without it, an agent that edits meta.json could hide its committed changes.
   if (!COMMIT_ID.test(String(meta.base_commit ?? ''))) { console.error('meta.json has no valid base_commit; prepare the workspace again with this version.'); process.exit(2); }
   const baseCommit = meta.base_commit;
-  const diff = git(['diff', '--name-only', baseCommit, '--'], workspace), untracked = git(['ls-files', '--others', '--exclude-standard'], workspace);
+  const diff = git(['diff', '--name-only', baseCommit, '--'], workspace), untracked = git(['ls-files', '--others'], workspace);
+  // Untracked files are listed without the exclude rules, so .gitignore or .git/info/exclude cannot hide them.
   if (diff.exit_code || untracked.exit_code) { console.error('Could not read the workspace Git state.'); process.exit(1); }
   // The history must still start at the prepared commit; a rewritten or replaced history is not scored.
   const roots = git(['rev-list', '--max-parents=0', 'HEAD'], workspace);

@@ -51,18 +51,32 @@ const trackerScript = () => {
   };
   for (const [targetName, target] of [['window', window], ['document', document]]) {
     const add = target.addEventListener.bind(target), remove = target.removeEventListener.bind(target);
+    // Follows the DOM: an add with an already aborted signal does nothing, a `once` listener is gone after
+    // it fires, a `signal` listener is gone when the signal aborts, and removing a listener also drops
+    // the helper that watched for its `once` firing.
+    const onceWatchers = new Map();
+    const captureOf = (options) => (typeof options === 'boolean' ? options : Boolean(options?.capture));
     target.addEventListener = (type, callback, options) => {
-      if (callback && (typeof callback === 'function' || typeof callback === 'object')) {
+      if (callback && (typeof callback === 'function' || typeof callback === 'object') && !options?.signal?.aborted) {
         const key = keyOf(targetName, type, callback, options);
-        state.listeners.add(key);
-        // The DOM removes a `once` listener after it fires and a `signal` listener when the signal aborts.
-        if (options?.once) add(type, () => state.listeners.delete(key), { once: true, capture: typeof options === 'boolean' ? options : Boolean(options?.capture) });
-        if (options?.signal) options.signal.addEventListener('abort', () => state.listeners.delete(key), { once: true });
+        if (!state.listeners.has(key)) {
+          state.listeners.add(key);
+          if (options?.once) {
+            const watcher = () => { state.listeners.delete(key); onceWatchers.delete(key); };
+            onceWatchers.set(key, watcher);
+            add(type, watcher, { once: true, capture: captureOf(options) });
+          }
+          if (options?.signal) options.signal.addEventListener('abort', () => state.listeners.delete(key), { once: true });
+        }
       }
       return add(type, callback, options);
     };
     target.removeEventListener = (type, callback, options) => {
-      if (callback && (typeof callback === 'function' || typeof callback === 'object')) state.listeners.delete(keyOf(targetName, type, callback, options));
+      if (callback && (typeof callback === 'function' || typeof callback === 'object')) {
+        const key = keyOf(targetName, type, callback, options);
+        state.listeners.delete(key);
+        if (onceWatchers.has(key)) { remove(type, onceWatchers.get(key), { capture: captureOf(options) }); onceWatchers.delete(key); }
+      }
       return remove(type, callback, options);
     };
   }

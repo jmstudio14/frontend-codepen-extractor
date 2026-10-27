@@ -50,7 +50,7 @@ The same commands work in PowerShell and bash. Write each command on one line.
    ```
    node scripts/evaluation/manual-eval.mjs score <workspace path>
    ```
-   This writes `report.json` and, when Playwright is available, a `screenshots/` folder next to the workspace. It prints one status and exits with its code: PASS (0), FAIL (1), or INCOMPLETE (3) when nothing failed but a check was NOT RUN, usually the browser check without Playwright. INCOMPLETE is not a pass.
+   This writes `report.json` and, when Playwright is available, a `screenshots/` folder next to the workspace. It prints one status and exits with its code: PASS (0), FAIL (1), or INCOMPLETE (3) when nothing failed but a check was NOT RUN, usually the browser check without Playwright. INCOMPLETE is not a pass. Only a missing browser download makes the browser check NOT RUN; any other browser launch failure is FAIL. Exit code 2 means the workspace cannot be scored, for example a missing or invalid `meta.json`: workspaces prepared by versions before 2.15.0 must be prepared again.
 5. **Repeat** for the other three cases, and preferably more than once per case: one PASS is not reliability.
 
 ## Review

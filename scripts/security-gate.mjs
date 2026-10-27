@@ -96,7 +96,9 @@ const SHELL_OPTION_FORMS = [
   /\.\s*shell\s*=(?!=)(?!\s*false\b)/,
   /\[\s*['"`]shell['"`]\s*\]\s*=(?!=)(?!\s*false\b)/,
 ];
-// Spawning a shell binary directly, by bare name or by path.
+// Spawning a shell binary directly, by bare name or by path; in a file that loads child_process, any string
+// that is a path to a shell also counts, because it may reach spawn through a variable.
+const SHELL_PATH_LITERAL = /['"`](?:[^'"`\s]*[\\/])(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?['"`]/i;
 const SHELL_BINARY = /\b(?:spawn|spawnSync|execFile|execFileSync|fork)\s*\(\s*['"`](?:[^'"`]*[\\/])?(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?['"`]/i;
 // Code built from text: eval (direct, indirect, aliased or via globalThis), the Function constructor,
 // string timer callbacks, node:vm, Worker code strings (`eval: true`) and data: URL imports.
@@ -134,7 +136,7 @@ for (const { rel, full } of files) {
       if (shell >= 0) finding('unapproved-shell-true', rel, `line ${lineOf(text, shell)} (shell option other than false)`);
       const exec = shellExecIndex(text);
       if (exec >= 0) finding('unapproved-shell-exec', rel, `line ${lineOf(text, exec)} (child_process exec/execSync always uses a shell)`);
-      const binary = SHELL_BINARY.exec(text);
+      const binary = SHELL_BINARY.exec(text) ?? (LOADS_CHILD_PROCESS.test(text) ? SHELL_PATH_LITERAL.exec(text) : null);
       if (binary) finding('unapproved-shell-spawn', rel, `line ${lineOf(text, binary.index)} (spawns a shell directly)`);
     }
   }

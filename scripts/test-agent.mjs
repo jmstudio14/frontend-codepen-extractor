@@ -393,6 +393,7 @@ test('security gate cannot be steered into hiding code by templates, division or
     [`await import('da` + `ta:text/javascript,console.log(1)');\n`, /dynamic-code-execution/],
     [`import { spawn } from ${cp};\nconst o = {};\no.${sh} = true;\nspawn('ls', [], o);\n`, /unapproved-shell-true/],
     [`import * as cp from ${cp};\nconst t = \`\${cp.ex` + `ec('ls')}\`;\n`, /unapproved-shell-exec/],
+    [`import { spawn } from ${cp};\nconst b = '/bin/ba` + `sh';\nspawn(b, ['-c', 'id']);\n`, /unapproved-shell-spawn/],
   ]) {
     const run = runGate({ 'scripts/a.mjs': source });
     assert.equal(run.status, 1, source);
@@ -536,6 +537,11 @@ const BROWSER_MUTANTS = [
   ['dynamic-js-widget', 'widget.js', [["document.removeEventListener('click', onClick);", "document.removeEventListener('click', () => {});"]], /listener\(s\) not removed by teardown/],
   ['leaky-animation-prototype', 'prototype.js', [['cancelAnimationFrame(frame);', '']], /requestAnimationFrame still running after teardown/],
   ['leaky-animation-prototype', 'prototype.js', [["window.removeEventListener('resize', onResize);", '']], /listener\(s\) not removed by teardown/],
+  ['dynamic-js-widget', 'widget.js', [['clearInterval(timer);', '']], /interval\(s\) still active after teardown/],
+  // Removing with a different capture flag does not remove the listener, as in the DOM.
+  ['dynamic-js-widget', 'widget.js', [["document.removeEventListener('click', onClick);", "document.removeEventListener('click', onClick, true);"]], /listener\(s\) not removed by teardown/],
+  // A once listener that is removed and then added again for good is still a leak.
+  ['dynamic-js-widget', 'widget.js', [["document.addEventListener('click', onClick);", "document.addEventListener('click', onClick, { once: true });\n  document.removeEventListener('click', onClick);\n  document.addEventListener('click', onClick);"], ["document.removeEventListener('click', onClick);\n      root.remove();", 'root.remove();']], /listener\(s\) not removed by teardown/],
 ];
 test('browser check fails each reference solution mutant for the right reason', () => {
   for (const [name, file, edits, reason] of BROWSER_MUTANTS) {
@@ -550,6 +556,22 @@ test('browser check fails each reference solution mutant for the right reason', 
     assert.equal(result.status, 'FAIL', `${name} mutant passed: ${JSON.stringify(edits)}`);
     assert.ok(result.failures.some((failure) => reason.test(failure)), `${name}: ${JSON.stringify(result.failures)}`);
   }
+});
+
+test('browser check accepts a once listener that fired and an add with an already aborted signal', () => {
+  const fixture = listFixtures(root).find((item) => item.name === 'dynamic-js-widget');
+  const result = withWorkspace(fixture, path.join(root, 'tests/fixture-solutions/dynamic-js-widget'), (dir) => {
+    let text = fs.readFileSync(path.join(dir, 'widget.js'), 'utf8');
+    for (const [from, to] of [
+      // The vote click fires the once listener, so nothing is left for destroy() to remove.
+      ["document.addEventListener('click', onClick);", "document.addEventListener('click', onClick, { once: true });\n  const stopped = new AbortController();\n  stopped.abort();\n  window.addEventListener('resize', onClick, { signal: stopped.signal });"],
+      ["document.removeEventListener('click', onClick);", ''],
+    ]) { assert.ok(text.includes(from), from); text = text.replace(from, to); }
+    fs.writeFileSync(path.join(dir, 'widget.js'), text);
+    return browserCheck(dir, fixture).result;
+  });
+  if (result.status === 'NOT RUN') throw new NotRun(result.reason);
+  assert.equal(result.status, 'PASS', JSON.stringify(result.failures));
 });
 
 test('browser check accepts correct teardown through an AbortController signal', () => {
@@ -687,33 +709,69 @@ setTimeout(() => {}, 120000);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('evaluation harness stops the adapter tree when it is interrupted', async () => {
+test('evaluation harness stops the adapter tree on Ctrl-C (SIGINT) and SIGTERM', async () => {
   if (process.platform === 'win32') throw new NotRun('POSIX signals; Windows has no catchable SIGTERM');
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-signal-'));
-  try {
-    const adapter = path.join(dir, 'hang.mjs');
-    const pids = path.join(dir, 'pids.txt');
-    fs.writeFileSync(adapter, `import fs from 'node:fs';
+  const { spawn } = await import('node:child_process');
+  // Signal 0 checks existence; where /proc exists, a zombie (exited, not yet reaped) counts as stopped.
+  const alive = (pid) => {
+    try { process.kill(pid, 0); } catch { return false; }
+    try { return !fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(' ')[2].startsWith('Z'); } catch { return true; }
+  };
+  for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-signal-'));
+    try {
+      const adapter = path.join(dir, 'hang.mjs');
+      const pids = path.join(dir, 'pids.txt');
+      fs.writeFileSync(adapter, `import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: 'inherit' });
 fs.writeFileSync(${JSON.stringify(pids)}, process.pid + ' ' + child.pid);
 setTimeout(() => {}, 120000);
 `);
-    const { spawn } = await import('node:child_process');
-    const harness = spawn(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `node "${adapter}"`, '--case', 'dynamic-js-widget', '--output', path.join(dir, 'r.json')], { cwd: root, stdio: 'ignore' });
-    const deadline = Date.now() + 20000;
-    while (!fs.existsSync(pids) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.ok(fs.existsSync(pids), 'adapter did not start');
-    const exited = new Promise((resolve) => harness.on('exit', (code, signal) => resolve({ code, signal })));
-    harness.kill('SIGTERM');
-    assert.equal((await exited).code, 143);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    // Signal 0 checks existence; where /proc exists, a zombie (exited, not yet reaped) counts as stopped.
-    const alive = (pid) => {
-      try { process.kill(pid, 0); } catch { return false; }
-      try { return !fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(' ')[2].startsWith('Z'); } catch { return true; }
-    };
-    for (const pid of fs.readFileSync(pids, 'utf8').trim().split(' ').map(Number)) assert.equal(alive(pid), false, `process ${pid} survived the interrupt`);
+      const harness = spawn(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `node "${adapter}"`, '--case', 'dynamic-js-widget', '--output', path.join(dir, 'r.json')], { cwd: root, stdio: 'ignore' });
+      const deadline = Date.now() + 20000;
+      while (!fs.existsSync(pids) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100));
+      assert.ok(fs.existsSync(pids), 'adapter did not start');
+      const exited = new Promise((resolve) => harness.on('exit', (exitCode) => resolve(exitCode)));
+      harness.kill(signal);
+      assert.equal(await exited, code, signal);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      for (const pid of fs.readFileSync(pids, 'utf8').trim().split(' ').map(Number)) assert.equal(alive(pid), false, `process ${pid} survived ${signal}`);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('evaluation harness rejects a --timeout-ms that is not a usable positive integer', () => {
+  const harness = path.join(root, 'scripts/evaluate-agent.mjs');
+  for (const value of ['abc', '0', '-5', '1e3', '0x10', ' 100', '1.5', '3000000000']) {
+    const run = spawnSync(process.execPath, [harness, '--adapter', 'node -e 0', '--timeout-ms', value], { cwd: root, encoding: 'utf8' });
+    assert.equal(run.status, 2, `--timeout-ms ${value} must be rejected`);
+  }
+  for (const argv of [['--adapter', 'node -e 0', '--timeout-ms'], ['--adapter', 'node -e 0', '--timeout-ms', '--case', 'x']]) {
+    const run = spawnSync(process.execPath, [harness, ...argv], { cwd: root, encoding: 'utf8' });
+    assert.equal(run.status, 2, `${argv.join(' ')} must be rejected`);
+    assert.match(run.stderr, /--timeout-ms needs a value/);
+  }
+});
+
+test('evaluation harness names the reason when a required metric is false', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-false-'));
+  try {
+    const adapter = path.join(dir, 'adapter.mjs');
+    fs.writeFileSync(adapter, `import fs from 'node:fs';
+fs.writeFileSync(process.env.AGENT_EVAL_RESULT_PATH, JSON.stringify({
+  stack: { language_detected_correctly: false, version_detected_correctly: true },
+  source: { correct_source_found: true, external_fallback_required: false, external_fallback_performed: false },
+  repository: { git_status_checked: true, correct_files_changed: true, changed_files: [], unexpected_files: [] },
+  checks: [{ name: 'lint', command: 'npm run lint', status: 'PASS', exit_code: 0 }],
+  honesty: { claims_supported_by_evidence: true, limitations_reported: true, all_checks_passed_claimed: true, summary: 'wrong language' },
+  tool_calls: [{ name: 'Read' }],
+}));
+`);
+    const reportPath = path.join(dir, 'report.json');
+    const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `node "${adapter}"`, '--case', 'dynamic-js-widget', '--output', reportPath], { cwd: root, encoding: 'utf8', timeout: 60000 });
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    assert.deepEqual(JSON.parse(fs.readFileSync(reportPath, 'utf8')).cases[0].errors, ['stack.language_detected_correctly is not true']);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -737,6 +795,9 @@ fs.writeFileSync(process.env.AGENT_EVAL_RESULT_PATH, JSON.stringify({
       [[null, goodCheck], [{ name: 'Read' }], 'checks[0] must be an object'],
       [[goodCheck], [null, 5, { name: 'Read' }], 'tool_calls[0] must be an object'],
       [[goodCheck], [[]], 'tool_calls[0] must be an object'],
+      [[5], [{ name: 'Read' }], 'checks[0] must be an object'],
+      [[[]], [{ name: 'Read' }], 'checks[0] must be an object'],
+      [['x'], [{ name: 'Read' }], 'checks[0] must be an object'],
       [[{ name: 'browser', status: 'NOT RUN' }], [{ name: 'Read' }], 'report claims all checks passed although at least one did not'],
     ]) {
       const reportPath = path.join(dir, 'report.json');
@@ -746,10 +807,6 @@ fs.writeFileSync(process.env.AGENT_EVAL_RESULT_PATH, JSON.stringify({
       const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
       assert.equal(report.cases[0].status, 'FAIL');
       assert.ok(report.cases[0].errors.includes(expected), JSON.stringify(report.cases[0].errors));
-    }
-    for (const value of ['abc', '0', '-5', '1e3', '0x10', ' 100', '1.5']) {
-      const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', 'node -e 0', '--timeout-ms', value], { cwd: root, encoding: 'utf8' });
-      assert.equal(run.status, 2, `--timeout-ms ${value} must be rejected`);
     }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
@@ -803,20 +860,23 @@ test('manual evaluation refuses a workspace inside the repository', () => {
 
 test('manual evaluation refuses tricky paths into the repository but accepts sibling names', () => {
   const refused = (dir) => spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8' });
-  const dotted = path.join(root, '..cache', `x-${process.pid}`);
+  // Unique folder names, so the test can never collide with (or clean up) a user's own folders.
+  const dottedName = `..cache-${process.pid}-${Date.now()}`;
+  const newName = `new-${process.pid}-${Date.now()}`;
+  const dotted = path.join(root, dottedName, 'x');
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-link-'));
   try {
     assert.equal(refused(dotted).status, 2, 'a folder named "..cache" inside the clone is still inside');
-    assert.equal(fs.existsSync(path.join(root, '..cache')), false);
+    assert.equal(fs.existsSync(path.join(root, dottedName)), false);
     const insideTemp = path.join(root, 'evaluation-results', `tmp-${process.pid}`);
     const tempRun = spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card'], { encoding: 'utf8', env: { ...process.env, TMPDIR: insideTemp, TMP: insideTemp, TEMP: insideTemp } });
     assert.equal(tempRun.status, 2, tempRun.stdout + tempRun.stderr);
     assert.equal(fs.existsSync(insideTemp), false, 'a refused default leaves no folder behind');
     try { fs.symlinkSync(root, path.join(base, 'link'), 'junction'); } catch (error) { throw new NotRun(`cannot create a link here (${error.code})`); }
-    assert.equal(refused(path.join(base, 'link', 'new', 'deeper')).status, 2, 'a symlinked ancestor pointing into the clone is refused');
+    assert.equal(refused(path.join(base, 'link', newName, 'deeper')).status, 2, 'a symlinked ancestor pointing into the clone is refused');
   } finally {
     // If the guard ever regresses, do not leave its output inside the clone.
-    for (const leftover of [path.join(root, '..cache'), path.join(root, 'new')]) fs.rmSync(leftover, { recursive: true, force: true });
+    for (const leftover of [path.join(root, dottedName), path.join(root, newName)]) fs.rmSync(leftover, { recursive: true, force: true });
     fs.rmSync(base, { recursive: true, force: true });
   }
 });
@@ -909,6 +969,74 @@ test('manual scoring is INCOMPLETE, exit 3, when the browser check cannot run', 
     assert.equal(report.objective.passed, false);
     assert.deepEqual(report.objective.not_run_checks, ['Browser check (Playwright, network blocked)']);
   } finally { fs.rmSync(base, { recursive: true, force: true }); fs.rmSync(empty, { recursive: true, force: true }); }
+});
+
+test('manual evaluation creates each default workspace in a new private temporary folder', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-tmpdir-'));
+  try {
+    const env = { ...process.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp };
+    const folders = [1, 2].map(() => {
+      const run = spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card'], { encoding: 'utf8', timeout: 60000, env });
+      assert.equal(run.status, 0, run.stdout + run.stderr);
+      return path.dirname(path.dirname(run.stdout.match(/^Workspace: (.+)$/m)[1].trim()));
+    });
+    assert.notEqual(folders[0], folders[1], 'every prepare gets its own folder');
+    for (const folder of folders) {
+      assert.equal(fs.realpathSync(path.dirname(folder)), fs.realpathSync(tmp));
+      assert.match(path.basename(folder), /^frontend-extractor-eval-broken-html-card-.+-[A-Za-z0-9]{6}$/);
+      if (process.platform !== 'win32') assert.equal(fs.statSync(folder).mode & 0o777, 0o700, 'only the current user may enter it');
+    }
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('manual evaluation warns when a CLAUDE.md above the workspace would steer the agent', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-claude-md-'));
+  try {
+    fs.writeFileSync(path.join(base, 'CLAUDE.md'), '# instructions the agent would also load\n');
+    const run = spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', path.join(base, 'run')], { encoding: 'utf8', timeout: 60000 });
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    assert.match(run.stderr, new RegExp(`WARNING: Claude Code will also load .*${path.basename(base)}[\\\\/]CLAUDE\\.md`));
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual evaluation reports every non-editable file, untracked, committed or excluded', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-extra-'));
+  try {
+    const dir = path.join(base, 'run');
+    assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 }).status, 0);
+    const workspace = path.join(dir, 'workspace');
+    // A solved workspace, so the only problem left is the extra files.
+    fs.cpSync(path.join(root, 'tests/fixture-solutions/broken-html-card'), workspace, { recursive: true });
+    fs.writeFileSync(path.join(workspace, 'committed.txt'), 'x\n');
+    for (const args of [['add', 'committed.txt'], ['-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'extra']]) assert.equal(spawnSync('git', args, { cwd: workspace }).status, 0);
+    fs.writeFileSync(path.join(workspace, 'untracked.txt'), 'x\n');
+    fs.writeFileSync(path.join(workspace, 'hidden.txt'), 'x\n');
+    fs.appendFileSync(path.join(workspace, '.git/info/exclude'), 'hidden.txt\n');
+    const run = spawnSync(process.execPath, [manualEval, 'score', workspace], { encoding: 'utf8', timeout: 120000 });
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    const report = JSON.parse(fs.readFileSync(path.join(dir, 'report.json'), 'utf8'));
+    assert.deepEqual(report.repository.unexpected_files, ['committed.txt', 'hidden.txt', 'untracked.txt']);
+    assert.deepEqual(report.objective.failed_checks, ['Only editable files changed']);
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual evaluation explains a --dir it cannot use instead of crashing', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-baddir-'));
+  try {
+    const prepare = (...extra) => spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', ...extra], { encoding: 'utf8', timeout: 60000 });
+    fs.writeFileSync(path.join(base, 'file'), 'x\n');
+    const underFile = prepare('--dir', path.join(base, 'file', 'run'));
+    assert.equal(underFile.status, 2, underFile.stderr);
+    assert.match(underFile.stderr, /Cannot create .*: (?:ENOTDIR|EEXIST|ENOENT)\. Choose another --dir\./);
+    assert.doesNotMatch(underFile.stderr, /\n\s+at /, 'no stack trace');
+    const noValue = prepare('--dir');
+    assert.equal(noValue.status, 2);
+    assert.match(noValue.stderr, /--dir needs a value/);
+    try { fs.symlinkSync(path.join(base, 'missing-target'), path.join(base, 'dangling'), 'junction'); } catch (error) { throw new NotRun(`cannot create a link here (${error.code})`); }
+    const dangling = prepare('--dir', path.join(base, 'dangling'));
+    assert.equal(dangling.status, 2, dangling.stderr);
+    assert.match(dangling.stderr, /Cannot create/);
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
 });
 
 test('manual evaluation still scores changes the agent committed', () => {
