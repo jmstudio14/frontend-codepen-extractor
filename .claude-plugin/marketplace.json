@@ -12,20 +12,18 @@
       "displayName": "Multilanguage Code & Component Extractor",
       "category": "development",
       "tags": [
-        "multilanguage",
-        "multiframework",
-        "agent-architecture",
-        "evaluation",
-        "source-provenance"
-      ],
-      "tags": [
         "frontend",
         "codepen",
         "codemyui",
         "source-discovery",
         "refactoring",
         "accessibility",
-        "reconstruction"
+        "reconstruction",
+        "multilanguage",
+        "multiframework",
+        "agent-architecture",
+        "evaluation",
+        "source-provenance"
       ]
     }
   ],
