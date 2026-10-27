@@ -97,21 +97,16 @@ if (manifest) {
 }
 
 const agent = readFile(pluginRoot + '/agents/frontend-codepen-extractor.md') || '';
-const agentMeta = agent.match(/^---\r?
-([\s\S]*?)\r?
----/);
+const agentMeta = agent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 check(Boolean(agentMeta), 'Plugin agent frontmatter is present');
 if (agentMeta) {
   check(/^name:\s*frontend-codepen-extractor\s*$/m.test(agentMeta[1]), 'Plugin agent name is correct');
   check(/^description:\s*\S/m.test(agentMeta[1]), 'Plugin agent description is present');
-  check(/^skills:\s*\r?
-\s*-\s*frontend-codepen-extractor\s*$/m.test(agentMeta[1]), 'Plugin agent declares its matching skill');
+  check(/^skills:\s*\r?\n\s*-\s*frontend-codepen-extractor\s*$/m.test(agentMeta[1]), 'Plugin agent declares its matching skill');
 }
 
 const skill = readFile(pluginRoot + '/skills/frontend-codepen-extractor/SKILL.md') || '';
-const skillMeta = skill.match(/^---\r?
-([\s\S]*?)\r?
----/);
+const skillMeta = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 check(Boolean(skillMeta), 'Plugin skill frontmatter is present');
 if (skillMeta) {
   check(/^name:\s*frontend-codepen-extractor\s*$/m.test(skillMeta[1]), 'Plugin skill name is correct');
@@ -168,9 +163,7 @@ for (const term of ['Mandatory fallback rule', 'proceed to Stage 2 automatically
 }
 
 const copilotAgent = readFile('.github/agents/frontend-codepen-extractor.agent.md') || '';
-const copilotMeta = copilotAgent.match(/^---\r?
-([\s\S]*?)\r?
----/);
+const copilotMeta = copilotAgent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 check(Boolean(copilotMeta), 'GitHub Copilot custom agent frontmatter is present');
 if (copilotMeta) {
   check(/^name:\s*frontend-codepen-extractor\s*$/m.test(copilotMeta[1]), 'Copilot agent name is correct');
@@ -184,6 +177,5 @@ for (const relativePath of referencePaths) {
   check(readFile(relativePath) !== null, 'Skill reference exists: ' + relativePath);
 }
 
-console.log('
-Plugin packaging validation: ' + (total - failed) + '/' + total + ' checks passed.');
+console.log('\nPlugin packaging validation: ' + (total - failed) + '/' + total + ' checks passed.');
 if (failed > 0) process.exitCode = 1;
