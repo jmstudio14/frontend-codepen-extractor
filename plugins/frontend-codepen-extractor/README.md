@@ -1,4 +1,4 @@
-# Frontend CodePen Extractor plugin
+# Multilanguage Code & Component Extractor plugin
 
 This is the packaged Claude Code plugin for progressively searching and evaluating CodePen, UIverse.io, CodeMyUI, GitHub, and external sources before extracting, reconstructing, and integrating frontend examples. The canonical installation guide is [../../INSTALL.md](../../INSTALL.md).
 
