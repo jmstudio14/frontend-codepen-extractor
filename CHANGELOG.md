@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added `package-lock.json`, which pins the `yaml` devDependency with its integrity hash. CI now installs with `npm ci --ignore-scripts`, and `npm ci --ignore-scripts` is the first local validation step.
+- The architect-plan YAML test now fails with an actionable message when `yaml` is not installed, instead of a module-resolution stack trace.
+- Ignored `node_modules/`.
+
 ## 2.13.0
 
 - Bundled eight specialist agents in the Claude Code plugin: `frontend-architect-planner`, `frontend-qa-test-engineer`, `frontend-security-reviewer`, `frontend-extractor-validation-agent`, `frontend-performance-optimizer`, `frontend-documentation-maintainer`, `frontend-code-auditor`, and `agent-ecosystem-coordinator`. Plugin users get them without cloning the repository.

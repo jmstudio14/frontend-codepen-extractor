@@ -5,6 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { classifyCommand } from './block-dangerous-commands.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -83,6 +84,8 @@ test('architect planner scenarios parse and have unique IDs with positive and ne
 });
 
 test('architect plan YAML parser accepts a valid plan and rejects missing approval gate', () => {
+  try { createRequire(path.join(root, 'package.json')).resolve('yaml'); }
+  catch { throw new Error("dependency 'yaml' is not installed; run npm ci --ignore-scripts"); }
   const validator = path.join(root, 'scripts/evaluation/validate-architect-plan.mjs');
   const validPath = path.join(os.tmpdir(), 'architect-plan-valid-' + process.pid + '.yaml');
   const invalidPath = path.join(os.tmpdir(), 'architect-plan-invalid-' + process.pid + '.yaml');
