@@ -3,6 +3,7 @@
   "version": "2.13.0",
   "private": true,
   "description": "Multilanguage coding agent with runtime evaluation, progressive source discovery, and repository-aware verification",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "validate": "node scripts/validate-agent.mjs && node scripts/validate-plugin.mjs",

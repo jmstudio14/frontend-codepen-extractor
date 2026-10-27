@@ -12,6 +12,7 @@ A repository-aware engineering agent that detects your project's language, frame
 ![Version](https://img.shields.io/badge/version-2.13.0-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![Repository](https://img.shields.io/badge/repository-public-22c55e)
+![License: MIT](https://img.shields.io/badge/license-MIT-0ea5e9)
 
 </div>
 
@@ -270,6 +271,10 @@ Before submitting a change:
 2. Update tests or validation when distribution files change.
 3. Run `npm run validate:all`.
 4. Document behavior changes and any compatibility caveats.
+
+## License
+
+Released under the [MIT License](LICENSE). Third-party components that the agent extracts or adapts into your projects remain under their original authors' licenses; the skill records source and attribution so you can comply with them.
 
 ## Security
 

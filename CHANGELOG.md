@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added the MIT License (`LICENSE`, copyright jmstudio14) and declared it in `package.json`, the plugin manifest and the README.
 - The repository is public: updated README, INSTALL, the plugin README and the marketplace description, which still described it as private and required Git credentials to install.
 - Added a **Test report** issue form (`.github/ISSUE_TEMPLATE/test-report.yml`) and `docs/testing-guide.md`, so anyone testing the agent can report results in a comparable format: scenario, result, failures, false claims, cost, environment and evidence, plus a required confirmation that secrets were removed.
 - Removed every evaluation path that needs a paid API key, by owner decision:

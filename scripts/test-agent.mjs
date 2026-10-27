@@ -404,4 +404,12 @@ test('test-report issue form is valid and keeps required, privacy-safe fields', 
   assert.ok(config.contact_links.every((link) => /^https:\/\//.test(link.url)));
 });
 
+test('repository is MIT licensed consistently', () => {
+  const license = fs.readFileSync(path.join(root, 'LICENSE'), 'utf8');
+  assert.match(license, /^MIT License/);
+  assert.match(license, /Copyright \(c\) 2026 jmstudio14/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).license, 'MIT');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'plugins/frontend-codepen-extractor/.claude-plugin/plugin.json'), 'utf8')).license, 'MIT');
+});
+
 console.log(`\nSmoke tests finished: ${passed} passed${process.exitCode ? ', with failures' : ''}.`);

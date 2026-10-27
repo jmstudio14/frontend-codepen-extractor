@@ -96,6 +96,8 @@ if (manifest) {
   check(typeof manifest.description === 'string' && manifest.description.length > 10, 'Plugin manifest description is present');
   check(typeof manifest.author?.name === 'string' && manifest.author.name.length > 0, 'Plugin manifest author.name is present');
   check(/^https:\/\//.test(manifest.homepage || ''), 'Plugin homepage is a valid HTTPS URL');
+  check(manifest.license === 'MIT', 'Plugin manifest declares the MIT license');
+  check(readFile('LICENSE') !== null, 'Repository LICENSE file exists');
 }
 
 const agent = readFile(pluginRoot + '/agents/frontend-codepen-extractor.md') || '';
