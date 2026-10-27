@@ -43,7 +43,7 @@ Fixes from a full review of the repository: three independent read-only reviews 
   - The planner guide lists `approved_by: null` and the `npm ci` prerequisite.
   - Agent docs no longer merge the "NOT RUN" sentence into the last bullet, and the QA and security docs separate allowed tools from prohibitions.
   - The build loop no longer says the auditor PR is open.
-  - CHANGELOG 2.14.0 is grouped and no longer describes removed tooling as added.
+  - CHANGELOG 2.14.0 is grouped and no longer describes removed tooling as added. The 2.13.0 entry now counts seven specialists plus the coordinator.
 
 ### Changed
 - **Security gate.**
@@ -70,11 +70,13 @@ Released so that `claude plugin update` delivers the plugin changes made after 2
 - `scripts/evaluation/manual-eval.mjs` (`npm run evaluate:manual`) for measuring the real agent without an API key. `prepare` creates a fixture workspace and prints the exact prompt to run in Claude Code with a normal subscription; `score` runs the syntax, fixture, browser, whitespace and edited-files checks and writes `report.json`. Tests cover a FAIL on each untouched fixture and a PASS on each reference solution.
 - Three executable evaluation fixtures (`dynamic-js-widget`, `broken-html-card`, `external-deps-gallery`) with assertion scripts, `fixture.json` manifests and matching suite cases. Reference solutions in `tests/fixture-solutions/` prove that every assertion can be met.
 - `scripts/evaluation/browser-check.mjs`, an optional Playwright check with the network blocked: page errors, visibility, overflow at 360px, accessible names, interactions, literal text, teardown of timers and listeners, and screenshots. Without Playwright it records NOT RUN.
+- `docs/measurement-protocol.md`, the step-by-step manual measurement procedure.
 - `package-lock.json`, pinning the `yaml` devDependency with its integrity hash. CI installs with `npm ci --ignore-scripts`, which is also the first local validation step.
 - Smoke tests that keep the package, lockfile, marketplace, plugin, README badge and CHANGELOG versions identical; that fail if any file references a paid API key or keeps stale setup wording (including untracked files, and failing if `git grep` itself errors); and that fail if a build-queue entry is left `in_pr`.
 
 ### Changed
-- `docs/agent-evaluation.md` and `docs/measurement-protocol.md` describe the manual mode. Agent docs, case files and the build loop say that live evaluation is a manual Claude Code run with no API key.
+- `docs/agent-evaluation.md` describes the manual mode. Agent docs, case files and the build loop say that live evaluation is a manual Claude Code run with no API key.
+- The package description no longer mentions runtime evaluation.
 - The repository is public: README, INSTALL, the plugin README and the marketplace description no longer describe it as private or ask for Git credentials.
 - The required Node.js version is 22 (the version CI uses) in `package.json` engines, the README, INSTALL, the plugin README and `validate-agent.ps1`.
 - `evaluation/agent-build-queue.json` records every agent as merged.

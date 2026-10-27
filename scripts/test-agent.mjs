@@ -385,6 +385,68 @@ test('security gate resolves plugin-scoped delegates and applies read-only rules
   }
 });
 
+test('the smoke-test runner reports a failing async test as FAIL', () => {
+  const run = spawnSync(process.execPath, [path.join(root, 'scripts/test-agent.mjs')], { cwd: root, encoding: 'utf8', timeout: 60000, env: { ...process.env, TEST_AGENT_SELFTEST: 'async-failure' } });
+  assert.equal(run.status, 1, run.stdout + run.stderr);
+  assert.match(run.stderr, /FAIL {2}planted async failure: planted/);
+  assert.match(run.stdout, /0 passed, with failures/);
+});
+
+test('validators and plugin sync pass on a checkout with CRLF line endings', () => {
+  const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'crlf-checkout-'));
+  try {
+    fs.cpSync(root, copy, { recursive: true, filter: (src) => !['.git', 'node_modules', 'evaluation-results'].includes(path.basename(src)) });
+    const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]);
+    let converted = 0;
+    for (const file of walk(copy).filter((file) => /\.(?:md|json|mjs|yml)$/.test(file))) {
+      const text = fs.readFileSync(file, 'utf8');
+      fs.writeFileSync(file, text.replace(/\r?\n/g, '\r\n'));
+      converted += 1;
+    }
+    assert.ok(converted > 100);
+    assert.match(fs.readFileSync(path.join(copy, '.claude/agents/agent-ecosystem-coordinator.md'), 'utf8'), /\r\n/);
+    for (const script of ['scripts/sync-plugin-agents.mjs', 'scripts/validate-plugin.mjs', 'scripts/validate-agent.mjs']) {
+      const run = spawnSync(process.execPath, [path.join(copy, script), ...(script.includes('sync') ? ['--check'] : [])], { cwd: copy, encoding: 'utf8', timeout: 60000 });
+      assert.equal(run.status, 0, `${script} on CRLF files: ${run.stdout.split('\n').filter((line) => /FAIL|STALE/.test(line)).join('\n')}${run.stderr}`);
+    }
+  } finally { fs.rmSync(copy, { recursive: true, force: true }); }
+});
+
+// Each mutant breaks one behavior of a reference solution; the browser check must fail for that reason.
+const BROWSER_MUTANTS = [
+  ['dynamic-js-widget', 'widget.js', [["{ name: 'Alpha', votes: 3 }", "{ name: 'Alpha', votes: 4 }"]], /already shown before the click/],
+  ['dynamic-js-widget', 'widget.js', [['items[Number(vote.dataset.i)].votes += 1;', '']], /after click, .* is not shown/],
+  // Removing a listener that was never added must not hide the real one.
+  ['dynamic-js-widget', 'widget.js', [["document.removeEventListener('click', onClick);", "document.removeEventListener('click', () => {});"]], /listener\(s\) not removed by teardown/],
+  ['leaky-animation-prototype', 'prototype.js', [['cancelAnimationFrame(frame);', '']], /requestAnimationFrame still running after teardown/],
+  ['leaky-animation-prototype', 'prototype.js', [["window.removeEventListener('resize', onResize);", '']], /listener\(s\) not removed by teardown/],
+];
+test('browser check fails each reference solution mutant for the right reason', () => {
+  for (const [name, file, edits, reason] of BROWSER_MUTANTS) {
+    const fixture = listFixtures(root).find((item) => item.name === name);
+    const result = withWorkspace(fixture, path.join(root, 'tests/fixture-solutions', name), (dir) => {
+      let text = fs.readFileSync(path.join(dir, file), 'utf8');
+      for (const [from, to] of edits) { assert.ok(text.includes(from), `${name}: mutant anchor missing: ${from}`); text = text.replace(from, to); }
+      fs.writeFileSync(path.join(dir, file), text);
+      return browserCheck(dir, fixture).result;
+    });
+    if (result.status === 'NOT RUN') throw new NotRun(result.reason);
+    assert.equal(result.status, 'FAIL', `${name} mutant passed: ${JSON.stringify(edits)}`);
+    assert.ok(result.failures.some((failure) => reason.test(failure)), `${name}: ${JSON.stringify(result.failures)}`);
+  }
+});
+
+test('browser check reports NOT RUN, not FAIL, when the Chromium download is missing', () => {
+  const fixture = listFixtures(root).find((item) => item.name === 'broken-html-card');
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'no-browsers-'));
+  try {
+    const run = withWorkspace(fixture, null, (dir) => spawnSync(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), dir, path.join(fixture.dir, 'fixture.json')], { cwd: root, encoding: 'utf8', timeout: 60000, env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: empty } }));
+    const result = JSON.parse(run.stdout.trim().split(/\r?\n/).pop() || '{}');
+    assert.equal(run.status, 0);
+    assert.equal(result.status, 'NOT RUN');
+  } finally { fs.rmSync(empty, { recursive: true, force: true }); }
+});
+
 test('plugin agent copies are in sync with .claude/agents', () => {
   const run = spawnSync(process.execPath, [path.join(root, 'scripts/sync-plugin-agents.mjs'), '--check'], { cwd: root, encoding: 'utf8', timeout: 30000 });
   assert.equal(run.status, 0, `run node scripts/sync-plugin-agents.mjs; stderr: ${run.stderr}`);
@@ -650,6 +712,24 @@ test('manual evaluation rejects a tampered base commit or a replaced history', (
   } finally { fs.rmSync(base, { recursive: true, force: true }); }
 });
 
+test('manual scoring accepts CRLF line endings but fails real trailing whitespace', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-crlf-'));
+  try {
+    const dir = path.join(base, 'run');
+    assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 }).status, 0);
+    const workspace = path.join(dir, 'workspace');
+    const solution = path.join(root, 'tests/fixture-solutions/broken-html-card');
+    for (const file of fs.readdirSync(solution)) fs.writeFileSync(path.join(workspace, file), fs.readFileSync(path.join(solution, file), 'utf8').replace(/\r?\n/g, '\r\n'));
+    const whitespace = () => {
+      spawnSync(process.execPath, [manualEval, 'score', workspace], { encoding: 'utf8', timeout: 120000 });
+      return JSON.parse(fs.readFileSync(path.join(dir, 'report.json'), 'utf8')).checks.find((check) => check.name === 'Git diff whitespace').status;
+    };
+    assert.equal(whitespace(), 'PASS', 'CRLF is a line ending, not trailing whitespace');
+    fs.appendFileSync(path.join(workspace, 'card.css'), '.extra { color: red; }   \r\n');
+    assert.equal(whitespace(), 'FAIL', 'trailing spaces still fail');
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
 test('manual evaluation still scores changes the agent committed', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-commit-'));
   try {
@@ -678,6 +758,8 @@ for (const fixture of listFixtures(root)) {
       assert.equal(prepared.status, 0, prepared.stderr);
       const workspace = path.join(dir, 'workspace');
       for (const hostFile of hostOnlyFiles(fixture.manifest)) assert.equal(fs.existsSync(path.join(workspace, hostFile)), false, hostFile + ' must not reach the agent');
+      // Stated directly, so dropping the manifest's host_only_files cannot pass unnoticed.
+      if (fixture.manifest.case_id === 'web-extraction-regression') assert.equal(fs.existsSync(path.join(workspace, 'README.md')), false, 'the defect list must not reach the agent');
       assert.equal(spawnSync('git', ['status', '--short'], { cwd: workspace, encoding: 'utf8' }).stdout.trim(), '');
       assert.match(fs.readFileSync(path.join(dir, 'prompt.txt'), 'utf8'), new RegExp(fixture.manifest.prompt_suffix.slice(0, 40).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
       const untouched = spawnSync(process.execPath, [manualEval, 'score', workspace], { encoding: 'utf8', timeout: 120000 });
@@ -733,6 +815,11 @@ test('package, marketplace and plugin versions stay identical', () => {
   assert.match(fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8'), new RegExp(`^## ${version.replace(/\./g, '\\.')}$`, 'm'));
 });
 
+// Self-test of the runner itself: a child run with only a planted failing async test must report FAIL.
+if (process.env.TEST_AGENT_SELFTEST === 'async-failure') {
+  queue.length = 0;
+  test('planted async failure', async () => { await new Promise((resolve) => setTimeout(resolve, 20)); throw new Error('planted'); });
+}
 for (const { name, fn } of queue) {
   try { await fn(); passed += 1; console.log(`PASS  ${name}`); }
   catch (error) {
