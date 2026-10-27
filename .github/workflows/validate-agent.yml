@@ -3,6 +3,20 @@ name: Validate agent and plugin package
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      case_id:
+        description: Live Claude Agent SDK scenario (web-extraction-regression is configured)
+        required: true
+        default: web-extraction-regression
+        type: string
+      repeat:
+        description: Number of repeated runs (1-5)
+        required: true
+        default: "1"
+        type: string
+  schedule:
+    - cron: "17 8 * * 1"
 
 permissions:
   contents: read
@@ -21,7 +35,88 @@ jobs:
         run: node scripts/validate-agent.mjs
       - name: Validate Claude Code plugin and marketplace
         run: node scripts/validate-plugin.mjs
+      - name: Syntax-check evaluation scripts
+        run: |
+          node --check scripts/adapters/claude-agent-sdk.mjs
+          node --check scripts/evaluation/check-web-fixture.mjs
+          node --check scripts/evaluation/compare-baseline.mjs
+          node --check scripts/evaluation/run-repeated.mjs
+          python -m py_compile scripts/evaluation/run_deepeval.py
       - name: Run smoke tests
         run: node scripts/test-agent.mjs
       - name: Run evaluation harness fixture
         run: node scripts/evaluate-agent.mjs --adapter "node tests/fixtures/evaluation-adapter.mjs" --output "$RUNNER_TEMP/agent-evaluation-smoke.json"
+
+  live-agent-evaluation:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      EVAL_CASE_ID: ${{ inputs.case_id || 'web-extraction-regression' }}
+      EVAL_REPEAT: ${{ inputs.repeat || '1' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Restore rolling evaluation history
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/agent-evaluation-history.jsonl
+          key: agent-evaluation-history-${{ github.run_id }}
+          restore-keys: |
+            agent-evaluation-history-
+      - name: Initialize evaluation history
+        run: touch "$RUNNER_TEMP/agent-evaluation-history.jsonl"
+      - name: Install Claude Agent SDK
+        if: env.ANTHROPIC_API_KEY != ''
+        run: npm install --no-save @anthropic-ai/claude-agent-sdk@0.3.301
+      - name: Run repeated real-agent evaluation
+        if: env.ANTHROPIC_API_KEY != ''
+        run: |
+          node scripts/evaluation/run-repeated.mjs \
+            --adapter "node scripts/adapters/claude-agent-sdk.mjs" \
+            --case "$EVAL_CASE_ID" --repeat "$EVAL_REPEAT" \
+            --output "$RUNNER_TEMP/agent-evaluation-report.json" \
+            --history "$RUNNER_TEMP/agent-evaluation-history.jsonl" \
+            --baseline evaluation/baselines/current.json
+      - name: Record skipped live evaluation when Anthropic credentials are absent
+        if: env.ANTHROPIC_API_KEY == ''
+        run: |
+          printf '{"status":"NOT RUN","reason":"ANTHROPIC_API_KEY is not configured; no Claude Agent SDK invocation occurred."}\n' > "$RUNNER_TEMP/agent-evaluation-report.json"
+          printf '{"generated_at":"%s","git_sha":"%s","github_run_id":"%s","status":"NOT RUN","reason":"ANTHROPIC_API_KEY not configured"}\n' "$(date -u +%FT%TZ)" "$GITHUB_SHA" "$GITHUB_RUN_ID" >> "$RUNNER_TEMP/agent-evaluation-history.jsonl"
+          echo "Live evaluation skipped honestly: ANTHROPIC_API_KEY is not configured."
+      - name: Install optional DeepEval judge
+        if: env.ANTHROPIC_API_KEY != '' && env.OPENAI_API_KEY != ''
+        run: python -m pip install -r evaluation/requirements-deepeval.txt
+      - name: Run optional DeepEval semantic evaluation
+        if: env.ANTHROPIC_API_KEY != '' && env.OPENAI_API_KEY != ''
+        run: |
+          python scripts/evaluation/run_deepeval.py \
+            --report "$RUNNER_TEMP/agent-evaluation-report.json" \
+            --output "$RUNNER_TEMP/agent-evaluation-semantic.json"
+      - name: Mark semantic evaluation as not run
+        if: env.ANTHROPIC_API_KEY == '' || env.OPENAI_API_KEY == ''
+        run: |
+          printf '{"status":"NOT RUN","reason":"Live Anthropic run or OPENAI_API_KEY judge credential is missing."}\n' > "$RUNNER_TEMP/agent-evaluation-semantic.json"
+      - name: Save rolling evaluation history
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/agent-evaluation-history.jsonl
+          key: agent-evaluation-history-${{ github.run_id }}
+      - name: Upload live evaluation reports and history
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-evaluation-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/agent-evaluation-report.json
+            ${{ runner.temp }}/agent-evaluation-semantic.json
+            ${{ runner.temp }}/agent-evaluation-history.jsonl
+          if-no-files-found: warn
+          retention-days: 90

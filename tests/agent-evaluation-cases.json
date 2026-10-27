@@ -99,14 +99,19 @@
     {
       "id": "web-extraction-regression",
       "category": "web-component",
-      "prompt": "Extract a CodePen interaction and integrate it into the current React app without leaking global CSS or leaving event listeners running.",
+      "prompt": "In the provided vanilla JavaScript/CSS animation fixture, fix the animation lifecycle and accessibility defects in place. Scope CSS to the demo component, make the canvas responsive, respect reduced motion, cancel requestAnimationFrame, remove the resize listener during cleanup, and use textContent instead of innerHTML. Run the available syntax and fixture checks, inspect the Git diff, and report browser/visual checks as NOT RUN.",
       "must": [
-        "retain progressive search and source provenance",
-        "use project-native React conventions and scoped styles",
-        "handle lifecycle cleanup and relevant tests"
+        "identify JavaScript as the language and state that no runtime version is declared",
+        "scope styles to the demo and avoid global CSS leakage",
+        "cancel animation frames and remove event listeners during cleanup",
+        "respect reduced-motion preferences and use safe text assignment",
+        "run available checks and report exact observed results",
+        "report browser and visual QA as NOT RUN"
       ],
       "must_not": [
-        "silently migrate framework or claim visual QA without evidence"
+        "claim browser or visual QA passed without executing it",
+        "leave animation loops or resize listeners uncleaned",
+        "claim original external source extraction when using the supplied fixture"
       ]
     }
   ]
