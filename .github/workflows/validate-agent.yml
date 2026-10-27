@@ -147,10 +147,8 @@ jobs:
       - name: Record skipped live evaluation when Anthropic credentials are absent
         if: env.ANTHROPIC_API_KEY == ''
         run: |
-          printf '{"status":"NOT RUN","reason":"ANTHROPIC_API_KEY is not configured; no Claude Agent SDK invocation occurred."}
-' > "$RUNNER_TEMP/agent-evaluation-report.json"
-          printf '{"generated_at":"%s","git_sha":"%s","github_run_id":"%s","status":"NOT RUN","reason":"ANTHROPIC_API_KEY not configured"}
-' "$(date -u +%FT%TZ)" "$GITHUB_SHA" "$GITHUB_RUN_ID" >> "$RUNNER_TEMP/agent-evaluation-history.jsonl"
+          printf '{"status":"NOT RUN","reason":"ANTHROPIC_API_KEY is not configured; no Claude Agent SDK invocation occurred."}\n' > "$RUNNER_TEMP/agent-evaluation-report.json"
+          printf '{"generated_at":"%s","git_sha":"%s","github_run_id":"%s","status":"NOT RUN","reason":"ANTHROPIC_API_KEY not configured"}\n' "$(date -u +%FT%TZ)" "$GITHUB_SHA" "$GITHUB_RUN_ID" >> "$RUNNER_TEMP/agent-evaluation-history.jsonl"
           echo "Live evaluation skipped honestly: ANTHROPIC_API_KEY is not configured."
       - name: Install optional DeepEval judge
         if: env.ANTHROPIC_API_KEY != '' && env.OPENAI_API_KEY != ''
@@ -164,8 +162,7 @@ jobs:
       - name: Mark semantic evaluation as not run
         if: env.ANTHROPIC_API_KEY == '' || env.OPENAI_API_KEY == ''
         run: |
-          printf '{"status":"NOT RUN","reason":"Live Anthropic run or OPENAI_API_KEY judge credential is missing."}
-' > "$RUNNER_TEMP/agent-evaluation-semantic.json"
+          printf '{"status":"NOT RUN","reason":"Live Anthropic run or OPENAI_API_KEY judge credential is missing."}\n' > "$RUNNER_TEMP/agent-evaluation-semantic.json"
       - name: Save rolling evaluation history
         if: always()
         uses: actions/cache/save@v4
