@@ -9,7 +9,7 @@ A repository-aware engineering agent that progressively searches for frontend ex
 [Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
 
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
-![Version](https://img.shields.io/badge/version-2.6.0-64748b)
+![Version](https://img.shields.io/badge/version-2.6.1-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/repository-private-8b5cf6)
 
@@ -234,6 +234,7 @@ GitHub Actions runs structural validation and smoke tests on pushes and pull req
 
 - **[Installation guide](INSTALL.md)** — agent-specific installation, private GitHub authentication, verification, updates, uninstalling, and troubleshooting.
 - **[Changelog](CHANGELOG.md)** — version history.
+- **[CodeMyUI ingestion guide](.agents/skills/frontend-codepen-extractor/references/codemyui-ingestion.md)** — finding examples, tracing original sources, extraction limits, attribution, and reconstruction.
 - **[Claude Code plugin](plugins/frontend-codepen-extractor/README.md)** — plugin-specific instructions.
 
 ## Contributing
