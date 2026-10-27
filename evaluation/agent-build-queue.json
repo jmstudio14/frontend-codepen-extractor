@@ -591,7 +591,7 @@
       "id": "privacy-compliance-reviewer",
       "name": "frontend-privacy-compliance-reviewer",
       "priority": "P2",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "security-reviewer-merged",
         "extractor-validation-merged"
@@ -638,7 +638,14 @@
         "External terms can change"
       ],
       "rollback": "Remove reviewer and documentation from its dedicated PR.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "branch": "feat/frontend-privacy-compliance-reviewer",
+      "files": [
+        ".claude/agents/frontend-privacy-compliance-reviewer.md",
+        "docs/agents/frontend-privacy-compliance-reviewer.md",
+        "tests/agent-cases/privacy-compliance-reviewer.json"
+      ],
+      "pull_request": "pending"
     },
     {
       "sequence": 11,
