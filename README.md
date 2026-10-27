@@ -245,6 +245,10 @@ claude plugin validate .
 
 GitHub Actions runs structural validation, smoke tests, the deterministic evaluation fixture, and a documentation-based runtime compatibility assessment. The assessment does not select a runtime or invoke a model; a separate CI job performs credential-free package import smoke tests. Live evaluation is opt-in and remains disabled until `AGENT_EVAL_SELECTED_RUNTIME=claude-agent-sdk` is explicitly configured; fixture CI is never counted as a live LLM evaluation. Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
 
+### Delivery review with the coordinator
+
+Run `claude --agent agent-ecosystem-coordinator` as the main-thread agent. It routes the current diff to the read-only specialist agents and returns DELIVER only when independent security, QA and audit verdicts pass and `npm run validate:all` and `npm run security` exit 0. It cannot launch the implementation agent, merge, or deploy.
+
 ## Documentation
 
 - **[Installation guide](INSTALL.md)** — agent-specific installation, private GitHub authentication, verification, updates, uninstalling, and troubleshooting.

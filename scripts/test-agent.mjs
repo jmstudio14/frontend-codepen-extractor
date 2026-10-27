@@ -306,4 +306,21 @@ test('security gate blocks write tools on read-only agents and workflow write pe
   assert.match(run.stderr, /workflow-default-permissions/);
 });
 
+test('security gate limits delegation to existing read-only agents', () => {
+  const reviewer = '---\nname: frontend-security-reviewer\ntools: Read, Grep\n---\n';
+  const developer = '---\nname: frontend-codepen-extractor\ntools: Read, Edit, Write\n---\n';
+  const coordinator = (tools) => `---\nname: agent-ecosystem-coordinator\ntools: ${tools}\n---\n`;
+  const base = { '.claude/agents/frontend-security-reviewer.md': reviewer, '.claude/agents/frontend-codepen-extractor.md': developer };
+  assert.equal(runGate({ ...base, '.claude/agents/agent-ecosystem-coordinator.md': coordinator('Agent(frontend-security-reviewer), Read') }).status, 0);
+  for (const [tools, detail] of [
+    ['Agent(frontend-security-reviewer, frontend-codepen-extractor), Read', /delegate frontend-codepen-extractor can write/],
+    ['Agent(missing-agent), Read', /delegate missing-agent does not exist/],
+    ['Agent, Read', /must list its delegates/],
+  ]) {
+    const run = runGate({ ...base, '.claude/agents/agent-ecosystem-coordinator.md': coordinator(tools) });
+    assert.equal(run.status, 1, tools);
+    assert.match(run.stderr, detail);
+  }
+});
+
 console.log(`\nSmoke tests finished: ${passed} passed${process.exitCode ? ', with failures' : ''}.`);

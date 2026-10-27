@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Turned `agent-ecosystem-coordinator` into a working coordinator: it runs as the main-thread agent, can launch only an explicit allowlist of the read-only specialists (never the implementation agent), routes by changed paths, bounds retries to run failures, and delivers only on independent security, QA and audit PASS verdicts plus its own `validate:all` and `security` runs.
+- The security gate now rejects delegation to missing or writable agents and `Agent` without an explicit list.
 - Added `scripts/security-gate.mjs` (`npm run security`), a deterministic CI gate that fails on committed secrets, `eval`/`new Function` in scripts, unapproved `shell: true`, workflow write permissions, and write tools on any subagent other than `frontend-codepen-extractor`. It enforces blocking without relying on an LLM verdict.
 - Replaced generic `description` fields on seven specialist agents with role-specific text so Claude Code can route tasks to them.
 - Fixed the smoke-test summary, which was printed before the final tests ran and under-reported the total.

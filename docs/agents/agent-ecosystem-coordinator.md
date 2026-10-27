@@ -1,6 +1,13 @@
 # agent-ecosystem-coordinator
 
-The coordinator defines a bounded, traceable workflow across specialist agents. This profile does not enable automatic agent invocation, approval, merge, or deployment.
+The coordinator runs a bounded, traceable review workflow across the read-only specialist agents. It can launch specialists, but it never approves, merges, deploys, or launches the implementation agent.
+
+## Invocation
+Run it as the main-thread agent, because subagents cannot spawn subagents:
+
+    claude --agent agent-ecosystem-coordinator
+
+Its `tools` field lists every delegate explicitly as `Agent(...)`. `frontend-codepen-extractor` is excluded. `scripts/security-gate.mjs` fails CI if a delegate does not exist, can write, or if `Agent` is declared without a list. When invoked without the Agent tool, the coordinator reports `BLOCKED` with `delegation_mode: unavailable`.
 
 ## Safety gates
 - Preserve the user's original requirements.
@@ -24,4 +31,4 @@ See `tests/agent-cases/coordinator.json`; scenarios do not prove successful orch
 Status: NOT RUN until sandboxed orchestration is explicitly configured and approved.
 
 ## Rollback
-Disable coordinator entry point and return to manual agent invocation.
+Remove `Agent(...)` from the coordinator's `tools` and return to manual agent invocation.
