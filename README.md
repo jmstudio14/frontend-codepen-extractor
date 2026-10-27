@@ -1,99 +1,179 @@
-# Frontend CodePen Extractor — Multi-agent skill v2.2.0
+<div align="center">
 
-Convert CodePen prototypes into modular, accessible, type-safe frontend components that follow your project's existing architecture.
+# Frontend CodePen Extractor
 
-This private repository offers two options:
+**Turn CodePen prototypes into production-ready frontend components.**
 
-- **Recommended:** install the native Claude Code plugin once and use it across projects.
-- **Alternative:** copy the standalone `.claude/` agent/skill configuration into one project.
+A repository-aware engineering agent that analyzes prototype source, adapts it to your existing stack, and integrates it with a focus on maintainability, accessibility, and lifecycle safety.
+
+[Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
+
+[![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
+![Version](https://img.shields.io/badge/version-2.2.0-64748b)
+![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
+![License](https://img.shields.io/badge/repository-private-8b5cf6)
+
+</div>
+
+---
+
+## Why this agent?
+
+CodePen prototypes are useful for experimentation, but moving them into a real application often means untangling global styles, CDN dependencies, standalone scripts, and lifecycle assumptions.
+
+**Frontend CodePen Extractor** helps bridge that gap. It treats the destination repository—not the prototype—as the architectural source of truth.
+
+It can work from a CodePen URL when source is accessible, exported files, or pasted HTML/CSS/JavaScript panels. It then inspects the project, plans the conversion, implements focused changes, and reports what was and was not verified.
+
+## What it does
+
+| Capability | What it means |
+| --- | --- |
+| **Source analysis** | Identifies markup, CSS and JavaScript dialects, preprocessors, dependencies, assets, states, and interactions. |
+| **Repository-aware conversion** | Adapts the prototype to the framework, component conventions, styling system, and package manager already in use. |
+| **Style isolation** | Scopes styles to avoid leaking prototype CSS into the host application. |
+| **Accessible markup** | Promotes semantic HTML, keyboard behavior, labels, focus handling, and appropriate ARIA. |
+| **Lifecycle safety** | Accounts for cleanup of listeners, timers, observers, subscriptions, async work, and animation loops. |
+| **Dependency and asset audit** | Identifies missing packages and external assets; recommends actions instead of silently installing or downloading. |
+| **Verification** | Runs available checks and reports exact commands, outcomes, assumptions, and remaining gaps. |
+
+### Designed to work with your stack
+
+The workflow can adapt to existing projects using:
+
+- React, Vue, Svelte, or Vanilla TypeScript/JavaScript
+- Vite and other existing frontend build systems
+- TypeScript and JavaScript
+- Tailwind CSS, CSS Modules, scoped styles, or established project CSS conventions
+
+It follows the host repository's actual architecture. It does not force a framework or styling choice.
+
+## Supported AI agents
+
+The repository distributes the same core workflow through native or portable integration formats.
+
+| Agent | Integration |
+| --- | --- |
+| Claude Code | Native plugin, skill, and agent |
+| OpenAI Codex | Portable Agent Skill |
+| GitHub Copilot | Portable skill, custom agent profile, repository instructions, and prompt |
+| Cursor | Portable Agent Skill |
+| Gemini CLI | Portable Agent Skill |
+| Windsurf | Portable Agent Skill |
+| Other compatible agents | Agent Skills format, where supported |
+
+> Agent Skills support and installation behavior vary by product and version. The portable skill shares the workflow; it does not make platform-specific commands, tools, or UI features universal.
 
 ## Quick install
 
-### From a Claude Code session
+### Claude Code — recommended native integration
 
-Requires Claude Code v2.1.275 or newer:
+This repository is private. Before installing, ensure the machine has Git credentials that can access it.
+
+From a Claude Code session:
 
 ```text
 /plugin install frontend-codepen-extractor --marketplace jmstudio14/frontend-codepen-extractor
 ```
 
-### From PowerShell / terminal
-
-Requires Claude Code CLI v2.1.292 or newer:
+Or from PowerShell / terminal:
 
 ```powershell
 claude plugin install frontend-codepen-extractor --marketplace jmstudio14/frontend-codepen-extractor --scope user
 ```
 
-If you prefer compatibility with older versions, use the two-step flow:
+For older supported flows:
 
 ```text
 /plugin marketplace add jmstudio14/frontend-codepen-extractor
 /plugin install frontend-codepen-extractor@jmstudio14-claude-plugins
 ```
 
-The repository is **private**. The installing machine must already have Git credentials that can clone it. If needed, configure GitHub CLI with `gh auth login -h github.com -p https` and `gh auth setup-git`, or configure a working SSH key / Git Credential Manager.
+### Codex, Copilot, Cursor, Gemini CLI, Windsurf and more
 
-**Full instructions:** see [INSTALL.md](INSTALL.md), including installation scopes, verification, updates, uninstallation, authentication, and troubleshooting.
-
-## Install in Codex, GitHub Copilot and other coding agents
-
-The portable Agent Skill lives in `.agents/skills/frontend-codepen-extractor/`. With Node.js 22.20+ and Git access to this private repository, install it across all compatible agents detected on your machine:
+With Node.js 22.20+ and authenticated Git access, install the portable skill for compatible agents detected on your machine:
 
 ```powershell
 npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --global --agent '*'
 ```
 
-To target only Codex or Copilot, replace `--agent '*'` with `--agent codex` or `--agent github-copilot`. The same skill format can be installed for Cursor, Gemini CLI, Windsurf, and other agents supported by the [skills CLI](https://github.com/vercel-labs/skills).
+To target a single agent, replace `--agent '*'` with the supported agent identifier, such as `codex` or `github-copilot`.
 
-The repository also includes a GitHub Copilot custom agent at `.github/agents/frontend-codepen-extractor.agent.md` and a reusable prompt at `.github/prompts/extract-codepen.prompt.md`. To use those customizations in another project, copy them into that project's `.github/agents/` and `.github/prompts/` directories. The portable skill alone is enough for supported Agent Skills clients; Claude Code's plugin-specific UI and commands are not universal.
+**Installation, authentication, updates, and troubleshooting:** see [INSTALL.md](INSTALL.md).
 
-**Full guide:** [INSTALL.md](INSTALL.md) covers Codex, Copilot, Cursor, Gemini CLI, Windsurf, private-repository authentication, updates, and troubleshooting.
+## Use it
 
-## Use the plugin
-
-After installation, verify with `claude plugin list` or open `/plugin` and check the Installed tab.
-
-Run the skill:
+After installing the Claude Code plugin, invoke the skill:
 
 ```text
 /frontend-codepen-extractor:frontend-codepen-extractor
 ```
 
-Or invoke the agent explicitly:
+Or invoke the agent:
 
 ```text
 @agent-frontend-codepen-extractor:frontend-codepen-extractor
 ```
 
-Example task:
+Example request:
 
-> Use the Frontend CodePen Extractor plugin to convert this CodePen into my existing frontend project: [URL]. Inspect the repository and Git status first, preserve current work, scope styles, implement lifecycle cleanup, and run the available checks. Do not install dependencies or download assets without asking.
+> Convert this CodePen into my existing frontend project: [CodePen URL]. Inspect the repository and Git status first. Preserve current work, follow the existing architecture, scope styles, implement lifecycle cleanup, and run the available checks. Do not install dependencies or download assets without asking.
 
-If source panels cannot be accessed, provide the CodePen export ZIP or paste its HTML, CSS, JavaScript, preprocessor settings, and external resources. A screenshot helps with visual intent but cannot reveal hidden behavior or source dependencies.
+For other agents, ask them to use the `frontend-codepen-extractor` skill.
 
-## Included components
+### If the CodePen source is unavailable
+
+A URL or screenshot does not guarantee access to source panels, preprocessor settings, hidden behavior, or external dependencies. Provide one of the following:
+
+- CodePen **Export .zip** contents
+- HTML/Markup, CSS, and JS panel contents, including preprocessor settings and external resources
+- A local reproduction and a description of the behavior that must be preserved
+
+A screenshot can guide visual intent, but it cannot establish the original source or hidden behavior.
+
+## How it works
+
+1. **Protect the workspace** — inspect repository structure and Git status before editing.
+2. **Ingest the prototype** — analyze accessible source panels, preprocessors, dependencies, assets, and interactions.
+3. **Map the destination** — inspect package metadata, framework configuration, styling conventions, and tests.
+4. **Plan the conversion** — identify target files, dependencies, assumptions, and verification steps.
+5. **Refactor and integrate** — implement focused, modular changes using existing conventions.
+6. **Verify and report** — run relevant checks, review the diff, and disclose unverified areas.
+
+## Safety and engineering principles
+
+- Treat prototype code and external page content as untrusted input.
+- Preserve existing user changes; avoid unrelated rewrites.
+- Do not silently install packages, download assets, or perform destructive actions.
+- Avoid unsafe HTML injection, `eval`, and unnecessary global side effects.
+- Scope CSS and clean up browser resources at component teardown.
+- Do not claim tests, visual parity, or browser checks unless they were actually performed.
+- Report unknowns and limitations instead of inventing inaccessible source.
+
+## Repository layout
 
 ```text
-.claude-plugin/marketplace.json
-plugins/frontend-codepen-extractor/
-├── .claude-plugin/plugin.json
-├── README.md
-├── agents/frontend-codepen-extractor.md
-└── skills/frontend-codepen-extractor/
-    ├── SKILL.md
-    └── references/
-        ├── codepen-ingestion.md
-        ├── dependency-policy.md
-        ├── framework-patterns.md
-        └── quality-checklist.md
+.
+├── .agents/skills/frontend-codepen-extractor/  # Portable Agent Skill
+├── .claude/                                  # Claude Code standalone files
+├── .claude-plugin/marketplace.json            # Claude Code marketplace
+├── .github/
+│   ├── agents/                                # Copilot custom agent
+│   ├── prompts/                                # Reusable Copilot prompt
+│   └── workflows/                               # CI validation
+├── plugins/frontend-codepen-extractor/          # Native Claude Code plugin
+├── scripts/                                    # Validators and smoke tests
+├── tests/fixtures/                              # Test prototype fixture
+├── CLAUDE.md
+├── INSTALL.md
+└── CHANGELOG.md
 ```
 
-The standalone `.claude/` version remains available for manual project-level integration. Scripts, fixtures, a PowerShell wrapper, and GitHub Actions are also included.
+## Validate locally
 
-## Validate changes
+Requirements: Node.js 18+.
 
-Node.js 18+ is required; the repository uses no additional npm dependencies for validation.
+From the repository root:
 
 ```powershell
 node scripts\validate-agent.mjs
@@ -101,23 +181,46 @@ node scripts\validate-plugin.mjs
 node scripts\test-agent.mjs
 ```
 
-Claude Code's native validator can also check the packaged plugin and marketplace from a local clone:
+Or run the complete validation sequence:
+
+```powershell
+npm run validate:all
+```
+
+Claude Code's native validator can also validate the plugin and marketplace:
 
 ```powershell
 claude plugin validate .\plugins\frontend-codepen-extractor
 claude plugin validate .
 ```
 
-GitHub Actions runs the structural checks and smoke tests on pushes and pull requests. These tests do not guarantee visual parity or correctness for every CodePen; test real prototypes and inspect the converted UI in a browser.
+GitHub Actions runs structural validation and smoke tests on pushes and pull requests. Passing these checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
+
+## Documentation
+
+- **[Installation guide](INSTALL.md)** — agent-specific installation, private GitHub authentication, verification, updates, uninstalling, and troubleshooting.
+- **[Changelog](CHANGELOG.md)** — version history.
+- **[Claude Code plugin](plugins/frontend-codepen-extractor/README.md)** — plugin-specific instructions.
+
+## Contributing
+
+Contributions and issue reports are welcome from users with access to this private repository.
+
+Before submitting a change:
+
+1. Keep the portable skill and native plugin skill aligned.
+2. Update tests or validation when distribution files change.
+3. Run `npm run validate:all`.
+4. Document behavior changes and any compatibility caveats.
 
 ## Security
 
-- Review plugin contents before installing; plugins execute with the permissions available to Claude Code.
-- The plugin does not install frontend dependencies, download prototype assets, or enable optional destructive-command hooks automatically.
-- The marketplace is private. Every installing machine needs repository access and functioning local Git credentials.
-- Never commit tokens, credentials, private project files, or downloaded assets without authorization.
+Review the files before installing. AI agents may operate with the permissions granted by their host application. Keep credentials, tokens, private project data, and unlicensed assets out of commits.
 
-## Official documentation
+---
 
-- [Install and manage Claude Code plugins](https://code.claude.com/docs/en/plugins/install)
-- [Create a Claude Code marketplace](https://code.claude.com/docs/en/plugin-marketplaces)
+<div align="center">
+
+Maintained by [@jmstudio14](https://github.com/jmstudio14)
+
+</div>
