@@ -64,6 +64,23 @@ for (const { rel, full } of files.filter((item) => /^\.claude\/agents\/[^/]+\.md
   if (/\b(?:Edit|Write|NotebookEdit)\b/.test(tools)) finding('read-only-agent-can-write', rel, `tools: ${tools}`);
 }
 
+// Delegating agents must name each delegate, and delegates must be read-only.
+const agentFiles = files.filter((item) => /^\.claude\/agents\/[^/]+\.md$/.test(item.rel));
+const agentNames = new Set(agentFiles.map((item) => path.basename(item.rel, '.md')));
+for (const { rel, full } of agentFiles) {
+  const tools = (read(full) ?? '').match(/^---\r?\n[\s\S]*?^tools:\s*(.+)$/m)?.[1] ?? '';
+  if (!/\bAgent\b/.test(tools)) continue;
+  const list = tools.match(/\bAgent\(([^)]*)\)/)?.[1];
+  if (list === undefined || /\bAgent\b(?!\()/.test(tools.replace(/\bAgent\([^)]*\)/, ''))) {
+    finding('agent-delegation-scope', rel, 'Agent must list its delegates as Agent(name, ...)');
+    continue;
+  }
+  for (const name of list.split(',').map((item) => item.trim()).filter(Boolean)) {
+    if (!agentNames.has(name)) finding('agent-delegation-scope', rel, `delegate ${name} does not exist`);
+    else if (WRITE_ALLOWED_AGENTS.has(`.claude/agents/${name}.md`)) finding('agent-delegation-scope', rel, `delegate ${name} can write`);
+  }
+}
+
 for (const item of findings) console.error(`BLOCK ${item.rule}: ${item.file} ${item.detail}`);
 console.log(`Security gate: ${files.length} files scanned, ${findings.length} finding(s).`);
 if (findings.length) process.exitCode = 1;
