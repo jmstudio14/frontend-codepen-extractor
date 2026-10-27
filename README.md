@@ -1,4 +1,4 @@
-# Frontend CodePen Extractor — Claude Code plugin v2.1.0
+# Frontend CodePen Extractor — Multi-agent skill v2.2.0
 
 Convert CodePen prototypes into modular, accessible, type-safe frontend components that follow your project's existing architecture.
 
