@@ -4,12 +4,12 @@
 
 **Turn CodePen prototypes into production-ready frontend components.**
 
-A repository-aware engineering agent that analyzes prototype source, adapts it to your existing stack, and integrates it with a focus on maintainability, accessibility, and lifecycle safety.
+A repository-aware engineering agent that progressively searches for frontend examples, evaluates source quality and fit, then extracts or reconstructs them for your existing stack with maintainability, accessibility, and lifecycle safety.
 
 [Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
 
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
-![Version](https://img.shields.io/badge/version-2.5.0-64748b)
+![Version](https://img.shields.io/badge/version-2.6.0-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/repository-private-8b5cf6)
 
@@ -23,13 +23,13 @@ CodePen prototypes are useful for experimentation, but moving them into a real a
 
 **Frontend CodePen Extractor** helps bridge that gap. It treats the destination repository—not the prototype—as the architectural source of truth.
 
-It can work from a CodePen URL when source is accessible, exported files, or pasted HTML/CSS/JavaScript panels. It then inspects the project, plans the conversion, implements focused changes, and reports what was and was not verified.
+It can search CodePen, UIverse.io, CodeMyUI, GitHub, and other external sources; it works from a source URL when code is accessible, exported files, or pasted HTML/CSS/JavaScript panels. It then inspects the project, plans the conversion, implements focused changes, and reports what was and was not verified.
 
 ## What it does
 
 | Capability | What it means |
 | --- | --- |
-| **Source analysis** | Identifies markup, CSS and JavaScript dialects, preprocessors, dependencies, assets, states, and interactions. |
+| **Progressive discovery** | Searches predefined sources first, then expands to external web sources and GitHub when no strong match is found. |\n| **Candidate evaluation** | Ranks examples by identity, visual/behavior match, source quality, project fit, provenance, and licensing; tracks unknowns instead of guessing. |\n| **Source analysis** | Identifies markup, CSS and JavaScript dialects, preprocessors, dependencies, assets, states, and interactions. |
 | **Repository-aware conversion** | Adapts the prototype to the framework, component conventions, styling system, and package manager already in use. |
 | **Style isolation** | Scopes styles to avoid leaking prototype CSS into the host application. |
 | **Accessible markup** | Promotes semantic HTML, keyboard behavior, labels, focus handling, and appropriate ARIA. |
