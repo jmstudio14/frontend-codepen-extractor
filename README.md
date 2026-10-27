@@ -2,14 +2,14 @@
 
 # Frontend CodePen Extractor
 
-**Turn CodePen prototypes into production-ready frontend components.**
+**A multilanguage, multiframework coding agent with progressive source discovery and web-component extraction.**
 
-A repository-aware engineering agent that progressively searches for frontend examples, evaluates source quality and fit, then extracts or reconstructs them for your existing stack with maintainability, accessibility, and lifecycle safety.
+A repository-aware engineering agent that detects your project's language, framework, runtime and conventions; researches sources progressively; and implements, debugs, refactors and verifies code in the native stack. It retains its specialist workflow for extracting or reconstructing web components from CodePen, UIverse.io, CodeMyUI, GitHub and external sources.
 
 [Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
 
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
-![Version](https://img.shields.io/badge/version-2.6.2-64748b)
+![Version](https://img.shields.io/badge/version-2.7.0-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/repository-private-8b5cf6)
 
@@ -37,9 +37,19 @@ It can search CodePen, UIverse.io, CodeMyUI, GitHub, and other external sources;
 | **Dependency and asset audit** | Identifies missing packages and external assets; recommends actions instead of silently installing or downloading. |
 | **Verification** | Runs available checks and reports exact commands, outcomes, assumptions, and remaining gaps. |
 
+### Multilanguage and multiframework by design
+
+The agent is not limited to HTML/CSS or frontend work. It first inspects manifests, lockfiles, configuration, source layout, tests and CI to identify the actual language, framework/runtime version and target package or service. It then adapts implementation, research and verification to that environment.
+
+Illustrative ecosystems include JavaScript/TypeScript and frontend frameworks; Python; Java/Kotlin; C#/.NET; Go; Rust; PHP; Ruby; Swift; C/C++; Dart/Flutter; SQL; shell scripting; and infrastructure configuration. This is not a guarantee that every compiler, SDK, database or external service is installed: the agent must report unavailable toolchains and checks honestly.
+
+For general programming tasks, it uses authoritative language/framework documentation, maintainer repositories and version-specific examples. It selects native checks where available (tests, lint, formatting, type checking, static analysis and build). It does not force web-specific rules onto non-web projects.
+
+See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md).
+
 ### Designed to work with your stack
 
-The workflow can adapt to existing projects using:
+For web projects, the workflow can adapt to existing projects using:
 
 - React, Vue, Svelte, or Vanilla TypeScript/JavaScript
 - Vite and other existing frontend build systems
@@ -163,7 +173,7 @@ Beyond extracting panel code, the agent supports:
 - **Accessibility/security audits:** semantics, keyboard/focus, labels, ARIA, reduced motion, unsafe HTML/dynamic execution, external resources, and lifecycle resilience.
 - **Honest verification:** PASS / FAIL / NOT RUN; no invented source, assets, results, or pixel-perfect claims.
 
-See [the reconstruction playbook](.agents/skills/frontend-codepen-extractor/references/reconstruction-playbook.md) for detailed procedures.
+See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md) for general programming tasks, and [the reconstruction playbook](.agents/skills/frontend-codepen-extractor/references/reconstruction-playbook.md) for detailed procedures.
 
 ## How it works
 
