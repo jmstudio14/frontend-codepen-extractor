@@ -29,3 +29,7 @@ export function listFixtures(root) {
 export function findFixture(root, caseId) {
   return listFixtures(root).find((fixture) => fixture.manifest.case_id === caseId) ?? null;
 }
+
+export function buildPrompt(testCase, manifest) {
+  return `${testCase.prompt}\n\nUse the frontend-codepen-extractor skill. Work only in this workspace. Inspect Git status before editing, make focused changes, inspect the diff, and report evidence honestly. ${manifest.prompt_suffix} Do not claim browser or visual QA was run. State that this is vanilla browser JavaScript and whether a runtime version is declared.`;
+}

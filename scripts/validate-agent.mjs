@@ -35,7 +35,7 @@ const required = [
   '.claude/agents/frontend-qa-test-engineer.md', 'docs/agents/frontend-qa-test-engineer.md', 'tests/agent-cases/qa-test-engineer.json',
   '.claude/agents/frontend-codepen-extractor.md',
   '.claude/agents/frontend-code-auditor.md', 'docs/agent-auditor.md',
-  '.claude/agents/frontend-architect-planner.md', 'docs/frontend-architect-planner.md', 'tests/architect-planner-cases.json', 'scripts/evaluation/validate-architect-plan.mjs', 'scripts/evaluation/evaluate-planner-live.mjs',
+  '.claude/agents/frontend-architect-planner.md', 'docs/frontend-architect-planner.md', 'tests/architect-planner-cases.json', 'scripts/evaluation/validate-architect-plan.mjs',
   '.claude/skills/frontend-codepen-extractor/SKILL.md',
   '.claude/skills/frontend-codepen-extractor/references/codepen-ingestion.md',
   '.claude/skills/frontend-codepen-extractor/references/uiverse-ingestion.md',
@@ -48,8 +48,7 @@ const required = [
   '.claude/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
   '.claude/skills/frontend-codepen-extractor/references/agent-architecture.md',
   'tests/agent-evaluation-cases.json', 'scripts/evaluate-agent.mjs', 'docs/agent-evaluation.md', 'tests/fixtures/evaluation-adapter.mjs',
-  'scripts/adapters/claude-agent-sdk.mjs', 'scripts/evaluation/run-repeated.mjs', 'scripts/evaluation/check-web-fixture.mjs', 'scripts/evaluation/compare-baseline.mjs', 'scripts/evaluation/run_deepeval.py', 'evaluation/requirements-deepeval.txt', 'evaluation/baselines/README.md',
-  'scripts/evaluation/assess-runtimes.mjs', 'scripts/evaluation/probe-runtimes.mjs', 'evaluation/runtime-compatibility.json', 'docs/runtime-compatibility.md',
+  'scripts/evaluation/check-web-fixture.mjs', 'scripts/evaluation/manual-eval.mjs',
   '.claude/settings.example.json',
   'CLAUDE.md', 'README.md', 'CHANGELOG.md', 'package.json',
   'scripts/block-dangerous-commands.mjs', 'scripts/test-agent.mjs',
@@ -194,7 +193,7 @@ for (const term of ['language_detected_correctly', 'version_detected_correctly',
   evaluationRunner.includes(term) ? pass('Runtime evaluator records ' + term) : fail('Runtime evaluator records ' + term);
 }
 const evaluationGuide = read('docs/agent-evaluation.md') ?? '';
-for (const term of ['AGENT_EVAL_RESULT_PATH', 'wall-clock duration', 'real agent run has occurred', 'NOT RUN', 'DeepEval', 'ANTHROPIC_API_KEY']) {
+for (const term of ['AGENT_EVAL_RESULT_PATH', 'wall-clock duration', 'NOT RUN', 'manual-eval.mjs', 'no API key']) {
   evaluationGuide.toLowerCase().includes(term.toLowerCase()) ? pass('Evaluation guide explains ' + term) : fail('Evaluation guide explains ' + term);
 }
 for (const term of ['multilanguage', 'multiframework', 'multilanguage-engineering.md']) {

@@ -53,7 +53,6 @@
         "scripts/test-agent.mjs",
         "tests/architect-planner-cases.json",
         "scripts/evaluation/validate-architect-plan.mjs",
-        "scripts/evaluation/evaluate-planner-live.mjs",
         "package.json",
         ".github/workflows/validate-agent.yml",
         "README.md",
@@ -84,7 +83,7 @@
       ],
       "risks": [
         "YAML parser dependency choice",
-        "SDK execution may require configured credentials"
+        "Live model evaluation is manual in Claude Code; no API key is used"
       ],
       "rollback": "Remove the profile, evaluator and docs; revert the dedicated PR.",
       "plan_approval_required": true,

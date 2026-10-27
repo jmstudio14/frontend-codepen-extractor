@@ -32,7 +32,7 @@ node scripts/test-agent.mjs
 npm run evaluate:fixture
 ```
 
-A live model evaluation is separate and opt-in. Install the pinned project dependencies and Claude Agent SDK, configure authentication without printing or committing secrets, then run `npm run evaluate:planner:live -- --case clear-repository-backed-plan --output /tmp/planner-live.json`. Omit `--case` to evaluate all six scenarios. The report records model/runtime, output, schema result, elapsed time, and cost/usage where returned. Schema-valid outputs are marked `SCHEMA_PASS_SEMANTIC_REVIEW_REQUIRED`; a human must assess required/forbidden behavior. Missing credentials means no model invocation and `NOT RUN`, never PASS.
+To evaluate the planner itself, invoke `frontend-architect-planner` in Claude Code on one of the scenarios in `tests/architect-planner-cases.json`, save its YAML answer, and validate it with `node scripts/evaluation/validate-architect-plan.mjs <plan.yaml>`. This needs no API key. A schema-valid plan still requires human review of the required and forbidden behavior; schema validity is not proof of good reasoning. Until such a run is reviewed, the planner's live quality is NOT RUN.
 
 ## Limitations
 

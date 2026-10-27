@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Removed every evaluation path that needs a paid API key, by owner decision:
+  - the Claude Agent SDK adapter;
+  - the live planner evaluator;
+  - the DeepEval judge, which needed `OPENAI_API_KEY`;
+  - the repeat/baseline tooling for paid runs;
+  - the `live-agent-evaluation` and `runtime-selection-pending` CI jobs.
+- Removed the runtime compatibility assessment and the SDK import smoke tests, whose only purpose was choosing an SDK for paid evaluation. CI now runs a single `validate` job, and none of it needs an API key.
+- Added `scripts/evaluation/manual-eval.mjs` (`npm run evaluate:manual`). `prepare` creates a fixture workspace and prints the exact prompt to run in Claude Code with a normal subscription. `score` runs the syntax, fixture, browser, whitespace and edited-files checks and writes `report.json`. Tests cover a FAIL on each untouched fixture and a PASS on each reference solution.
+- Rewrote `docs/agent-evaluation.md` and `docs/measurement-protocol.md` for the manual mode. A smoke test now fails if any file references a paid API key again.
 - Added three executable evaluation fixtures (`dynamic-js-widget`, `broken-html-card`, `external-deps-gallery`) with objective assertion scripts, `fixture.json` manifests and three matching suite cases. Reference solutions in `tests/fixture-solutions/` prove that every assertion can be met.
 - The Claude Agent SDK adapter now selects the fixture, allowed files, assertions and prompt from the manifest instead of hard-coding one fixture. Manifests and assertion scripts are not copied into the agent workspace.
 - Added `scripts/evaluation/browser-check.mjs`, an optional Playwright check with the network blocked. It covers page errors, visibility, overflow at 360px, accessible names, interactions, literal text and teardown of timers and listeners, and saves screenshots. Without Playwright it records NOT RUN.

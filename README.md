@@ -47,7 +47,7 @@ Illustrative ecosystems include JavaScript/TypeScript and frontend frameworks; P
 
 For general programming tasks, it uses authoritative language/framework documentation, maintainer repositories and version-specific examples. It selects native checks where available (tests, lint, formatting, type checking, static analysis and build). It does not force web-specific rules onto non-web projects.
 
-See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md), [the agent architecture and extension contracts](.agents/skills/frontend-codepen-extractor/references/agent-architecture.md), the [regression scenario suite](tests/agent-evaluation-cases.json), the [runtime compatibility assessment](docs/runtime-compatibility.md), and the [runtime evaluation harness guide](docs/agent-evaluation.md), and the [measurement protocol](docs/measurement-protocol.md).
+See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md), [the agent architecture and extension contracts](.agents/skills/frontend-codepen-extractor/references/agent-architecture.md), the [regression scenario suite](tests/agent-evaluation-cases.json), the [agent evaluation guide](docs/agent-evaluation.md), and the [manual measurement protocol](docs/measurement-protocol.md), which needs no API key.
 
 ### Designed to work with your stack
 
@@ -244,7 +244,7 @@ claude plugin validate .\plugins\frontend-codepen-extractor
 claude plugin validate .
 ```
 
-GitHub Actions runs structural validation, smoke tests, the deterministic evaluation fixture, and a documentation-based runtime compatibility assessment. The assessment does not select a runtime or invoke a model; a separate CI job performs credential-free package import smoke tests. Live evaluation is opt-in and remains disabled until `AGENT_EVAL_SELECTED_RUNTIME=claude-agent-sdk` is explicitly configured; fixture CI is never counted as a live LLM evaluation. Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
+GitHub Actions runs structural validation, the security gate, smoke tests and the deterministic evaluation fixture. None of it needs an API key or calls a model. Measuring the real agent is done in the manual mode, with Claude Code and your normal subscription (see the [measurement protocol](docs/measurement-protocol.md)). Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
 
 ### Delivery review with the coordinator
 
