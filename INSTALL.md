@@ -147,6 +147,88 @@ node scripts\test-agent.mjs
 
 The first validation command checks the plugin directory; the second checks the marketplace catalog. GitHub Actions runs the automated structural checks and smoke tests on pushes and pull requests.
 
+## Install for Codex, GitHub Copilot, Cursor, Gemini CLI and other agents
+
+The repository includes a portable Agent Skills version at `.agents/skills/frontend-codepen-extractor/`. This follows the shared `SKILL.md` structure that is supported by Codex, GitHub Copilot, Cursor, Gemini CLI, Claude Code, Windsurf, and many other coding agents. A universal skill travels across hosts, but host-specific agent profiles and settings are not identical.
+
+### Recommended: install into all detected supported agents
+
+Requirements: Node.js 22.20 or newer, npm/npx, and Git credentials with access to this private repository.
+
+Run in PowerShell:
+
+```powershell
+npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --global --agent '*'
+```
+
+The CLI will discover supported agent integrations on the machine and ask how to install the skill. Review the selected agents and paths before confirming. Use `--copy` if you prefer files to be copied instead of linked:
+
+```powershell
+npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --global --agent '*' --copy
+```
+
+If you only want specific agents, target them explicitly:
+
+```powershell
+npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --global --agent codex
+npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --global --agent github-copilot
+npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --global --agent cursor
+npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --global --agent gemini-cli
+```
+
+Because this repository is private, the installer needs authenticated Git access. It can use GitHub CLI or your configured Git/SSH credential setup; never paste tokens into command arguments or commit them. If the command cannot read the private repository, first verify that you can clone the repository with Git from the same terminal.
+
+### Codex
+
+The universal installation above registers the skill in Codex's user-level skill directory. Restart Codex if the skill does not appear. Invoke it by asking for the `frontend-codepen-extractor` skill or using the skill picker; exact invocation UI can vary by Codex client/version.
+
+For repository-local installation, use the normal skills CLI without `--global`:
+
+```powershell
+npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --agent codex --copy
+```
+
+### GitHub Copilot
+
+The universal installation above registers the skill for Copilot if the GitHub Copilot integration is detected and selected. Copilot supports project skills under `.agents/skills/` and `.github/skills/`, and personal skills under `~/.agents/skills/` or `~/.copilot/skills/`.
+
+This repository also includes a GitHub Copilot custom agent profile at `.github/agents/frontend-codepen-extractor.agent.md` and a reusable prompt at `.github/prompts/extract-codepen.prompt.md`. To make those **project-level Copilot customizations** available in another repository, copy the agent profile into that project's `.github/agents/`, the prompt into `.github/prompts/`, and optionally merge `.github/copilot-instructions.md` into the target repository. Do not replace existing instructions or files.
+
+An alternative, when using GitHub CLI 2.90.0 or newer with the preview `gh skill` command, is:
+
+```powershell
+gh skill preview jmstudio14/frontend-codepen-extractor frontend-codepen-extractor
+gh skill install jmstudio14/frontend-codepen-extractor frontend-codepen-extractor --agent copilot --scope user
+```
+
+Check `gh skill --help` for the exact syntax supported by your installed CLI; this GitHub CLI feature is in preview and may change.
+
+### Cursor, Gemini CLI, Windsurf and compatible agents
+
+The portable skill under `.agents/skills/` uses the Agent Skills convention. Cursor and Gemini CLI officially discover skills from `.agents/skills/`; Windsurf and many other coding agents are supported by the universal `skills` CLI. Select the desired host with `--agent <name>`, or use `--agent '*'` to install for all supported agents detected on this machine.
+
+To list currently installed skills:
+
+```powershell
+npx skills list --global
+```
+
+To check for and install updates later:
+
+```powershell
+npx skills check
+npx skills update --global
+```
+
+To remove this skill from integrations managed by the CLI, use `npx skills remove` and select the relevant skill/agent scope. You may also remove it from the host application's own skill manager.
+
+### Compatibility boundary
+
+- **Portable skill:** shared workflow, references, safety rules, and conversion checklist. This is the part intended for use across agents.
+- **Claude Code plugin:** marketplace installation, its own subagent profile, and namespaced slash command.
+- **GitHub Copilot profile:** repository-level custom agent and prompt files, which must be copied into a different repository if you want that repository-specific profile there.
+- **Other hosts:** names, UI, invocation syntax, available tools, and global directories vary. The CLI can install the skill, but it does not make every host support Claude Code plugin commands or subagents.
+
 ## Security notes
 
 - Review plugin contents before installing. Plugins execute with the permissions available to Claude Code.
