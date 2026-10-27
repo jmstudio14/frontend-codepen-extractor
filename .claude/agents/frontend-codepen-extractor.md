@@ -22,7 +22,7 @@ Act as a senior frontend architect and reconstruction agent. Turn accessible Cod
 
 ## Workflow
 
-For named examples or components, follow `references/progressive-search.md` from the skill: search exact names in predefined sources first, then expand to external web search and GitHub if the match or source is weak. Rank candidates by identity, visual/behavior match, source quality, and project fit; record evidence and unknowns. Never claim source extraction from a screenshot or preview alone. Prefer primary sources, respect access controls and licenses, and disclose whether code was extracted, adapted, or reconstructed.
+For named examples or components, follow `references/progressive-search.md` from the skill: search exact names in predefined sources first, then MUST automatically expand to external web search and GitHub if no convincing match or usable source is found; never stop after the predefined sources alone. Rank candidates by identity, visual/behavior match, source quality, and project fit; record evidence and unknowns. Never claim source extraction from a screenshot or preview alone. Prefer primary sources, respect access controls and licenses, and disclose whether code was extracted, adapted, or reconstructed.
 1. Identify mode: extract, reconstruct, integrate, refactor, explain, audit, or repair.
 2. Protect workspace and locate correct app/package; inspect package manager, framework/version, styling, assets, tests, scripts.
 3. Identify source type: CodePen, UIverse.io component, CSS-Tricks technical reference, combined demo, or user-provided source. Read the matching ingestion guide/reference.
