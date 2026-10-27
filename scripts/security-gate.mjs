@@ -68,60 +68,50 @@ function read(full) {
 }
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 
-// Replaces comments and the contents of string, template and regex literals with spaces (keeping line
-// breaks), so code rules match code, not prose or test fixtures written as literals. A `/` starts a regex
-// literal after an operator, opening punctuation or keyword, the usual tokenizer heuristic; template
-// interpolations are masked with their template. It is a heuristic, not a parser.
-const REGEX_PRECEDER = /(?:^|[(,=:[!&|?{};+\-*%<>~^]|\b(?:return|typeof|case|do|else|in|of|new|delete|void|throw|yield|await))\s*$/;
-function maskLiterals(text) {
-  let out = '';
-  for (let i = 0; i < text.length;) {
-    const two = text.slice(i, i + 2);
-    let end = -1;
-    if (two === '//') end = text.indexOf('\n', i) === -1 ? text.length : text.indexOf('\n', i);
-    else if (two === '/*') end = text.indexOf('*/', i + 2) === -1 ? text.length : text.indexOf('*/', i + 2) + 2;
-    else if (text[i] === '/' && REGEX_PRECEDER.test(out.slice(-40))) {
-      let j = i + 1, inClass = false;
-      while (j < text.length && text[j] !== '\n' && (inClass || text[j] !== '/')) {
-        if (text[j] === '\\') j += 1;
-        else if (text[j] === '[') inClass = true;
-        else if (text[j] === ']') inClass = false;
-        j += 1;
-      }
-      if (text[j] === '/') { out += '/' + text.slice(i + 1, j).replace(/[^\n]/g, ' ') + '/'; i = j + 1; continue; }
-    } else if (text[i] === "'" || text[i] === '"' || text[i] === '`') {
-      const quote = text[i];
-      let j = i + 1;
-      while (j < text.length && text[j] !== quote && (quote === '`' || text[j] !== '\n')) j += text[j] === '\\' ? 2 : 1;
-      end = Math.min(j + 1, text.length);
-      out += quote + text.slice(i + 1, end - 1).replace(/[^\n]/g, ' ') + (end - 1 > i ? text[end - 1] : '');
-      i = end;
-      continue;
-    }
-    if (end >= 0) { out += text.slice(i, end).replace(/[^\n]/g, ' '); i = end; continue; }
-    out += text[i]; i += 1;
-  }
-  return out;
-}
-// child_process exec/execSync always run through a shell. In a file that loads child_process, any code
-// reference to exec or execSync (call, alias, property access, destructuring) is flagged, and so is a
-// RegExp .exec() there, which then needs the allowlist. Computed names built from strings are not detected.
+// Code rules read the raw text. An earlier version masked comments and literals first, but a heuristic
+// tokenizer can be steered by ordinary syntax (a regex after `)`, `i++ / 2`, `${...}` in a template) into
+// hiding real code, so the gate stays fail-closed and the patterns themselves are kept precise instead.
+// They are heuristics, not a parser: names computed at runtime from strings are not detected.
+//
+// child_process exec/execSync always run through a shell. In a file that loads child_process, calls,
+// member calls, bracket access, destructuring and aliases of exec/execSync are flagged.
 const LOADS_CHILD_PROCESS = /(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)['"`](?:node:)?child_process['"`]/;
-const SHELL_EXEC_REFERENCE = /\b(?:exec|execSync)\b|\[\s*['"`](?:exec|execSync)['"`]\s*\]/;
-function shellExecIndex(text, code) {
-  if (!LOADS_CHILD_PROCESS.test(text)) return -1;
-  const indexes = [SHELL_EXEC_REFERENCE.exec(code)?.index, /\[\s*['"`](?:exec|execSync)['"`]\s*\]/.exec(text)?.index].filter((index) => index !== undefined);
+const SHELL_EXEC_FORMS = [
+  /(?<![\w$.])(?:exec|execSync)\s*\(/,
+  /\.\s*(?:exec|execSync)\s*\(/,
+  /\[\s*['"`](?:exec|execSync)['"`]\s*\]/,
+  /\{[^{}]*\b(?:exec|execSync)\b[^{}]*\}\s*(?:=|from)/,
+  /[=:(,]\s*[\w$.]*\.\s*(?:exec|execSync)\b(?!\s*\()/,
+  /=\s*(?:exec|execSync)\b/,
+];
+function firstIndex(text, patterns) {
+  const indexes = patterns.map((re) => re.exec(text)?.index).filter((index) => index !== undefined);
   return indexes.length ? Math.min(...indexes) : -1;
 }
-// Any shell option other than a literal false (quoted key or not), and spawning a shell binary directly,
-// by bare name or by path, also run a shell.
-const SHELL_OPTION = /['"`]?\bshell['"`]?\s*:(?!\s*false\b)|[{,]\s*shell\s*[,}]/;
+const shellExecIndex = (text) => (LOADS_CHILD_PROCESS.test(text) ? firstIndex(text, SHELL_EXEC_FORMS) : -1);
+// A shell option other than a literal false: quoted or unquoted key, shorthand, or a property assignment.
+const SHELL_OPTION_FORMS = [
+  /['"`]?\bshell['"`]?\s*:(?!\s*false\b)/,
+  /[{,]\s*shell\s*[,}]/,
+  /\.\s*shell\s*=(?!=)(?!\s*false\b)/,
+  /\[\s*['"`]shell['"`]\s*\]\s*=(?!=)(?!\s*false\b)/,
+];
+// Spawning a shell binary directly, by bare name or by path.
 const SHELL_BINARY = /\b(?:spawn|spawnSync|execFile|execFileSync|fork)\s*\(\s*['"`](?:[^'"`]*[\\/])?(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?['"`]/i;
-// eval, the Function constructor (with or without new) and string callbacks to timers run code from text.
-const DYNAMIC_CODE = /(?<![\w$.])eval\s*\(|(?<![\w$.])(?:new\s+)?Function\s*\(/;
-const STRING_TIMER = /\bset(?:Timeout|Interval|Immediate)\s*\(\s*['"`]/;
-// node:vm compiles and runs code from strings, like eval.
-const LOADS_VM = /(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)['"`](?:node:)?vm['"`]/;
+// Code built from text: eval (direct, indirect, aliased or via globalThis), the Function constructor,
+// string timer callbacks, node:vm, Worker code strings (`eval: true`) and data: URL imports.
+const DYNAMIC_CODE_FORMS = [
+  /(?<![\w$])eval\s*\(/,
+  /\(\s*0\s*,\s*eval\s*\)/,
+  /[=:(,]\s*eval\s*[;,)\n]/,
+  /(?<![\w$])(?:new\s+)?Function\s*\(/,
+  /\bset(?:Timeout|Interval|Immediate)\s*\(\s*['"`]/,
+  /(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)['"`](?:node:)?vm['"`]/,
+  /\beval\s*:\s*true\b/,
+  /\bimport\s*\(\s*['"`]data:/,
+];
+// The gate's own pattern definitions would match themselves; it is reviewed with every change instead.
+const CODE_RULE_EXEMPT = new Set(['scripts/security-gate.mjs']);
 // Node code anywhere, except browser .js files in the fixtures and their solutions (seeded defects).
 const isNodeCode = (rel) => /\.(?:mjs|cjs|mts|cts)$/.test(rel) || (/\.(?:js|ts)$/.test(rel) && !/^tests\/(?:fixtures|fixture-solutions)\//.test(rel));
 
@@ -136,14 +126,13 @@ for (const { rel, full } of files) {
     const match = re.exec(text);
     if (match) finding(rule, rel, `line ${lineOf(text, match.index)} (value not printed)`);
   }
-  if (isNodeCode(rel)) {
-    const code = maskLiterals(text);
-    const dynamic = DYNAMIC_CODE.exec(code) ?? STRING_TIMER.exec(text) ?? LOADS_VM.exec(text);
-    if (dynamic) finding('dynamic-code-execution', rel, `line ${lineOf(text, dynamic.index)}`);
+  if (isNodeCode(rel) && !CODE_RULE_EXEMPT.has(rel)) {
+    const dynamic = firstIndex(text, DYNAMIC_CODE_FORMS);
+    if (dynamic >= 0) finding('dynamic-code-execution', rel, `line ${lineOf(text, dynamic)}`);
     if (!SHELL_ALLOWLIST.has(rel)) {
-      const shell = SHELL_OPTION.exec(code) ?? /['"`]shell['"`]\s*:(?!\s*false\b)/.exec(text);
-      if (shell) finding('unapproved-shell-true', rel, `line ${lineOf(text, shell.index)} (shell option other than false)`);
-      const exec = shellExecIndex(text, code);
+      const shell = firstIndex(text, SHELL_OPTION_FORMS);
+      if (shell >= 0) finding('unapproved-shell-true', rel, `line ${lineOf(text, shell)} (shell option other than false)`);
+      const exec = shellExecIndex(text);
       if (exec >= 0) finding('unapproved-shell-exec', rel, `line ${lineOf(text, exec)} (child_process exec/execSync always uses a shell)`);
       const binary = SHELL_BINARY.exec(text);
       if (binary) finding('unapproved-shell-spawn', rel, `line ${lineOf(text, binary.index)} (spawns a shell directly)`);

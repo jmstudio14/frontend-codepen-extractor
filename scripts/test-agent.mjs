@@ -349,7 +349,7 @@ test('security gate catches other shell forms and unscannable files', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('security gate catches quoted shell keys, shell paths, exec aliases, Function() and string timers', () => {
+test('security gate catches quoted shell keys, shell paths, exec aliases, the Function constructor and string timers', () => {
   const cp = "'node:child_" + "process'";
   for (const [source, rule] of [
     [`import { spawn } from ${cp};\nspawn('ls', [], { 'sh` + `ell': true });\n`, /unapproved-shell-true/],
@@ -367,9 +367,38 @@ test('security gate catches quoted shell keys, shell paths, exec aliases, Functi
   }
   const ts = runGate({ 'src/run.ts': `import { ex` + `ecSync } from ${cp};\nex` + `ecSync('ls');\n` });
   assert.match(ts.stderr, /unapproved-shell-exec: src\/run\.ts/, 'TypeScript files are Node code too');
-  // Words in strings, comments and regex literals are not code.
+  // Plain words in strings, comments and regex literals are not calls.
   assert.equal(runGate({ 'scripts/a.mjs': `import { spawnSync } from ${cp};\n// we never ex` + `ec here\nconst label = 'no ex` + `ecSync';\nconst re = /ex` + `ec/;\nspawnSync('git', ['status']);\n` }).status, 0);
   assert.equal(runGate({ 'scripts/a.mjs': 'const id = setTim' + 'eout(() => {}, 10);\n' }).status, 0);
+});
+
+test('security gate cannot be steered into hiding code by templates, division or regex literals', () => {
+  const cp = "'node:child_" + "process'";
+  const ev = 'ev' + 'al';
+  const sh = 'sh' + 'ell';
+  for (const [source, rule] of [
+    // Each of these hid real code from the earlier literal-masking tokenizer.
+    [`const out = \`\${${ev}(code)}\`;\n`, /dynamic-code-execution/],
+    [`import { spawn } from ${cp};\nconst x = \`\${spawn('ls', [], { ${sh}: true })}\`;\n`, /unapproved-shell-true/],
+    [`const r = i++ / 2 + ${ev}(code) / 1;\n`, /dynamic-code-execution/],
+    [`const r = of / 2 + ${ev}(code) / 1;\n`, /dynamic-code-execution/],
+    [`import { spawn } from ${cp};\nconst z = n-- / 2; spawn('ls', [], { ${sh}: true }); /x/;\n`, /unapproved-shell-true/],
+    [`import { spawn } from ${cp};\nconst s = process.argv[2] ?? '';\nif (s) /\`/.test(s);\nspawn('ls', [], { ${sh}: true });\n${ev}(s);\n`, /unapproved-shell-true/],
+    // Other ordinary forms.
+    [`globalThis.${ev}(code);\n`, /dynamic-code-execution/],
+    [`globalThis.Func` + `tion('return 1')();\n`, /dynamic-code-execution/],
+    [`(0, ${ev})(code);\n`, /dynamic-code-execution/],
+    [`const e = ${ev};\ne(code);\n`, /dynamic-code-execution/],
+    [`new Worker(code, { ${ev}: true });\n`, /dynamic-code-execution/],
+    [`await import('da` + `ta:text/javascript,console.log(1)');\n`, /dynamic-code-execution/],
+    [`import { spawn } from ${cp};\nconst o = {};\no.${sh} = true;\nspawn('ls', [], o);\n`, /unapproved-shell-true/],
+    [`import * as cp from ${cp};\nconst t = \`\${cp.ex` + `ec('ls')}\`;\n`, /unapproved-shell-exec/],
+  ]) {
+    const run = runGate({ 'scripts/a.mjs': source });
+    assert.equal(run.status, 1, source);
+    assert.match(run.stderr, rule, source);
+  }
+  assert.equal(runGate({ 'scripts/a.mjs': `const options = { ${sh}: false };\noptions.${sh} = false;\n` }).status, 0);
 });
 
 test('security gate scans folders named like skipped ones below the root, and more key formats', () => {
@@ -779,6 +808,10 @@ test('manual evaluation refuses tricky paths into the repository but accepts sib
   try {
     assert.equal(refused(dotted).status, 2, 'a folder named "..cache" inside the clone is still inside');
     assert.equal(fs.existsSync(path.join(root, '..cache')), false);
+    const insideTemp = path.join(root, 'evaluation-results', `tmp-${process.pid}`);
+    const tempRun = spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card'], { encoding: 'utf8', env: { ...process.env, TMPDIR: insideTemp, TMP: insideTemp, TEMP: insideTemp } });
+    assert.equal(tempRun.status, 2, tempRun.stdout + tempRun.stderr);
+    assert.equal(fs.existsSync(insideTemp), false, 'a refused default leaves no folder behind');
     try { fs.symlinkSync(root, path.join(base, 'link'), 'junction'); } catch (error) { throw new NotRun(`cannot create a link here (${error.code})`); }
     assert.equal(refused(path.join(base, 'link', 'new', 'deeper')).status, 2, 'a symlinked ancestor pointing into the clone is refused');
   } finally {

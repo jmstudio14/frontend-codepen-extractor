@@ -47,6 +47,11 @@ function prepare(caseId) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   // Without --dir, mkdtemp creates a fresh private folder, so another user of a shared temp folder cannot
   // pre-create it or own it.
+  // Check the temporary folder before creating anything in it, so a refusal leaves nothing behind.
+  if (!option('--dir') && isInside(resolveThroughExisting(os.tmpdir()), resolveThroughExisting(root))) {
+    console.error(`The system temporary folder (${os.tmpdir()}) is inside this repository; pass --dir with a folder outside it.`);
+    process.exit(2);
+  }
   const privateTemp = option('--dir') ? null : fs.mkdtempSync(path.join(os.tmpdir(), `frontend-extractor-eval-${caseId}-${stamp}-`));
   const base = path.resolve(option('--dir') || path.join(privateTemp, 'run'));
   if (isInside(resolveThroughExisting(base), resolveThroughExisting(root)) || isInside(base, root)) {
