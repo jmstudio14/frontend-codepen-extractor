@@ -20,6 +20,8 @@ function exists(rel) {
   return fs.existsSync(target);
 }
 
+const maintenanceAgents = ['qa-tester', 'security-auditor', 'extractor-field-tester', 'performance-analyst', 'docs-maintainer', 'delivery-coordinator'];
+const readOnlyAgents = new Set(['security-auditor', 'performance-analyst']);
 const required = [
   '.claude/agents/frontend-codepen-extractor.md',
   '.claude/skills/frontend-codepen-extractor/SKILL.md',
@@ -43,7 +45,8 @@ const required = [
   'tests/fixtures/leaky-animation-prototype/index.html',
   'tests/fixtures/leaky-animation-prototype/prototype.css',
   'tests/fixtures/leaky-animation-prototype/prototype.js',
-  '.github/workflows/validate-agent.yml',
+  '.github/workflows/validate-agent.yml', 'scripts/security-gate.mjs',
+  ...maintenanceAgents.map((name) => `.claude/agents/${name}.md`),
 ];
 for (const rel of required) exists(rel) ? pass(`Required file exists: ${rel}`) : fail(`Missing required file: ${rel}`);
 
@@ -64,6 +67,14 @@ if (skillFm && /\bname:\s*frontend-codepen-extractor\b/.test(skillFm[1]) && /\bd
   pass('Skill frontmatter contains name and description');
 } else {
   fail('Skill frontmatter contains name and description');
+}
+
+for (const name of maintenanceAgents) {
+  const fm = (read(`.claude/agents/${name}.md`) ?? '').match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '';
+  const tools = fm.match(/^tools:\s*(.+)$/m)?.[1] ?? '';
+  new RegExp(`^name:\\s*${name}\\s*$`, 'm').test(fm) && /^description:\s*\S/m.test(fm) && tools
+    ? pass(`Maintenance agent ${name} declares name, description and tools`) : fail(`Maintenance agent ${name} declares name, description and tools`);
+  if (readOnlyAgents.has(name)) !/\b(?:Edit|Write|NotebookEdit)\b/.test(tools) ? pass(`Agent ${name} is read-only`) : fail(`Agent ${name} is read-only`);
 }
 
 const settingsText = read('.claude/settings.example.json');

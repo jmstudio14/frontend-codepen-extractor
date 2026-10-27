@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added repository-local maintenance subagents in `.claude/agents/`: `qa-tester`, `security-auditor` (read-only), `extractor-field-tester`, `performance-analyst` (read-only), `docs-maintainer`, and the main-thread `delivery-coordinator`.
+- Added `scripts/security-gate.mjs` (`npm run security`), a deterministic gate run in CI and in `validate:all` that blocks on secrets, dynamic code execution, unapproved `shell: true`, workflow write permissions, and read-only agents that declare write tools.
+- Validator now checks maintenance agent frontmatter and read-only tool sets; smoke tests cover the gate's positive and negative paths.
+- Fixed the smoke-test summary, which was printed before the last six tests had run and so under-reported the total.
+
 ## 2.12.0
 
 - Added isolated, credential-free import smoke tests for four candidate SDK runtimes, recording exact npm versions and import outcomes without invoking a model.

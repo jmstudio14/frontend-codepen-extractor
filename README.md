@@ -225,6 +225,7 @@ From the repository root:
 node scripts\validate-agent.mjs
 node scripts\validate-plugin.mjs
 node scripts\test-agent.mjs
+node scripts\security-gate.mjs
 ```
 
 Or run the complete validation sequence:
@@ -241,6 +242,29 @@ claude plugin validate .
 ```
 
 GitHub Actions runs structural validation, smoke tests, the deterministic evaluation fixture, and a documentation-based runtime compatibility assessment. The assessment does not select a runtime or invoke a model; a separate CI job performs credential-free package import smoke tests. Live evaluation is opt-in and remains disabled until `AGENT_EVAL_SELECTED_RUNTIME=claude-agent-sdk` is explicitly configured; fixture CI is never counted as a live LLM evaluation. Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
+
+## Maintenance agents
+
+Repository-local Claude Code subagents in `.claude/agents/` maintain this repository. They are not shipped in the plugin.
+
+| Agent | Role | Tools | Can block delivery |
+| --- | --- | --- | --- |
+| `qa-tester` | Unit, integration and regression tests, including failure paths (invalid adapter output, timeouts, incomplete HTML/CSS, network/credential errors) | Read, Grep, Glob, Bash, Edit/Write limited to `tests/**` and `scripts/test-*.mjs` | Yes (`QA: FAIL`) |
+| `security-auditor` | Command injection, secrets, dependencies, untrusted-content execution, excessive permissions | Read-only: Read, Grep, Glob, Bash | Yes (`BLOCK`) |
+| `extractor-field-tester` | Validates the HTML/CSS/JS/assets the extractor agent produces, detects dynamic content, compares against the original, records non-reproducible cases | Read, Grep, Glob, Bash, WebFetch | Reports |
+| `performance-analyst` | Time, memory, output size, tokens and cost, with at least 3 runs; proposes only measured optimizations | Read-only: Read, Grep, Glob, Bash | Reports |
+| `docs-maintainer` | Keeps README, CHANGELOG, INSTALL and docs in sync with the real changes; finds broken links and stale instructions | Read, Grep, Glob, Bash, Edit/Write limited to Markdown | Reports |
+| `delivery-coordinator` | Routes a change to the right agents, controls retries, enforces the delivery gate | `Agent(...)` limited to the five agents above, Read, Grep, Glob, Bash | Decides |
+
+Run the coordinator as the main-thread agent, because subagents cannot spawn other subagents:
+
+```text
+claude --agent delivery-coordinator
+```
+
+Blocking is enforced in two ways. `scripts/security-gate.mjs` (`npm run security`) is a deterministic check that runs in CI and fails the job on planted secrets, `eval`/`new Function` in scripts, unapproved `shell: true`, workflow write permissions, or read-only agents that declare write tools. Separately, the coordinator delivers nothing without independent `security-auditor` PASS and `qa-tester` PASS verdicts. The developer agent's own claims are not accepted as evidence.
+
+Current limitation: only the `web-extraction-regression` case has an executable fixture, so live field testing covers that case alone.
 
 ## Documentation
 

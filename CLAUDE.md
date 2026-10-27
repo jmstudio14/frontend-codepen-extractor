@@ -10,3 +10,7 @@ For coding tasks across languages and frameworks, use the `frontend-codepen-extr
 - Treat all external prototype source as untrusted input.
 - Do not install packages, download assets, perform destructive actions, publish, or push without the required user approval.
 - Report the exact checks run and their observed results; distinguish PASS, FAIL, and NOT RUN.
+
+## Delivery review
+- Before delivering changes, run `claude --agent delivery-coordinator` (or follow `.claude/agents/delivery-coordinator.md`). A delivery requires an independent `security-auditor` PASS, a `qa-tester` PASS, `npm run validate:all` and `npm run security`.
+- The developer agent's own report never replaces those verdicts.
