@@ -120,7 +120,7 @@ test('repeated evaluator aggregates runs and appends history', () => {
     assert.equal(report.selected_cases, 2);
     assert.equal(report.passed_cases, 2);
     assert.equal(report.repetitions, 2);
-    assert.equal(fs.readFileSync(historyPath, 'utf8').trim().split(/\\r?\\n/).length, 1);
+    assert.equal(fs.readFileSync(historyPath, 'utf8').trim().split(/\r?\n/).length, 1);
   } finally {
     fs.rmSync(reportPath, { force: true });
     fs.rmSync(historyPath, { force: true });
