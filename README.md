@@ -36,6 +36,20 @@ The repository is **private**. The installing machine must already have Git cred
 
 **Full instructions:** see [INSTALL.md](INSTALL.md), including installation scopes, verification, updates, uninstallation, authentication, and troubleshooting.
 
+## Install in Codex, GitHub Copilot and other coding agents
+
+The portable Agent Skill lives in `.agents/skills/frontend-codepen-extractor/`. With Node.js 22.20+ and Git access to this private repository, install it across all compatible agents detected on your machine:
+
+```powershell
+npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --global --agent '*'
+```
+
+To target only Codex or Copilot, replace `--agent '*'` with `--agent codex` or `--agent github-copilot`. The same skill format can be installed for Cursor, Gemini CLI, Windsurf, and other agents supported by the [skills CLI](https://github.com/vercel-labs/skills).
+
+The repository also includes a GitHub Copilot custom agent at `.github/agents/frontend-codepen-extractor.agent.md` and a reusable prompt at `.github/prompts/extract-codepen.prompt.md`. To use those customizations in another project, copy them into that project's `.github/agents/` and `.github/prompts/` directories. The portable skill alone is enough for supported Agent Skills clients; Claude Code's plugin-specific UI and commands are not universal.
+
+**Full guide:** [INSTALL.md](INSTALL.md) covers Codex, Copilot, Cursor, Gemini CLI, Windsurf, private-repository authentication, updates, and troubleshooting.
+
 ## Use the plugin
 
 After installation, verify with `claude plugin list` or open `/plugin` and check the Installed tab.
