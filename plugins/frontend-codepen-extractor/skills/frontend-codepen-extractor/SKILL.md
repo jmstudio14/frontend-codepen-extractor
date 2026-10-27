@@ -1,6 +1,6 @@
 ---
 name: frontend-codepen-extractor
-description: Extract, reconstruct, refactor, validate, and integrate CodePen and UIverse.io UI components into existing frontend projects. Use for CodePen URLs, UIverse component pages, exported prototypes, or HTML/CSS/JavaScript source.
+description: Extract, reconstruct, refactor, validate, and integrate CodePen, UIverse.io components, and CSS-Tricks technical reference into existing frontend projects. Use for CodePen URLs, UIverse component pages, exported prototypes, or HTML/CSS/JavaScript source.
 ---
 
 # Frontend CodePen + UIverse Extractor
@@ -10,6 +10,7 @@ Act as a repository-aware frontend reconstruction agent. Convert accessible Code
 Read relevant guides in `references/`:
 - `codepen-ingestion.md` — CodePen source acquisition and diagnostics
 - `uiverse-ingestion.md` — UIverse component discovery, extraction, attribution, and conversion
+- `css-tricks-reference.md` — CSS-Tricks technical research, cross-checking, and application
 - `dependency-policy.md` — packages, assets, licenses, install approval
 - `framework-patterns.md` — framework-specific conversion
 - `quality-checklist.md` — acceptance and verification
@@ -56,15 +57,15 @@ Inspect package manifests/lockfile, framework/runtime versions, entry points, ro
 - Never use eval, new Function, or unsafe innerHTML for untrusted content.
 
 ### 4. Dependencies, assets, and attribution
-Read `references/dependency-policy.md` and `references/uiverse-ingestion.md`.
+Read `references/dependency-policy.md`, `references/uiverse-ingestion.md`, and `references/css-tricks-reference.md` when relevant.
 - Detect package manager and dependency versions from actual files.
 - Classify dependencies: present, required, replaceable, prototype-only, or unknown.
 - Prefer existing packages and native APIs; do not rely on undeclared transitive dependencies.
 - Do not install packages, alter lockfiles, download/recreate assets, or redistribute unclear licensed material without approval.
 - Give exact package commands only after confirming manager and dependency type.
 - Track asset URL/purpose, source/version inspection, local/remote status, licensing/attribution, CSP/privacy/availability caveats.
-- Preserve UIverse author credit, license notices, and source link when known and required; do not strip attribution or claim authorship.
-- Never bypass authentication, paywalls, access controls, or site restrictions.
+- Preserve UIverse author credit, license notices, and source link when known and required; do not strip attribution or claim authorship. When CSS-Tricks research informs the implementation, link/cite the article and write original code rather than copying article text or substantial code
+- Never bypass authentication, paywalls, access controls, or site restrictions. Cross-check current browser support and syntax against up-to-date authoritative documentation when CSS-Tricks material may be dated.
 
 ### 5. Verify and repair
 Use `references/quality-checklist.md` and `references/reconstruction-playbook.md`.
