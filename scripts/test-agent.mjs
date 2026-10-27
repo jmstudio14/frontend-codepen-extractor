@@ -163,8 +163,6 @@ test('evaluation suite covers core multilingual and extraction risks', () => {
   }
 });
 
-console.log(`\nSmoke tests finished: ${passed} passed.`);
-
 test('evaluation runtime files and optional integrations exist', () => {
   for (const rel of ['scripts/adapters/claude-agent-sdk.mjs','scripts/evaluation/run-repeated.mjs','scripts/evaluation/check-web-fixture.mjs','scripts/evaluation/compare-baseline.mjs','scripts/evaluation/run_deepeval.py','evaluation/requirements-deepeval.txt','evaluation/baselines/README.md','scripts/evaluation/assess-runtimes.mjs','scripts/evaluation/probe-runtimes.mjs','evaluation/runtime-compatibility.json','docs/runtime-compatibility.md']) assert.ok(fs.existsSync(path.join(root, rel)), rel + ' should exist');
   const adapter = fs.readFileSync(path.join(root, 'scripts/adapters/claude-agent-sdk.mjs'), 'utf8');
@@ -263,3 +261,49 @@ test('SDK compatibility probe dry-run is credential-free and does not install or
     assert.ok(report.results.every(item => item.status === 'NOT RUN' && item.exact_version === null));
   } finally { fs.rmSync(reportPath, { force: true }); }
 });
+
+function runGate(files) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'security-gate-'));
+  try {
+    for (const [rel, content] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+      fs.writeFileSync(path.join(dir, rel), content);
+    }
+    return spawnSync(process.execPath, [path.join(root, 'scripts/security-gate.mjs'), '--root', dir], { encoding: 'utf8', timeout: 30000 });
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+
+test('security gate passes on the repository', () => {
+  const run = spawnSync(process.execPath, [path.join(root, 'scripts/security-gate.mjs')], { cwd: root, encoding: 'utf8', timeout: 30000 });
+  assert.equal(run.status, 0, `gate should pass; stdout: ${run.stdout}; stderr: ${run.stderr}`);
+});
+
+test('security gate blocks a planted secret without printing it', () => {
+  const secret = 'sk-' + 'ant-' + 'a1B2c3D4e5F6g7H8i9J0k1L2';
+  const run = runGate({ 'notes.md': `key=${secret}\n` });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /anthropic-api-key/);
+  assert.ok(!(run.stdout + run.stderr).includes(secret), 'gate must not echo the secret');
+});
+
+test('security gate blocks dynamic code execution and unapproved shell mode in scripts', () => {
+  const run = runGate({ 'scripts/a.mjs': 'ev' + 'al(process.argv[2]);\n', 'scripts/b.mjs': "spawn(cmd, [], { sh" + "ell: true });\n" });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /dynamic-code-execution/);
+  assert.match(run.stderr, /unapproved-shell-true/);
+});
+
+test('security gate blocks write tools on read-only agents and workflow write permissions', () => {
+  const run = runGate({
+    '.claude/agents/frontend-security-reviewer.md': '---\nname: frontend-security-reviewer\ntools: Read, Edit\n---\n',
+    '.claude/agents/frontend-codepen-extractor.md': '---\nname: frontend-codepen-extractor\ntools: Read, Edit, Write\n---\n',
+    '.github/workflows/ci.yml': 'on: push\npermissions: write-all\n',
+  });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /read-only-agent-can-write: \.claude\/agents\/frontend-security-reviewer\.md/);
+  assert.doesNotMatch(run.stderr, /frontend-codepen-extractor/);
+  assert.match(run.stderr, /workflow-write-all/);
+  assert.match(run.stderr, /workflow-default-permissions/);
+});
+
+console.log(`\nSmoke tests finished: ${passed} passed${process.exitCode ? ', with failures' : ''}.`);

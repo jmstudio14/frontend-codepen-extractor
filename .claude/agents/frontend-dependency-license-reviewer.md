@@ -1,6 +1,6 @@
 ---
 name: frontend-dependency-license-reviewer
-description: frontend-dependency-license-reviewer specialist agent
+description: Read-only reviewer of dependencies, versions and licenses in manifests and lockfiles. Flags unknown, copyleft or deprecated packages and never installs or upgrades. Use when a change adds or updates a dependency or remote asset.
 tools: Read, Grep, Glob, Bash
 ---
 

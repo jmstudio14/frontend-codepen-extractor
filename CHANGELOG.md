@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added `scripts/security-gate.mjs` (`npm run security`), a deterministic CI gate that fails on committed secrets, `eval`/`new Function` in scripts, unapproved `shell: true`, workflow write permissions, and write tools on any subagent other than `frontend-codepen-extractor`. It enforces blocking without relying on an LLM verdict.
+- Replaced generic `description` fields on seven specialist agents with role-specific text so Claude Code can route tasks to them.
+- Fixed the smoke-test summary, which was printed before the final tests ran and under-reported the total.
 - Added a separate read-only Claude Code auditor subagent with evidence-based PASS / FAIL / BLOCKED verdicts, severity-ranked findings, and a bounded correction/re-audit protocol.
 - Documented that the profile is not an automated CI gate until a live evaluation workspace is exported and the auditor is explicitly invoked.
 - Added structural validation and regression tests for the auditor's read-only tool contract.

@@ -1,6 +1,6 @@
 ---
 name: frontend-security-reviewer
-description: frontend-security-reviewer specialist agent
+description: Read-only security reviewer that can block delivery. Looks for command injection, exposed secrets, vulnerable dependencies, execution of untrusted content and excessive permissions, and returns severity-ranked findings with a PASS/FAIL/BLOCKED verdict. Use for every code, workflow or agent change.
 tools: Read, Grep, Glob, Bash
 ---
 

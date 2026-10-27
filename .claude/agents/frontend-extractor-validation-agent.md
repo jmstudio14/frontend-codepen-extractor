@@ -1,6 +1,6 @@
 ---
 name: frontend-extractor-validation-agent
-description: frontend-extractor-validation-agent specialist agent
+description: Read-only validator of extractor results. Checks HTML, CSS, JavaScript and assets separately against the original source, flags dynamic content and provenance gaps, and records cases that cannot be reproduced. Use when extraction behavior, fixtures or skill instructions change.
 tools: Read, Grep, Glob, Bash
 ---
 
