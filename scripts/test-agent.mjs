@@ -86,7 +86,7 @@ test('architect plan YAML parser accepts a valid plan and rejects missing approv
   const validator = path.join(root, 'scripts/evaluation/validate-architect-plan.mjs');
   const validPath = path.join(os.tmpdir(), 'architect-plan-valid-' + process.pid + '.yaml');
   const invalidPath = path.join(os.tmpdir(), 'architect-plan-invalid-' + process.pid + '.yaml');
-  const valid = \`schema_version: 1
+  const valid = `schema_version: 1
 status: READY
 request_summary: Add a small feature
 repository_evidence:
@@ -121,7 +121,7 @@ human_approval:
   status: PENDING
   required_before_implementation: true
   approved_by: null
-\`;
+`;
   const invalid = valid.replace('status: PENDING', 'status: APPROVED');
   try {
     fs.writeFileSync(validPath, valid);
