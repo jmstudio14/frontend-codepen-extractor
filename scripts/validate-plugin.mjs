@@ -42,6 +42,7 @@ const required = [
   'INSTALL.md',
   '.agents/skills/frontend-codepen-extractor/SKILL.md',
   '.agents/skills/frontend-codepen-extractor/references/codepen-ingestion.md',
+  '.agents/skills/frontend-codepen-extractor/references/uiverse-ingestion.md',
   '.agents/skills/frontend-codepen-extractor/references/dependency-policy.md',
   '.agents/skills/frontend-codepen-extractor/references/framework-patterns.md',
   '.agents/skills/frontend-codepen-extractor/references/quality-checklist.md',
@@ -54,6 +55,7 @@ const required = [
   pluginRoot + '/agents/frontend-codepen-extractor.md',
   pluginRoot + '/skills/frontend-codepen-extractor/SKILL.md',
   pluginRoot + '/skills/frontend-codepen-extractor/references/codepen-ingestion.md',
+  pluginRoot + '/skills/frontend-codepen-extractor/references/uiverse-ingestion.md',
   pluginRoot + '/skills/frontend-codepen-extractor/references/dependency-policy.md',
   pluginRoot + '/skills/frontend-codepen-extractor/references/framework-patterns.md',
   pluginRoot + '/skills/frontend-codepen-extractor/references/quality-checklist.md',
@@ -66,7 +68,7 @@ for (const relativePath of required) {
 const marketplace = loadJson('.claude-plugin/marketplace.json');
 if (marketplace) {
   check(marketplace.name === 'jmstudio14-claude-plugins', 'Marketplace name is correct');
-  check(marketplace.version === '2.3.0', 'Marketplace version is 2.3.0');
+  check(marketplace.version === '2.4.0', 'Marketplace version is 2.4.0');
   check(typeof marketplace.description === 'string' && marketplace.description.length > 0, 'Marketplace description is present');
   check(typeof marketplace.owner?.name === 'string' && marketplace.owner.name.length > 0, 'Marketplace owner.name is present');
   const entry = Array.isArray(marketplace.plugins)
@@ -79,7 +81,7 @@ if (marketplace) {
 const manifest = loadJson(pluginRoot + '/.claude-plugin/plugin.json');
 if (manifest) {
   check(manifest.name === 'frontend-codepen-extractor', 'Plugin manifest name matches marketplace entry');
-  check(manifest.version === '2.3.0', 'Plugin version is 2.3.0');
+  check(manifest.version === '2.4.0', 'Plugin version is 2.4.0');
   check(typeof manifest.description === 'string' && manifest.description.length > 10, 'Plugin manifest description is present');
   check(typeof manifest.author?.name === 'string' && manifest.author.name.length > 0, 'Plugin manifest author.name is present');
   check(/^https:\/\//.test(manifest.homepage || ''), 'Plugin homepage is a valid HTTPS URL');
@@ -105,6 +107,7 @@ if (skillMeta) {
 const portableSkillPaths = [
   ['.agents/skills/frontend-codepen-extractor/SKILL.md', pluginRoot + '/skills/frontend-codepen-extractor/SKILL.md'],
   ['.agents/skills/frontend-codepen-extractor/references/codepen-ingestion.md', pluginRoot + '/skills/frontend-codepen-extractor/references/codepen-ingestion.md'],
+  ['.agents/skills/frontend-codepen-extractor/references/uiverse-ingestion.md', pluginRoot + '/skills/frontend-codepen-extractor/references/uiverse-ingestion.md'],
   ['.agents/skills/frontend-codepen-extractor/references/dependency-policy.md', pluginRoot + '/skills/frontend-codepen-extractor/references/dependency-policy.md'],
   ['.agents/skills/frontend-codepen-extractor/references/framework-patterns.md', pluginRoot + '/skills/frontend-codepen-extractor/references/framework-patterns.md'],
   ['.agents/skills/frontend-codepen-extractor/references/quality-checklist.md', pluginRoot + '/skills/frontend-codepen-extractor/references/quality-checklist.md'],
