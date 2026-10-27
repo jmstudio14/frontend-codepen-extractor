@@ -87,7 +87,7 @@ if (packageText) {
 }
 
 const searchGuide = read('.claude/skills/frontend-codepen-extractor/references/progressive-search.md') ?? '';
-for (const term of ['predefined sources', 'external sources', 'Source quality', 'Observed', 'reconstructed']) {
+for (const term of ['predefined sources', 'external sources', 'Source quality', 'Observed', 'reconstructed', 'Mandatory fallback rule', 'proceed to Stage 2 automatically', 'do not ask the user whether to search externally']) {
   searchGuide.toLowerCase().includes(term.toLowerCase()) ? pass(`Progressive search guide includes ${term}`) : fail(`Progressive search guide includes ${term}`);
 }
 
