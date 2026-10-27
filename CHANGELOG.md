@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.0
+
+- Added a progressive search workflow: search exact names in predefined sources first, then expand to external web sources and GitHub when evidence is weak or source is unavailable.
+- Added candidate evaluation across identity, visual/behavior match, source quality, project fit, provenance, and licensing, with explicit observed/inferred/unknown evidence labels.
+- Added stopping criteria and guidance to distinguish original source extraction, adaptation, and reconstruction from previews.
+- Mirrored the new guide across portable Agent Skills and both Claude Code skill distributions; updated Claude Code and GitHub Copilot agent profiles, package metadata, plugin metadata, and documentation.
+
+
 ## 2.5.0
 
 - Added CSS-Tricks as a technical encyclopedia/reference workflow for CSS and frontend concepts, implementation patterns, and debugging.
