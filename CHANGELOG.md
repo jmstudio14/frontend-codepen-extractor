@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.8.0
+
+- Added a shared architecture contract inspired by LangChain's separation of stable core abstractions, orchestration, and replaceable integrations—documented as a logical design, not a claim that an autonomous runtime already exists.
+- Defined consistent task routing, evidence/provenance records, cross-cutting safety checkpoints, verification reporting, and extension guidelines.
+- Added structured regression evaluation scenarios spanning multilanguage work, monorepos, mandatory external fallback, partial source, verification honesty, dependencies, prompt injection, and web-component extraction.
+- Wired the architecture guide into all three skill distributions and agent profiles.
+- Strengthened validators to require architecture guidance, scenario coverage, and distribution parity; upgraded the regression test to validate scenario structure.
+- Bumped package/plugin metadata to 2.8.0 and updated the display name to reflect the broader scope.
+
+
 ## 2.7.0
 
 - Expanded the agent from frontend-focused reconstruction to repository-aware multilanguage and multiframework engineering while retaining all CodePen, UIverse, CodeMyUI, CSS-Tricks, GitHub, and mandatory external-fallback workflows.
