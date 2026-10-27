@@ -1,8 +1,8 @@
 {
   "name": "frontend-codepen-extractor",
   "displayName": "Frontend CodePen Extractor",
-  "version": "2.3.0",
-  "description": "Extracts, reconstructs, refactors, and validates CodePen prototypes into maintainable, accessible frontend projects.",
+  "version": "2.4.0",
+  "description": "Extracts, reconstructs, refactors, and validates CodePen and UIverse.io components into maintainable, accessible frontend projects.",
   "author": {
     "name": "jmstudio14",
     "url": "https://github.com/jmstudio14"
