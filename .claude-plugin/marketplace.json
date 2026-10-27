@@ -8,17 +8,18 @@
     {
       "name": "frontend-codepen-extractor",
       "source": "./plugins/frontend-codepen-extractor",
-      "description": "Extract, sanitize, refactor, and integrate CodePen prototypes into an existing frontend project.",
+      "description": "Extract, reconstruct, refactor, and integrate CodePen prototypes into existing frontend projects.",
       "displayName": "Frontend CodePen Extractor",
       "category": "development",
       "tags": [
         "frontend",
         "codepen",
         "refactoring",
-        "accessibility"
+        "accessibility",
+        "reconstruction"
       ]
     }
   ],
   "description": "Private Claude Code plugin marketplace maintained by jmstudio14.",
-  "version": "2.2.0"
+  "version": "2.3.0"
 }
