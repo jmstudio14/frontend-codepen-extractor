@@ -1,6 +1,6 @@
 {
   "name": "frontend-codepen-extractor-agent",
-  "version": "2.6.1",
+  "version": "2.6.2",
   "private": true,
   "description": "Portable Agent Skill and native Claude Code plugin for progressive search, source evaluation, extraction, reconstruction, and validation of frontend examples from CodePen, UIverse.io, CodeMyUI, GitHub, and external sources",
   "type": "module",
