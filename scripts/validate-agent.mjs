@@ -21,6 +21,7 @@ function exists(rel) {
 }
 
 const required = [
+  '.claude/agents/frontend-security-reviewer.md', 'docs/agents/frontend-security-reviewer.md', 'tests/agent-cases/security-reviewer.json',
   '.claude/agents/frontend-qa-test-engineer.md', 'docs/agents/frontend-qa-test-engineer.md', 'tests/agent-cases/qa-test-engineer.json',
   '.claude/agents/frontend-codepen-extractor.md',
   '.claude/agents/frontend-code-auditor.md', 'docs/agent-auditor.md',
