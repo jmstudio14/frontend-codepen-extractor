@@ -652,7 +652,7 @@
       "id": "release-engineer",
       "name": "agent-release-engineer",
       "priority": "P2",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "qa-test-engineer-merged",
         "security-reviewer-merged",
@@ -701,7 +701,14 @@
         "False confidence from stale artifacts"
       ],
       "rollback": "Remove the profile and release checklist additions.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "branch": "feat/agent-release-engineer",
+      "files": [
+        ".claude/agents/agent-release-engineer.md",
+        "docs/agents/agent-release-engineer.md",
+        "tests/agent-cases/release-engineer.json"
+      ],
+      "pull_request": "pending"
     },
     {
       "sequence": 12,
