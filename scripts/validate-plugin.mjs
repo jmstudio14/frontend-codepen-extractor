@@ -50,6 +50,8 @@ const required = [
   '.agents/skills/frontend-codepen-extractor/references/progressive-search.md',
   '.agents/skills/frontend-codepen-extractor/references/codemyui-ingestion.md',
   '.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
+  '.agents/skills/frontend-codepen-extractor/references/agent-architecture.md',
+  'tests/agent-evaluation-cases.json',
   '.github/agents/frontend-codepen-extractor.agent.md',
   '.github/copilot-instructions.md',
   '.github/prompts/extract-codepen.prompt.md',
@@ -66,6 +68,7 @@ const required = [
   pluginRoot + '/skills/frontend-codepen-extractor/references/progressive-search.md',
   pluginRoot + '/skills/frontend-codepen-extractor/references/codemyui-ingestion.md',
   pluginRoot + '/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
+  pluginRoot + '/skills/frontend-codepen-extractor/references/agent-architecture.md',
 ];
 for (const relativePath of required) {
   check(readFile(relativePath) !== null, 'Required distribution file exists: ' + relativePath);
@@ -74,7 +77,7 @@ for (const relativePath of required) {
 const marketplace = loadJson('.claude-plugin/marketplace.json');
 if (marketplace) {
   check(marketplace.name === 'jmstudio14-claude-plugins', 'Marketplace name is correct');
-  check(marketplace.version === '2.7.0', 'Marketplace version is 2.7.0');
+  check(marketplace.version === '2.8.0', 'Marketplace version is 2.8.0');
   check(typeof marketplace.description === 'string' && marketplace.description.length > 0, 'Marketplace description is present');
   check(typeof marketplace.owner?.name === 'string' && marketplace.owner.name.length > 0, 'Marketplace owner.name is present');
   const entry = Array.isArray(marketplace.plugins)
@@ -87,7 +90,7 @@ if (marketplace) {
 const manifest = loadJson(pluginRoot + '/.claude-plugin/plugin.json');
 if (manifest) {
   check(manifest.name === 'frontend-codepen-extractor', 'Plugin manifest name matches marketplace entry');
-  check(manifest.version === '2.7.0', 'Plugin version is 2.7.0');
+  check(manifest.version === '2.8.0', 'Plugin version is 2.8.0');
   check(typeof manifest.description === 'string' && manifest.description.length > 10, 'Plugin manifest description is present');
   check(typeof manifest.author?.name === 'string' && manifest.author.name.length > 0, 'Plugin manifest author.name is present');
   check(/^https:\/\//.test(manifest.homepage || ''), 'Plugin homepage is a valid HTTPS URL');
@@ -121,6 +124,7 @@ const portableSkillPaths = [
   ['.agents/skills/frontend-codepen-extractor/references/progressive-search.md', pluginRoot + '/skills/frontend-codepen-extractor/references/progressive-search.md'],
   ['.agents/skills/frontend-codepen-extractor/references/codemyui-ingestion.md', pluginRoot + '/skills/frontend-codepen-extractor/references/codemyui-ingestion.md'],
   ['.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md', pluginRoot + '/skills/frontend-codepen-extractor/references/multilanguage-engineering.md'],
+  ['.agents/skills/frontend-codepen-extractor/references/agent-architecture.md', pluginRoot + '/skills/frontend-codepen-extractor/references/agent-architecture.md'],
 ];
 for (const [portablePath, pluginPath] of portableSkillPaths) {
   const portableContent = readFile(portablePath);
@@ -130,6 +134,19 @@ for (const [portablePath, pluginPath] of portableSkillPaths) {
     check(portableContent === pluginContent, 'Portable skill stays in sync: ' + portablePath);
   }
 }
+
+const architectureGuide = readFile('.agents/skills/frontend-codepen-extractor/references/agent-architecture.md') || '';
+for (const term of ['Core contract', 'Orchestration layer', 'Adapter layer', 'Evidence and provenance record']) {
+  check(architectureGuide.toLowerCase().includes(term.toLowerCase()), 'Architecture guide includes ' + term);
+}
+const evaluationText = readFile('tests/agent-evaluation-cases.json');
+try {
+  const evaluation = JSON.parse(evaluationText || '');
+  const categories = new Set((evaluation.cases || []).map((item) => item.category));
+  check((evaluation.cases || []).length >= 8, 'Evaluation scenario suite contains at least eight cases');
+  check(new Set((evaluation.cases || []).map((item) => item.id)).size === evaluation.cases.length, 'Evaluation scenario IDs are unique');
+  check(['multilanguage', 'progressive-search', 'provenance', 'verification', 'safety', 'security', 'web-component'].every((item) => categories.has(item)), 'Evaluation scenario suite covers key risk categories');
+} catch (error) { check(false, 'Evaluation scenario JSON parses (' + error.message + ')'); }
 
 const multiGuide = readFile('.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md') || '';
 for (const term of ['Detect the actual task and stack first', 'authoritative documentation', 'language-specific', 'PASS / FAIL / NOT RUN']) {
