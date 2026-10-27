@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.5.0
+
+- Added CSS-Tricks as a technical encyclopedia/reference workflow for CSS and frontend concepts, implementation patterns, and debugging.
+- Added guidance for research, browser-support cross-checks, original implementation, source linking, and copyright-safe summaries.
+- Synced portable, Claude standalone/plugin, and Copilot agent instructions; documented the reference workflow.
+
+
 ## 2.4.0
 
 - Added UIverse.io component ingestion and conversion support alongside CodePen.
