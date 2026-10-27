@@ -21,6 +21,7 @@ function exists(rel) {
 }
 
 const required = [
+  '.claude/agents/frontend-qa-test-engineer.md', 'docs/agents/frontend-qa-test-engineer.md', 'tests/agent-cases/qa-test-engineer.json',
   '.claude/agents/frontend-codepen-extractor.md',
   '.claude/agents/frontend-code-auditor.md', 'docs/agent-auditor.md',
   '.claude/agents/frontend-architect-planner.md', 'docs/frontend-architect-planner.md', 'tests/architect-planner-cases.json', 'scripts/evaluation/validate-architect-plan.mjs', 'scripts/evaluation/evaluate-planner-live.mjs',
