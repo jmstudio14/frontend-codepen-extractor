@@ -1,4 +1,4 @@
-name: Validate agent package
+name: Validate agent and plugin package
 
 on:
   push:
@@ -17,7 +17,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Validate package structure and metadata
+      - name: Validate standalone agent package
         run: node scripts/validate-agent.mjs
+      - name: Validate Claude Code plugin and marketplace
+        run: node scripts/validate-plugin.mjs
       - name: Run smoke tests
         run: node scripts/test-agent.mjs
