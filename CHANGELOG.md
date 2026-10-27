@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.7.0
+
+- Expanded the agent from frontend-focused reconstruction to repository-aware multilanguage and multiframework engineering while retaining all CodePen, UIverse, CodeMyUI, CSS-Tricks, GitHub, and mandatory external-fallback workflows.
+- Added a shared multilanguage engineering guide covering stack/version detection, monorepo boundaries, authoritative technical research, language-native implementation, stack-specific verification, and safety boundaries.
+- Updated portable skill, Claude Code standalone/plugin skill, Claude Code agent, and GitHub Copilot agent to route general programming tasks through the new guide instead of forcing frontend assumptions.
+- Strengthened validators to require the new guide and check its content and distribution parity.
+- Bumped package and plugin metadata to 2.7.0.
+
+
 ## 2.6.2
 
 - Made external fallback a mandatory step whenever predefined sources do not provide a convincing match, usable original source, or sufficiently complete implementation.
