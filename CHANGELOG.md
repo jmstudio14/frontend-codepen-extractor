@@ -1,12 +1,20 @@
 # Changelog
 
+## 2.3.0
+
+- Expanded the agent into extract, reconstruct, integrate, refactor, explain, audit, and repair modes.
+- Added framework-aware standalone project generation guidance and expanded framework coverage.
+- Added dependency/asset recovery inventories, preprocessor conversion, and approval guardrails.
+- Added behavior-preserving refactoring, TypeScript adaptation, and project-native testing.
+- Added evidence-based repair loop, visual QA, accessibility/security/resilience audits, and PASS/FAIL/NOT RUN reporting.
+- Synced portable skill and Claude Code agent instructions across distributions.
+
 ## 2.2.0
 
 - Added a portable Agent Skills copy under `.agents/skills/` for Codex, GitHub Copilot, Cursor, Gemini CLI, Windsurf, and other compatible coding agents.
 - Added a GitHub Copilot custom agent profile, repository instructions, and reusable prompt template.
 - Added a cross-agent installation guide using the `skills` CLI and per-host installation notes.
 - Expanded automated validation to cover portable skill copies, Copilot adapter files, and multi-agent metadata.
-
 
 ## 2.1.0
 
@@ -24,6 +32,5 @@
 - Added a dependency/resource policy and an evidence-based quality checklist.
 - Added a deliberately flawed animation fixture for manual evaluation.
 - Added dependency-free validation/smoke-test scripts and a Windows PowerShell wrapper.
-- Added an optional Claude Code PreToolUse hook example to block common destructive command patterns.
 - Added GitHub Actions validation on push and pull request.
 - Strengthened Git hygiene, untrusted-input handling, cleanup requirements, and final reporting.
