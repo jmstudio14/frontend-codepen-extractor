@@ -715,7 +715,7 @@
       "id": "coordinator",
       "name": "agent-ecosystem-coordinator",
       "priority": "P3",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "architect-planner-merged",
         "qa-test-engineer-merged",
@@ -776,7 +776,14 @@
         "Unbounded cost"
       ],
       "rollback": "Disable coordinator entry point and return to manual agent invocation.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "branch": "feat/agent-ecosystem-coordinator",
+      "files": [
+        ".claude/agents/agent-ecosystem-coordinator.md",
+        "docs/agents/agent-ecosystem-coordinator.md",
+        "tests/agent-cases/coordinator.json"
+      ],
+      "pull_request": "pending"
     }
   ]
 }
