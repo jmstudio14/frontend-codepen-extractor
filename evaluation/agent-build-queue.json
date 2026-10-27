@@ -346,7 +346,7 @@
       "id": "documentation-maintainer",
       "name": "frontend-documentation-maintainer",
       "priority": "P1",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "architect-planner-merged",
         "qa-test-engineer-merged"
@@ -393,7 +393,14 @@
         "External links may be transient"
       ],
       "rollback": "Remove the profile and its tests/docs.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "branch": "feat/frontend-documentation-maintainer",
+      "files": [
+        ".claude/agents/frontend-documentation-maintainer.md",
+        "docs/agents/frontend-documentation-maintainer.md",
+        "tests/agent-cases/documentation-maintainer.json"
+      ],
+      "pull_request": "pending"
     },
     {
       "sequence": 7,
