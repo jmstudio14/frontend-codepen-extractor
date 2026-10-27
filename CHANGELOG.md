@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The live adapter now writes a report for every paid run, including when the budget or turn limit is reached or the SDK throws. Reports include `run_status` and a per-turn `usage_breakdown` (input, cache-write, cache-read and output tokens, plus tools) from `scripts/evaluation/usage.mjs`, and a `[cost]` line is printed per turn. Previously an exhausted budget could leave no data.
+- Added a fake SDK (`tests/fixtures/fake-claude-sdk.mjs`, honoured only from `tests/`) and the first end-to-end adapter tests, with no model calls.
+- Corrected the measurement protocol: the earlier 1 USD-per-run estimate was unmeasured and proved wrong (the first attempt spent about 4 USD without completing a case). Added a required 0.50 USD diagnostic step and PowerShell commands.
 - Added three executable evaluation fixtures (`dynamic-js-widget`, `broken-html-card`, `external-deps-gallery`) with objective assertion scripts, `fixture.json` manifests and three matching suite cases. Reference solutions in `tests/fixture-solutions/` prove that every assertion can be met.
 - The Claude Agent SDK adapter now selects the fixture, allowed files, assertions and prompt from the manifest instead of hard-coding one fixture. Manifests and assertion scripts are not copied into the agent workspace.
 - Added `scripts/evaluation/browser-check.mjs`, an optional Playwright check with the network blocked. It covers page errors, visibility, overflow at 360px, accessible names, interactions, literal text and teardown of timers and listeners, and saves screenshots. Without Playwright it records NOT RUN.

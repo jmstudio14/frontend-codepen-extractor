@@ -19,7 +19,7 @@ Four cases are executable. Each one has a fixture under `tests/fixtures/<name>/`
 
     node scripts/evaluation/run-repeated.mjs --adapter "node scripts/adapters/claude-agent-sdk.mjs" --case web-extraction-regression,dynamic-js-widget,broken-html-card,external-deps-gallery --repeat 3 --output evaluation-results/live.json --history evaluation-results/history.jsonl
 
-Reports include observed tool traces, changed files, actual command results, token counts when returned by the SDK, and cost in USD when returned. Unknown usage stays null, never zero. JSONL history stores one summary per evaluation invocation. GitHub Actions uploads reports as artifacts and keeps a best-effort rolling cache; artifacts are the per-run record.
+Every live run writes a report, including when the budget or turn limit is reached or the SDK fails. `run_status` records `COMPLETED`, `BUDGET_EXHAUSTED`, `MAX_TURNS` or `ERROR`, and `usage_breakdown` records per-turn input, cache-write, cache-read and output tokens with the tools used. Reports include observed tool traces, changed files, actual command results, token counts when returned by the SDK, and cost in USD when returned. Unknown usage stays null, never zero. JSONL history stores one summary per evaluation invocation. GitHub Actions uploads reports as artifacts and keeps a best-effort rolling cache; artifacts are the per-run record.
 
 ## Objective checks and evidence
 

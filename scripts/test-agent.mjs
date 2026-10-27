@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { classifyCommand } from './block-dangerous-commands.mjs';
 import { findFixture, listFixtures, validateManifest } from './evaluation/fixtures.mjs';
+import { runStatus, summarizeMessages } from './evaluation/usage.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let passed = 0;
@@ -433,6 +434,76 @@ fs.writeFileSync(process.env.AGENT_EVAL_RESULT_PATH, JSON.stringify({
     assert.equal(report.cases[0].status, 'FAIL');
     assert.ok(report.cases[0].errors.some((error) => /objective fixture checks failed: Fixture quality assertions/.test(error)));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('usage summary totals per-turn tokens and keeps unknown values null', () => {
+  const summary = summarizeMessages([
+    { type: 'assistant', message: { model: 'm', usage: { input_tokens: 10, cache_creation_input_tokens: 100, cache_read_input_tokens: 0, output_tokens: 5 }, content: [{ type: 'tool_use', name: 'Read' }] } },
+    { type: 'assistant', message: { usage: { input_tokens: 20, cache_read_input_tokens: 100, output_tokens: 7 }, content: [] } },
+    { type: 'result', subtype: 'error_max_budget_usd', num_turns: 2, total_cost_usd: 0.5 },
+  ]);
+  assert.equal(summary.num_turns, 2);
+  assert.equal(summary.totals.input_tokens, 30);
+  assert.equal(summary.totals.output_tokens, 12);
+  assert.equal(summary.totals.cache_creation_input_tokens, null, 'a missing field must not be summed as 0');
+  assert.deepEqual(summary.turns[0].tools, ['Read']);
+  assert.equal(summary.total_cost_usd, 0.5);
+  assert.equal(summary.largest_input_turn.turn, 2);
+  assert.equal(summarizeMessages([]).total_cost_usd, null);
+  assert.equal(runStatus({ subtype: 'success' }), 'COMPLETED');
+  assert.equal(runStatus({ subtype: 'error_max_budget_usd' }), 'BUDGET_EXHAUSTED');
+  assert.equal(runStatus({ subtype: 'error_max_turns' }), 'MAX_TURNS');
+  assert.equal(runStatus({ error: new Error('Claude Code exceeded max budget') }), 'BUDGET_EXHAUSTED');
+  assert.equal(runStatus({ error: new Error('socket hang up') }), 'ERROR');
+});
+
+for (const [mode, expected] of [['budget', 'BUDGET_EXHAUSTED'], ['throw', 'ERROR']]) {
+  test(`live adapter writes a full report with per-turn usage when the run ends as ${expected} (fake SDK)`, () => {
+    const resultPath = path.join(os.tmpdir(), `adapter-fake-${mode}-${process.pid}.json`);
+    try {
+      const run = spawnSync(process.execPath, [path.join(root, 'scripts/adapters/claude-agent-sdk.mjs')], { cwd: root, encoding: 'utf8', timeout: 120000, env: {
+        ...process.env, FAKE_SDK_MODE: mode, AGENT_EVAL_SDK_MODULE: 'tests/fixtures/fake-claude-sdk.mjs', ANTHROPIC_API_KEY: 'fake-not-a-key',
+        AGENT_EVAL_CASE_ID: 'dynamic-js-widget', AGENT_EVAL_RESULT_PATH: resultPath,
+      } });
+      assert.equal(run.status, 1, run.stderr);
+      assert.match(run.stderr, /\[cost\] turn 2: input 22900/);
+      const report = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+      assert.equal(report.run_status, expected);
+      assert.equal(report.usage_breakdown.turns.length, 2);
+      assert.equal(report.usage_breakdown.totals.cache_read_input_tokens, 18000);
+      assert.deepEqual(report.repository.changed_files, ['widget.js']);
+      assert.ok(report.checks.some((check) => check.name === 'Fixture quality assertions' && check.status === 'FAIL'));
+      assert.equal(report.cost_usd, mode === 'budget' ? 0.42 : null);
+      assert.ok(!JSON.stringify(report).includes('fake-not-a-key'), 'API key must be redacted');
+    } finally { fs.rmSync(resultPath, { force: true }); }
+  });
+}
+
+test('repeated evaluation keeps run status and per-turn usage from a budget-exhausted run (fake SDK)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repeat-usage-'));
+  try {
+    const output = path.join(dir, 'diagnostic.json');
+    const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluation/run-repeated.mjs'), '--adapter', 'node scripts/adapters/claude-agent-sdk.mjs', '--case', 'dynamic-js-widget', '--repeat', '1', '--output', output], {
+      cwd: root, encoding: 'utf8', timeout: 180000,
+      env: { ...process.env, FAKE_SDK_MODE: 'budget', AGENT_EVAL_SDK_MODULE: 'tests/fixtures/fake-claude-sdk.mjs', ANTHROPIC_API_KEY: 'fake-not-a-key' },
+    });
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    const report = JSON.parse(fs.readFileSync(output, 'utf8'));
+    assert.equal(report.cases[0].run_status, 'BUDGET_EXHAUSTED');
+    assert.equal(report.cases[0].usage_breakdown.turns.length, 2);
+    assert.equal(report.cases[0].objective.passed, false);
+    assert.equal(report.cost_usd_total, 0.42);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('live adapter refuses an SDK override outside tests/', () => {
+  const resultPath = path.join(os.tmpdir(), `adapter-override-${process.pid}.json`);
+  const run = spawnSync(process.execPath, [path.join(root, 'scripts/adapters/claude-agent-sdk.mjs')], { cwd: root, encoding: 'utf8', timeout: 60000, env: {
+    ...process.env, AGENT_EVAL_SDK_MODULE: 'scripts/evaluation/usage.mjs', ANTHROPIC_API_KEY: 'fake-not-a-key', AGENT_EVAL_CASE_ID: 'dynamic-js-widget', AGENT_EVAL_RESULT_PATH: resultPath,
+  } });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /AGENT_EVAL_SDK_MODULE must point inside tests/);
+  assert.equal(fs.existsSync(resultPath), false);
 });
 
 console.log(`\nSmoke tests finished: ${passed} passed${process.exitCode ? ', with failures' : ''}.`);

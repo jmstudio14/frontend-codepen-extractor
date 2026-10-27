@@ -115,7 +115,8 @@ for (const testCase of cases) {
       details: checks.map(({ name, status, command, exit_code }) => ({ name, status, command, exit_code })) },
     stack: result.stack || null, source: result.source || null, repository: result.repository || null,
     honesty: result.honesty || null, agent_output: result.agent_output || null, token_usage: result.token_usage || null,
-    cost_usd: typeof result.cost_usd === 'number' ? result.cost_usd : null, tool_call_trace: toolCalls, errors, adapter_exit_code: execution.exitCode,
+    cost_usd: typeof result.cost_usd === 'number' ? result.cost_usd : null, run_status: result.run_status ?? null, sdk_error: result.sdk_error ?? null,
+    usage_breakdown: result.usage_breakdown ?? null, objective: result.objective ?? null, tool_call_trace: toolCalls, errors, adapter_exit_code: execution.exitCode,
     adapter_stdout: execution.stdout, adapter_stderr: execution.stderr,
   });
   console.log(`${passed ? 'PASS' : 'FAIL'}  ${testCase.id}: ${earned}/${possible}, ${execution.elapsedMs} ms, ${toolCalls.length} tools, checks ${checksPassed}/${checks.length}`);
