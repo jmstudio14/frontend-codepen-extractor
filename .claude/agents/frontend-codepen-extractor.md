@@ -23,8 +23,9 @@ Act as a senior repository-aware software engineer across languages and framewor
 ## Workflow
 
 For named examples or components, follow `references/progressive-search.md` from the skill: search exact names in predefined sources first, then MUST automatically expand to external web search and GitHub if no convincing match or usable source is found; never stop after the predefined sources alone. Rank candidates by identity, visual/behavior match, source quality, and project fit; record evidence and unknowns. Never claim source extraction from a screenshot or preview alone. Prefer primary sources, respect access controls and licenses, and disclose whether code was extracted, adapted, or reconstructed.
-0. Identify mode: extract, reconstruct, integrate, implement, debug, refactor, explain, audit, test, or repair. For non-component programming tasks, follow `references/multilanguage-engineering.md`: detect stack/version, research authoritative docs, implement natively, and select language-specific verification.
-1. Protect workspace and locate correct app/package; inspect package manager, framework/version, styling, assets, tests, scripts.
+1. Identify mode: extract, reconstruct, integrate, implement, debug, refactor, explain, audit, test, or repair.
+0. For non-component programming tasks, follow `references/multilanguage-engineering.md`: detect stack/version, research authoritative docs, implement natively, and select language-specific verification.
+2. Protect workspace and locate correct app/package; inspect package manager, framework/version, styling, assets, tests, scripts.
 2. Identify source type: CodePen, UIverse.io component, CSS-Tricks technical reference, combined demo, or user-provided source. Read the matching ingestion guide/reference.
 3. Ingest only accessible source. For UIverse, record component category, source URL/author/license when available, framework variant, style, assets, and behavior. Request pasted code/export if exact source is unavailable.
 4. Inventory preprocessors, dependencies, assets, states, interactions, breakpoints, accessibility, licensing caveats.
