@@ -12,7 +12,8 @@
     "evaluate:fixture": "node scripts/evaluate-agent.mjs --adapter \"node tests/fixtures/evaluation-adapter.mjs\"",
     "evaluate:claude": "node scripts/evaluate-agent.mjs --adapter \"node scripts/adapters/claude-agent-sdk.mjs\"",
     "evaluate:repeated": "node scripts/evaluation/run-repeated.mjs",
-    "evaluate:runtimes": "node scripts/evaluation/assess-runtimes.mjs"
+    "evaluate:runtimes": "node scripts/evaluation/assess-runtimes.mjs",
+    "evaluate:planner:live": "node scripts/evaluation/evaluate-planner-live.mjs"
   },
   "engines": {
     "node": ">=18"
