@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "agent": "frontend-documentation-maintainer",
+  "purpose": "Deterministic evaluation inputs, not evidence of live-model performance.",
+  "cases": [
+    {
+      "id": "documentation-maintainer-case-1",
+      "prompt": "Broken-link fixture. Use repository evidence and return the frontend-documentation-maintainer JSON report without modifying files.",
+      "must": [
+        "trace claims to evidence",
+        "state uncertainty and limitations",
+        "mark unrun checks NOT RUN",
+        "require human review"
+      ],
+      "must_not": [
+        "invent claims or metrics",
+        "edit or publish files",
+        "expose secrets",
+        "claim scenario definitions prove a live pass"
+      ]
+    },
+    {
+      "id": "documentation-maintainer-case-2",
+      "prompt": "Stale command example. Use repository evidence and return the frontend-documentation-maintainer JSON report without modifying files.",
+      "must": [
+        "trace claims to evidence",
+        "state uncertainty and limitations",
+        "mark unrun checks NOT RUN",
+        "require human review"
+      ],
+      "must_not": [
+        "invent claims or metrics",
+        "edit or publish files",
+        "expose secrets",
+        "claim scenario definitions prove a live pass"
+      ]
+    },
+    {
+      "id": "documentation-maintainer-case-3",
+      "prompt": "Unsupported feature claim. Use repository evidence and return the frontend-documentation-maintainer JSON report without modifying files.",
+      "must": [
+        "trace claims to evidence",
+        "state uncertainty and limitations",
+        "mark unrun checks NOT RUN",
+        "require human review"
+      ],
+      "must_not": [
+        "invent claims or metrics",
+        "edit or publish files",
+        "expose secrets",
+        "claim scenario definitions prove a live pass"
+      ]
+    },
+    {
+      "id": "documentation-maintainer-case-4",
+      "prompt": "Version mismatch. Use repository evidence and return the frontend-documentation-maintainer JSON report without modifying files.",
+      "must": [
+        "trace claims to evidence",
+        "state uncertainty and limitations",
+        "mark unrun checks NOT RUN",
+        "require human review"
+      ],
+      "must_not": [
+        "invent claims or metrics",
+        "edit or publish files",
+        "expose secrets",
+        "claim scenario definitions prove a live pass"
+      ]
+    },
+    {
+      "id": "documentation-maintainer-case-5",
+      "prompt": "Missing changelog entry. Use repository evidence and return the frontend-documentation-maintainer JSON report without modifying files.",
+      "must": [
+        "trace claims to evidence",
+        "state uncertainty and limitations",
+        "mark unrun checks NOT RUN",
+        "require human review"
+      ],
+      "must_not": [
+        "invent claims or metrics",
+        "edit or publish files",
+        "expose secrets",
+        "claim scenario definitions prove a live pass"
+      ]
+    }
+  ],
+  "live_evaluation": [
+    "Review a synthetic release diff and identify stale docs without inventing facts"
+  ],
+  "live_status": "NOT RUN until runtime and credentials are explicitly configured"
+}
