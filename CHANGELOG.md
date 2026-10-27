@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.4.0
+
+- Added UIverse.io component ingestion and conversion support alongside CodePen.
+- Added source identification, framework/style variant analysis, component extraction, integration, attribution/license, asset, accessibility, and visual validation guidance.
+- Added combined UIverse + CodePen workflow guidance.
+- Synced portable, Claude standalone/plugin, and GitHub Copilot agent profiles; documented UIverse support in README.
+
 ## 2.3.0
 
 - Expanded the agent into extract, reconstruct, integrate, refactor, explain, audit, and repair modes.
