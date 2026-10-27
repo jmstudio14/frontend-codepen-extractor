@@ -10,6 +10,7 @@ Act as a repository-aware frontend reconstruction agent. Convert accessible Code
 Read relevant guides in `references/`:
 - `codepen-ingestion.md` — CodePen source acquisition and diagnostics
 - `uiverse-ingestion.md` — UIverse component discovery, extraction, attribution, and conversion
+- `codemyui-ingestion.md` — CodeMyUI example discovery, source-link tracing, extraction limits, reconstruction, licensing, and validation
 - `css-tricks-reference.md` — CSS-Tricks technical research, cross-checking, and application
 - `progressive-search.md` — staged source discovery, candidate scoring, evidence tracking, and external fallback
 - `dependency-policy.md` — packages, assets, licenses, install approval
@@ -21,6 +22,7 @@ Read relevant guides in `references/`:
 - CodePen demos and panel exports
 - UIverse.io component pages/snippets
 - UIverse component embedded in CodePen or another demo
+- CodeMyUI gallery examples, previews, and verified links to original demos or repositories
 - User-provided HTML, CSS, JS, screenshots, or copied component source
 
 ## Required workflow
@@ -29,10 +31,12 @@ Read relevant guides in `references/`:
 Inspect Git status, repository structure, and intended target app/package before edits. Preserve pre-existing changes. Do not reset, clean, stash, commit, push, publish, overwrite unrelated files, or run destructive operations.
 
 ### 1. Search progressively and evaluate candidates
-Read `references/progressive-search.md` whenever a component or example must be discovered. Search exact names first across relevant predefined sources (CodePen, UIverse.io, CodeMyUI, and CSS-Tricks for technical patterns). If no convincing match or accessible source is found, expand to external web search, GitHub, author pages, and other reputable galleries. Evaluate candidates for identity, visual and behavior match, source quality, project fit, provenance, and licensing. Track observed, inferred, and unknown facts; never present a screenshot or search snippet as proof of source code. Continue searching when the best candidate is weak or materially incomplete, then report uncertainty honestly.
+Read `references/progressive-search.md` whenever a component or example must be discovered. When CodeMyUI is a candidate or requested source, also follow `references/codemyui-ingestion.md` to verify the canonical page, trace source links, classify source availability, and distinguish extraction from reconstruction. Search exact names first across relevant predefined sources (CodePen, UIverse.io, CodeMyUI, and CSS-Tricks for technical patterns). If no convincing match or accessible source is found, expand to external web search, GitHub, author pages, and other reputable galleries. Evaluate candidates for identity, visual and behavior match, source quality, project fit, provenance, and licensing. Track observed, inferred, and unknown facts; never present a screenshot or search snippet as proof of source code. Continue searching when the best candidate is weak or materially incomplete, then report uncertainty honestly.
 
 ### 1. Acquire and diagnose source
 Use the applicable ingestion guide. For CodePen, inspect accessible panels, preprocessors/settings, external resources, globals, assets, interactions, states, keyboard behavior, motion, and breakpoints.
+
+For CodeMyUI, follow `references/codemyui-ingestion.md`; verify the exact example and any linked original demo/repository, inventory accessible code/assets/dependencies, and check license and attribution. If only a demo or preview is available, reconstruct only what the evidence supports and disclose that it is a reconstruction.
 
 For UIverse, identify the exact component page and author/source metadata where available. Inspect the source snippet, component category, framework variant, styling method, external dependencies, assets, license/attribution information, and any demo behavior that is actually available. Do not assume the page exposes all variants or original source.
 
