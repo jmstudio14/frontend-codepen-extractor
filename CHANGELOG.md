@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.2
+
+- Made external fallback a mandatory step whenever predefined sources do not provide a convincing match, usable original source, or sufficiently complete implementation.
+- Clarified that the agent must not stop after searching CodePen, UIverse, CodeMyUI, and CSS-Tricks, and must not ask the user whether to perform this normal external search.
+- Strengthened automated validators to check mandatory fallback wording in the progressive-search guide and portable/plugin distribution.
+
 ## 2.6.1
 
 - Added a dedicated CodeMyUI ingestion guide to the portable Agent Skill, Claude Code skill, and packaged plugin skill.
