@@ -9,7 +9,7 @@ A repository-aware engineering agent that analyzes prototype source, adapts it t
 [Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
 
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
-![Version](https://img.shields.io/badge/version-2.4.0-64748b)
+![Version](https://img.shields.io/badge/version-2.5.0-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/repository-private-8b5cf6)
 
@@ -119,7 +119,7 @@ Example request:
 
 > Convert this CodePen into my existing frontend project: [CodePen URL]. Inspect the repository and Git status first. Preserve current work, follow the existing architecture, scope styles, implement lifecycle cleanup, and run the available checks. Do not install dependencies or download assets without asking.
 
-For other agents, ask them to use the `frontend-codepen-extractor` skill.
+For other agents, ask them to use the `frontend-codepen-extractor` skill. You can also ask it to research a CSS concept using CSS-Tricks and verify current browser support.
 
 ### If the CodePen source is unavailable
 
@@ -130,6 +130,12 @@ A URL or screenshot does not guarantee access to source panels, preprocessor set
 - A local reproduction and a description of the behavior that must be preserved
 
 A screenshot can guide visual intent, but it cannot establish the original source or hidden behavior.
+
+## CSS-Tricks technical reference
+
+The agent can consult [CSS-Tricks](https://css-tricks.com/) as a technical encyclopedia for CSS and frontend concepts, implementation patterns, debugging, responsive layout, accessibility, and browser behavior. It adapts the knowledge to your project's architecture, cross-checks current compatibility against authoritative documentation, and links to sources instead of copying articles or code wholesale.
+
+See [the CSS-Tricks reference guide](.agents/skills/frontend-codepen-extractor/references/css-tricks-reference.md).
 
 ## UIverse.io component support
 
