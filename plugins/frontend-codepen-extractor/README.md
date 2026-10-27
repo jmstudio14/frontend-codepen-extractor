@@ -9,7 +9,15 @@ Prerequisites:
 - Git installed.
 - Git credentials that can clone the private repository. HTTPS users can configure GitHub CLI with gh auth login and gh auth setup-git, or use an already working SSH key.
 
-In Claude Code, run:
+On Claude Code v2.1.275 or newer, you can install from a new marketplace in one command inside the session:
+
+```text
+/plugin install frontend-codepen-extractor --marketplace jmstudio14/frontend-codepen-extractor
+```
+
+Claude Code asks you to confirm the marketplace and then prompts for the install scope.
+
+For broader compatibility, use the two-step flow:
 
 \`\`\`text
 /plugin marketplace add jmstudio14/frontend-codepen-extractor
