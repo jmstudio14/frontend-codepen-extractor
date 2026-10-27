@@ -21,7 +21,7 @@ A repository-aware engineering agent that detects your project's language, frame
 
 Programming tasks require respecting the project's existing architecture, language versions, dependency manager, and test workflow. Web prototypes add a separate challenge: moving a visual demo into a real application often means untangling global styles, CDN dependencies, standalone scripts, and lifecycle assumptions.
 
-**Frontend CodePen Extractor** has grown into a general-purpose, repository-aware coding agent. For programming tasks it works in the project's existing language and framework; for UI component tasks it retains its specialist extraction and reconstruction workflow.
+**Multilanguage Code & Component Extractor** is a general-purpose, repository-aware coding agent. For programming tasks it works in the project's existing language and framework; for UI component tasks it retains its specialist extraction and reconstruction workflow.
 
 It can work from accessible source URLs, exported files, supplied code, or the existing repository. It inspects project conventions, researches progressively, implements focused changes, and reports what was and was not verified.
 
