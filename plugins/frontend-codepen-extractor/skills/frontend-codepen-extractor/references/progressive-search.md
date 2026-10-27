@@ -20,9 +20,11 @@ Search relevant sources in this order, adapting the order to the requested type:
 
 Use available WebSearch/browser/search tools. A source being listed here does not guarantee it is reachable or contains source code. Record queries and useful URLs to avoid repeating searches.
 
+**Mandatory fallback rule:** completing this predefined-source pass is not a stopping point by itself. If no candidate is a convincing match, the original source cannot be accessed, or the available code/demo is incomplete in a way that matters to the request, proceed to Stage 2 automatically. Do not ask the user whether to search externally; external discovery is part of the normal workflow. Stop only after the external tier has also been meaningfully searched, or a genuine tool/access limitation prevents it.
+
 ## Stage 2 — Expand to external sources
 
-If no convincing match appears, source is unavailable, or the best match is incomplete, broaden the search:
+**Required next step when Stage 1 is insufficient:** immediately broaden the search; do not finish with only “not found in predefined sources.” This fallback is mandatory when no convincing match appears, source is unavailable or inaccessible, the best match is weak, or material code/behavior is missing. Then:
 - Search the web for the exact name in quotes, then useful aliases and component-type terms.
 - Search GitHub for repositories, files, demos, and source code.
 - Follow verified links to authors' portfolios, CodePen projects, live demos, and documentation.
