@@ -59,6 +59,23 @@ if (/tools:\s*Read, Grep, Glob, Bash/.test(auditor) && !/^tools:.*\b(Edit|Write)
 else fail('Auditor profile is read-only (no Edit/Write tools)');
 const auditorGuide = read('docs/agent-auditor.md') ?? '';
 for (const term of ['PASS', 'FAIL', 'BLOCKED', 'correction rounds', 'does not automatically trigger itself in CI']) auditorGuide.toLowerCase().includes(term.toLowerCase()) ? pass('Auditor guide covers ' + term) : fail('Auditor guide covers ' + term);
+
+const planner = read('.claude/agents/frontend-architect-planner.md') ?? '';
+const plannerFrontmatter = planner.match(/^---\\r?\\n([\\s\\S]*?)\\r?\\n---/);
+if (plannerFrontmatter && /\\bname:\\s*frontend-architect-planner\\b/.test(plannerFrontmatter[1]) && /\\bdescription:\\s*\\S/.test(plannerFrontmatter[1])) pass('Architect planner frontmatter is valid');
+else fail('Architect planner frontmatter is valid');
+if (/tools:\\s*Read, Grep, Glob, Bash/.test(planner) && !/^tools:.*\\b(Edit|Write)\\b/m.test(plannerFrontmatter?.[1] ?? '')) pass('Architect planner is read-only');
+else fail('Architect planner is read-only');
+const plannerGuide = read('docs/frontend-architect-planner.md') ?? '';
+for (const term of ['schema_version: 1', 'human_approval.status: PENDING', 'NOT RUN', 'does not automatically approve']) plannerGuide.toLowerCase().includes(term.toLowerCase()) ? pass('Architect planner guide covers ' + term) : fail('Architect planner guide covers ' + term);
+try {
+  const plannerCases = JSON.parse(read('tests/architect-planner-cases.json') ?? '');
+  const ids = plannerCases.cases?.map(item => item.id) ?? [];
+  if (plannerCases.schema_version === 1 && ids.length >= 6 && new Set(ids).size === ids.length) pass('Architect planner cases parse with unique IDs');
+  else fail('Architect planner cases parse with unique IDs');
+  if (plannerCases.cases.every(item => item.prompt && item.must?.length && item.must_not?.length)) pass('Architect planner cases define positive and negative criteria');
+  else fail('Architect planner cases define positive and negative criteria');
+} catch (error) { fail('Architect planner cases parse (' + error.message + ')'); }
 const frontmatter = agent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 if (!frontmatter) {
   fail('Agent frontmatter delimiters are present');
