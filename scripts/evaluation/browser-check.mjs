@@ -52,7 +52,13 @@ const trackerScript = () => {
   for (const [targetName, target] of [['window', window], ['document', document]]) {
     const add = target.addEventListener.bind(target), remove = target.removeEventListener.bind(target);
     target.addEventListener = (type, callback, options) => {
-      if (callback && (typeof callback === 'function' || typeof callback === 'object')) state.listeners.add(keyOf(targetName, type, callback, options));
+      if (callback && (typeof callback === 'function' || typeof callback === 'object')) {
+        const key = keyOf(targetName, type, callback, options);
+        state.listeners.add(key);
+        // The DOM removes a `once` listener after it fires and a `signal` listener when the signal aborts.
+        if (options?.once) add(type, () => state.listeners.delete(key), { once: true, capture: typeof options === 'boolean' ? options : Boolean(options?.capture) });
+        if (options?.signal) options.signal.addEventListener('abort', () => state.listeners.delete(key), { once: true });
+      }
       return add(type, callback, options);
     };
     target.removeEventListener = (type, callback, options) => {

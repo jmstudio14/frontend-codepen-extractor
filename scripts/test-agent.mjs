@@ -435,6 +435,46 @@ test('the smoke-test runner reports a failing async test as FAIL', () => {
   assert.match(run.stdout, /0 passed, with failures/);
 });
 
+// A throwaway copy of the repository (without .git and node_modules) for tests that must break files.
+function withRepoCopy(fn) {
+  const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'repo-copy-'));
+  try {
+    fs.cpSync(root, copy, { recursive: true, filter: (src) => !['.git', 'node_modules', 'evaluation-results'].includes(path.basename(src)) });
+    return fn(copy);
+  } finally { fs.rmSync(copy, { recursive: true, force: true }); }
+}
+const runIn = (copy, script, args = []) => spawnSync(process.execPath, [path.join(copy, script), ...args], { cwd: copy, encoding: 'utf8', timeout: 60000 });
+
+test('validators fail on an uncovered agent, a drifting skill copy and a malformed manifest', () => withRepoCopy((copy) => {
+  const casesPath = path.join(copy, 'tests/agent-cases/code-auditor.json');
+  const cases = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
+  fs.writeFileSync(casesPath, JSON.stringify({ ...cases, agent: 'frontend-qa-test-engineer' }));
+  fs.writeFileSync(path.join(copy, '.claude/skills/frontend-codepen-extractor/references/extra.md'), 'not in the other copies\n');
+  fs.writeFileSync(path.join(copy, 'tests/fixtures/broken-html-card/fixture.json'), '{ not json');
+  const agent = runIn(copy, 'scripts/validate-agent.mjs');
+  assert.equal(agent.status, 1);
+  assert.match(agent.stderr, /FAIL {2}Agent has evaluation cases in tests\/agent-cases: frontend-code-auditor/);
+  assert.match(agent.stderr, /FAIL {2}Fixture manifest broken-html-card is valid \(fixture\.json does not parse/);
+  const plugin = runIn(copy, 'scripts/validate-plugin.mjs');
+  assert.equal(plugin.status, 1);
+  assert.match(plugin.stderr, /FAIL {2}Skill copy has the same files as \.agents\/skills\/frontend-codepen-extractor: \.claude\/skills\/frontend-codepen-extractor/);
+}));
+
+test('the hook and the plugin sync still run when invoked through a symlinked checkout', () => withRepoCopy((copy) => {
+  const linkParent = fs.mkdtempSync(path.join(os.tmpdir(), 'linked-checkout-'));
+  try {
+    const link = path.join(linkParent, 'repo');
+    try { fs.symlinkSync(copy, link, 'junction'); } catch (error) { throw new NotRun(`cannot create a link here (${error.code})`); }
+    const payload = JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git reset --hard HEAD' } });
+    const hook = spawnSync(process.execPath, [path.join(link, 'scripts/block-dangerous-commands.mjs')], { input: payload, encoding: 'utf8', timeout: 30000 });
+    assert.match(hook.stdout, /"permissionDecision":"deny"/, 'a hook that silently skips itself would allow the command');
+    fs.appendFileSync(path.join(copy, 'plugins/frontend-codepen-extractor/agents/frontend-qa-test-engineer.md'), '\nhand edit\n');
+    const sync = spawnSync(process.execPath, [path.join(link, 'scripts/sync-plugin-agents.mjs'), '--check'], { cwd: link, encoding: 'utf8', timeout: 30000 });
+    assert.equal(sync.status, 1, 'sync --check through a link must still detect drift');
+    assert.match(sync.stderr, /STALE/);
+  } finally { fs.rmSync(linkParent, { recursive: true, force: true }); }
+}));
+
 test('validators and plugin sync pass on a checkout with CRLF line endings', () => {
   const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'crlf-checkout-'));
   try {
@@ -477,6 +517,21 @@ test('browser check fails each reference solution mutant for the right reason', 
     assert.equal(result.status, 'FAIL', `${name} mutant passed: ${JSON.stringify(edits)}`);
     assert.ok(result.failures.some((failure) => reason.test(failure)), `${name}: ${JSON.stringify(result.failures)}`);
   }
+});
+
+test('browser check accepts correct teardown through an AbortController signal', () => {
+  const fixture = listFixtures(root).find((item) => item.name === 'dynamic-js-widget');
+  const result = withWorkspace(fixture, path.join(root, 'tests/fixture-solutions/dynamic-js-widget'), (dir) => {
+    let text = fs.readFileSync(path.join(dir, 'widget.js'), 'utf8');
+    for (const [from, to] of [
+      ["document.addEventListener('click', onClick);", "const listeners = new AbortController();\n  document.addEventListener('click', onClick, { signal: listeners.signal });"],
+      ["document.removeEventListener('click', onClick);", 'listeners.abort();'],
+    ]) { assert.ok(text.includes(from), from); text = text.replace(from, to); }
+    fs.writeFileSync(path.join(dir, 'widget.js'), text);
+    return browserCheck(dir, fixture).result;
+  });
+  if (result.status === 'NOT RUN') throw new NotRun(result.reason);
+  assert.equal(result.status, 'PASS', JSON.stringify(result.failures));
 });
 
 test('browser check reports NOT RUN, not FAIL, when the Chromium download is missing', () => {
@@ -620,7 +675,11 @@ setTimeout(() => {}, 120000);
     harness.kill('SIGTERM');
     assert.equal((await exited).code, 143);
     await new Promise((resolve) => setTimeout(resolve, 300));
-    const alive = (pid) => { try { process.kill(pid, 0); return !fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(' ')[2].startsWith('Z'); } catch { return false; } };
+    // Signal 0 checks existence; where /proc exists, a zombie (exited, not yet reaped) counts as stopped.
+    const alive = (pid) => {
+      try { process.kill(pid, 0); } catch { return false; }
+      try { return !fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(' ')[2].startsWith('Z'); } catch { return true; }
+    };
     for (const pid of fs.readFileSync(pids, 'utf8').trim().split(' ').map(Number)) assert.equal(alive(pid), false, `process ${pid} survived the interrupt`);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
@@ -775,6 +834,38 @@ test('manual scoring accepts CRLF line endings but fails real trailing whitespac
     fs.appendFileSync(path.join(workspace, 'card.css'), '.extra { color: red; }   \r\n');
     assert.equal(whitespace(), 'FAIL', 'trailing spaces still fail');
   } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual evaluation prepares despite global commit signing and failing hooks', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-gitcfg-'));
+  try {
+    const hooks = path.join(base, 'hooks');
+    fs.mkdirSync(hooks);
+    for (const hook of ['pre-commit', 'commit-msg']) fs.writeFileSync(path.join(hooks, hook), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    const config = path.join(base, 'gitconfig');
+    fs.writeFileSync(config, `[commit]\n\tgpgsign = true\n[gpg]\n\tprogram = ${path.join(base, 'no-such-gpg').split(path.sep).join('/')}\n[core]\n\thooksPath = ${hooks.split(path.sep).join('/')}\n`);
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: config };
+    const run = spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', path.join(base, 'run')], { encoding: 'utf8', timeout: 60000, env });
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    assert.match(JSON.parse(fs.readFileSync(path.join(base, 'run', 'meta.json'), 'utf8')).base_commit, /^[0-9a-f]{40}$/);
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual scoring is INCOMPLETE, exit 3, when the browser check cannot run', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-incomplete-'));
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'no-browsers-'));
+  try {
+    const dir = path.join(base, 'run');
+    assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 }).status, 0);
+    const workspace = path.join(dir, 'workspace');
+    fs.cpSync(path.join(root, 'tests/fixture-solutions/broken-html-card'), workspace, { recursive: true });
+    const run = spawnSync(process.execPath, [manualEval, 'score', workspace], { encoding: 'utf8', timeout: 120000, env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: empty } });
+    assert.equal(run.status, 3, run.stdout + run.stderr);
+    const report = JSON.parse(fs.readFileSync(path.join(dir, 'report.json'), 'utf8'));
+    assert.equal(report.status, 'INCOMPLETE');
+    assert.equal(report.objective.passed, false);
+    assert.deepEqual(report.objective.not_run_checks, ['Browser check (Playwright, network blocked)']);
+  } finally { fs.rmSync(base, { recursive: true, force: true }); fs.rmSync(empty, { recursive: true, force: true }); }
 });
 
 test('manual evaluation still scores changes the agent committed', () => {

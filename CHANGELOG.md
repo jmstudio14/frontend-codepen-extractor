@@ -11,25 +11,27 @@ Fixes from a full review of the repository: three independent read-only reviews 
   - The Windows path guard in the smoke tests now matches real paths such as `C:\Users\...`.
   - Manual scoring treats a CRLF line ending as a line ending, not trailing whitespace, so Windows edits are not failed for it; real trailing spaces still fail.
 - **Manual measurement integrity.**
-  - `manual-eval prepare` creates the workspace in the system temporary folder and refuses one inside the clone. Inside the clone, Claude Code loaded this repository's `CLAUDE.md` and the reference solutions were a few folders away.
+  - `manual-eval prepare` creates the workspace in a new private folder (`mkdtemp`) in the system temporary folder and refuses one inside the clone. Inside the clone, Claude Code loaded this repository's `CLAUDE.md` and the reference solutions were a few folders away. It warns when a `CLAUDE.md` sits in any folder above the workspace.
   - Scoring compares against the prepared commit, so changes the agent commits are still scored and checked for unexpected files.
   - The guard against a workspace inside the clone also resolves symlinked ancestors that point into the clone, and it treats folder names that start with `..` correctly.
   - The initial commit ignores global signing and hooks. If `prepare` fails, it removes only what that run created. An existing `--dir` and its files are never deleted.
-  - `score` rejects a `base_commit` that is not a commit id. It also fails the case when the workspace history no longer starts at the prepared commit.
+  - `score` requires a valid `base_commit` in `meta.json`, so workspaces prepared by older versions must be prepared again. It also fails the case when the workspace history no longer starts at the prepared commit.
   - A score with no failures but a NOT RUN check is `INCOMPLETE` (exit code 3), not PASS.
-  - The `web-extraction-regression` fixture README, which listed every seeded defect, now stays on the host (`host_only_files`) and is written for maintainers.
+  - The `web-extraction-regression` fixture README, which listed every seeded defect, now stays on the host (`host_only_files`, which must be plain file names) and is written for maintainers.
 - **Browser check.**
-  - A missing Chromium download is NOT RUN instead of FAIL. Any other launch error is still FAIL.
+  - A missing Chromium download is NOT RUN instead of FAIL. Any other launch error, including missing system libraries (`npx playwright install-deps`), is still FAIL.
   - Clicks must change the page: the expected result is checked absent before and present after. `dynamic-js-widget` checks Alpha's own vote count, so a ticking clock can no longer satisfy it.
-  - The listener tracker counts each listener once and ignores removals of listeners that were never added.
+  - The listener tracker counts each listener once, ignores removals of listeners that were never added, and treats `once` listeners that fired and `signal` listeners whose signal aborted as removed.
   - `web-extraction-regression` now asks for `window.orbitDemo.destroy()` and verifies its teardown in the browser.
 - **Evaluation harness.**
-  - On timeout or interrupt (Ctrl-C, SIGTERM), the harness kills the adapter's whole process tree. It used to wait for orphaned processes holding the pipes.
+  - On timeout, interrupt (Ctrl-C, SIGTERM, SIGHUP) or any other exit, the harness kills the adapter's whole process tree. It used to wait for orphaned processes holding the pipes.
   - It reports timeouts and signals and rejects an invalid `--timeout-ms`. Malformed `checks` or `tool_calls` entries fail the case instead of crashing the run.
 - **Smoke tests.**
   - Async tests are awaited, so a failing async test is reported as FAIL instead of PASS.
   - Browser tests that cannot run are reported as NOT RUN and counted separately, not as PASS.
-  - A malformed fixture manifest no longer stops the whole suite.
+  - A malformed fixture manifest no longer stops the whole suite, and tests that cannot create symlinks report NOT RUN.
+  - Every logic fix in this release has a test that fails without it; mutation runs confirmed it for the main ones.
+- **Hook and sync script.** `block-dangerous-commands.mjs` and `sync-plugin-agents.mjs` compared paths without resolving symlinks. Run through a symlinked or junction checkout, the hook silently did nothing and `--check` passed without checking. They now compare real paths.
 - **Agent frontmatter.** `frontend-documentation-maintainer` had invalid YAML: an unquoted colon in its description. It is now quoted.
 - **Plugin coordinator.** It no longer promises reviewers it cannot launch. Unbundled specialists (dependency/license, privacy, release, run diagnostics) are recorded as NOT RUN and need human acceptance; the removed model evaluator is no longer mentioned.
 - **Plugin docs and links.**
@@ -50,15 +52,15 @@ Fixes from a full review of the repository: three independent read-only reviews 
   - Agent frontmatter is parsed as YAML, so tools given as a list are understood. A byte-order mark no longer hides it, nested agent folders are checked, and an agent file without frontmatter is a finding.
   - Scoped write tools such as `Edit(src/**)`, `MultiEdit` and `Write(*)` count as write access. Only an unscoped `disallowedTools` entry removes a tool.
   - An agent whose `tools` is missing, empty or `*` is blocked, because it inherits Edit and Write. `Task` is checked like `Agent`.
-  - In any file that loads `child_process`, `exec`/`execSync` calls, property access and destructuring are blocked like `shell: true`. So are a `shell` option other than `false` and spawning a shell binary directly. The rule is a documented heuristic, not a parser.
+  - Code rules run on code with comments and string, template and regex literals masked, so they match code rather than prose. In any file that loads `child_process`, every code reference to `exec`/`execSync` (call, alias, property access, destructuring) is blocked like `shell: true`. So are a `shell` option other than `false` (quoted key or not), spawning a shell binary by name or path, `Function()` with or without `new`, and string callbacks to timers. These are documented heuristics, not a parser.
   - The code rules cover all Node code, including hooks and the `.mjs` helpers under `tests/`, but not the browser files of the fixtures.
-  - New token formats: OpenAI project keys, GitHub fine-grained tokens, Slack, Google and npm. An OpenAI-style match now needs a digit, so long hyphenated CSS class names are not reported.
-  - UTF-16 files are scanned. Symlinks, files over 2 MB and binaries without a binary extension are findings rather than silently skipped.
+  - New token formats: OpenAI project keys, GitHub fine-grained tokens, Slack, Google, npm and PGP private keys. An OpenAI-style match needs mixed case and a digit, so long hyphenated CSS class names are not reported.
+  - UTF-16 files are scanned. Symlinks, files over 2 MB and binaries without a binary extension are findings rather than silently skipped. Ignored folder names (`node_modules`, `.git`, `evaluation-results`, `__pycache__`) are skipped only at the repository root.
 - **Skill copies.** The plugin validator compares the three skill copies file by file, including `css-tricks-reference.md`, and takes the expected version from `package.json`.
 - **Agent cases.** Every review agent must have evaluation cases; `frontend-code-auditor` now has them. Case files and fixture manifests are parsed, and errors are reported instead of crashing.
 - **Build queue.** `evaluation/agent-build-queue.json` lists the files each agent delivered, numbers the agents without gaps, and drops the superseded `planned_files`.
 - **CI.** CI also runs on Windows, including the PowerShell wrapper in PowerShell 7 and Windows PowerShell 5.1.
-- **Skill and Copilot prompts.** `SKILL.md` steps are numbered without duplicates. The Copilot prompt covers CodeMyUI, progressive search and the custom agent, and the developer agent lists CodeMyUI as a source type.
+- **Skill and Copilot prompts.** `SKILL.md` steps are numbered without duplicates. The Copilot prompt covers CodeMyUI, progressive search, multilanguage tasks and the custom agent, and the developer agent lists CodeMyUI as a source type.
 
 ## 2.14.0
 

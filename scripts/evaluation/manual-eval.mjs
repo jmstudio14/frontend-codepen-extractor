@@ -45,7 +45,10 @@ function prepare(caseId) {
   const fixture = testCase && findFixture(root, caseId);
   if (!fixture) { console.error(`No executable fixture for case "${caseId}". Cases with fixtures: see tests/fixtures/*/fixture.json.`); process.exit(2); }
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const base = path.resolve(option('--dir') || path.join(os.tmpdir(), 'frontend-extractor-eval', `${caseId}-${stamp}`));
+  // Without --dir, mkdtemp creates a fresh private folder, so another user of a shared temp folder cannot
+  // pre-create it or own it.
+  const privateTemp = option('--dir') ? null : fs.mkdtempSync(path.join(os.tmpdir(), `frontend-extractor-eval-${caseId}-${stamp}-`));
+  const base = path.resolve(option('--dir') || path.join(privateTemp, 'run'));
   if (isInside(resolveThroughExisting(base), resolveThroughExisting(root)) || isInside(base, root)) {
     console.error(`The workspace must be outside this repository (${root}); Claude Code would load its CLAUDE.md and the solutions would be reachable. Choose another --dir.`);
     process.exit(2);
@@ -62,12 +65,19 @@ function prepare(caseId) {
   for (const args of steps) {
     const r = git(args, workspace);
     if (r.exit_code) {
-      fs.rmSync(createdRoot ?? workspace, { recursive: true, force: true });
+      fs.rmSync(privateTemp ?? createdRoot ?? workspace, { recursive: true, force: true });
       console.error('Could not initialize the workspace Git repository: ' + (r.stderr || r.error));
       process.exit(1);
     }
     baseCommit = r.stdout.trim();
   }
+  // Claude Code loads CLAUDE.md from every parent folder; one above the workspace would steer the agent.
+  const inherited = [];
+  for (let dir = path.dirname(workspace); ; dir = path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, 'CLAUDE.md'))) inherited.push(path.join(dir, 'CLAUDE.md'));
+    if (path.dirname(dir) === dir) break;
+  }
+  if (inherited.length) console.warn(`WARNING: Claude Code will also load ${inherited.join(', ')} in this workspace. Choose a --dir without CLAUDE.md above it for a clean measurement.`);
   const prompt = buildPrompt(testCase, fixture.manifest);
   fs.writeFileSync(path.join(base, 'meta.json'), JSON.stringify({ case_id: caseId, fixture: path.relative(root, fixture.dir), base_commit: baseCommit, prepared_at: new Date().toISOString() }, null, 2) + '\n');
   fs.writeFileSync(path.join(base, 'prompt.txt'), prompt + '\n');

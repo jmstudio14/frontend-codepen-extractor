@@ -7,6 +7,8 @@ Use the `frontend-codepen-extractor` custom agent and follow `.agents/skills/fro
 
 **Component name, URL or code:** [Paste a CodePen/UIverse/CodeMyUI URL, name the component, or describe the provided source files]
 
+The same agent also handles non-component programming tasks in any language; for those, follow `references/multilanguage-engineering.md` instead of the component workflow below.
+
 Requirements:
 - Inspect Git status and the existing architecture first: package manager, framework and version, styling system, tests and scripts.
 - For a named component, follow `references/progressive-search.md`: search the predefined sources (CodePen, UIverse.io, CodeMyUI) first, then automatically continue with external web and GitHub search if no convincing match is found. Record the evidence for the chosen candidate.
