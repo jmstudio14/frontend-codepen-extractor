@@ -56,7 +56,7 @@ const required = [
   'tests/fixtures/leaky-animation-prototype/index.html',
   'tests/fixtures/leaky-animation-prototype/prototype.css',
   'tests/fixtures/leaky-animation-prototype/prototype.js',
-  '.github/workflows/validate-agent.yml',
+  '.github/workflows/validate-agent.yml', 'scripts/security-gate.mjs',
 ];
 for (const rel of required) exists(rel) ? pass(`Required file exists: ${rel}`) : fail(`Missing required file: ${rel}`);
 

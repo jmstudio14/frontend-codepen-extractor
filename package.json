@@ -8,12 +8,13 @@
     "validate": "node scripts/validate-agent.mjs && node scripts/validate-plugin.mjs",
     "validate:plugin": "node scripts/validate-plugin.mjs",
     "test": "node scripts/test-agent.mjs",
-    "validate:all": "node scripts/validate-agent.mjs && node scripts/validate-plugin.mjs && node scripts/test-agent.mjs",
+    "validate:all": "node scripts/validate-agent.mjs && node scripts/validate-plugin.mjs && node scripts/test-agent.mjs && node scripts/security-gate.mjs",
     "evaluate:fixture": "node scripts/evaluate-agent.mjs --adapter \"node tests/fixtures/evaluation-adapter.mjs\"",
     "evaluate:claude": "node scripts/evaluate-agent.mjs --adapter \"node scripts/adapters/claude-agent-sdk.mjs\"",
     "evaluate:repeated": "node scripts/evaluation/run-repeated.mjs",
     "evaluate:runtimes": "node scripts/evaluation/assess-runtimes.mjs",
-    "evaluate:planner:live": "node scripts/evaluation/evaluate-planner-live.mjs"
+    "evaluate:planner:live": "node scripts/evaluation/evaluate-planner-live.mjs",
+    "security": "node scripts/security-gate.mjs"
   },
   "engines": {
     "node": ">=18"

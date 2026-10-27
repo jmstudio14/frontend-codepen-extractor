@@ -1,6 +1,6 @@
 ---
 name: frontend-performance-optimizer
-description: frontend-performance-optimizer specialist agent
+description: Read-only performance analyst. Measures execution time, memory, output size and agent cost against a recorded baseline, and proposes only measured optimizations that must pass correctness regression checks. Use for performance claims or harness changes.
 tools: Read, Grep, Glob, Bash
 ---
 

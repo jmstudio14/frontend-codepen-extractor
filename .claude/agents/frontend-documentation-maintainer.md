@@ -1,6 +1,6 @@
 ---
 name: frontend-documentation-maintainer
-description: frontend-documentation-maintainer specialist agent
+description: Read-only documentation auditor. Checks README, CHANGELOG, INSTALL, docs and examples against the real code: broken links, stale commands, missing scripts, version mismatches, unsupported claims. Use after any change before delivery.
 tools: Read, Grep, Glob, Bash
 ---
 

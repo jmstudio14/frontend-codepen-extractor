@@ -1,6 +1,6 @@
 ---
 name: agent-model-evaluator
-description: agent-model-evaluator specialist agent
+description: Read-only evaluator that compares agent runtimes and models on equivalent tasks and scoring, records repeated runs, cost and uncertainty, and reports missing live credentials as NOT RUN. Use before selecting or changing an agent runtime or model.
 tools: Read, Grep, Glob, Bash
 ---
 

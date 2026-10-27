@@ -1,6 +1,6 @@
 ---
 name: frontend-qa-test-engineer
-description: frontend-qa-test-engineer specialist agent
+description: Read-only QA and test engineer (highest priority). Runs unit, integration and regression checks, including failure paths (network errors, incomplete HTML, unexpected structures, invalid adapter output), and returns a PASS/FAIL/BLOCKED test matrix with commands and exit codes. Use for every code change before delivery.
 tools: Read, Grep, Glob, Bash
 ---
 

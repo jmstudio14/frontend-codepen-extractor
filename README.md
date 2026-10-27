@@ -227,6 +227,7 @@ From the repository root:
 node scripts\validate-agent.mjs
 node scripts\validate-plugin.mjs
 node scripts\test-agent.mjs
+node scripts\security-gate.mjs
 ```
 
 Or run the complete validation sequence:
