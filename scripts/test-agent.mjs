@@ -45,6 +45,17 @@ test('no local absolute paths are embedded in project instructions', () => {
   }
 });
 
+test('independent auditor agent exists, is read-only, and defines a strict verdict contract', () => {
+  const profile = fs.readFileSync(path.join(root, '.claude/agents/frontend-code-auditor.md'), 'utf8');
+  const guide = fs.readFileSync(path.join(root, 'docs/agent-auditor.md'), 'utf8');
+  assert.match(profile, /name: frontend-code-auditor/);
+  assert.match(profile, /tools: Read, Grep, Glob, Bash/);
+  assert.doesNotMatch(profile.match(/^---[\s\S]*?---/m)?.[0] || '', /\b(Edit|Write)\b/);
+  for (const verdict of ['PASS', 'FAIL', 'BLOCKED']) assert.ok(profile.includes(verdict), `missing verdict ${verdict}`);
+  assert.match(profile, /Required final report/);
+  assert.match(guide, /does not automatically trigger itself in CI/);
+});
+
 test('evaluation scenario suite parses and declares schema version', () => {
   const suite = JSON.parse(fs.readFileSync(path.join(root, 'tests/agent-evaluation-cases.json'), 'utf8'));
   assert.equal(suite.schema_version, 1);

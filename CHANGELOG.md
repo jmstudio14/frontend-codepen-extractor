@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added a separate read-only Claude Code auditor subagent with evidence-based PASS / FAIL / BLOCKED verdicts, severity-ranked findings, and a bounded correction/re-audit protocol.
+- Documented that the profile is not an automated CI gate until a live evaluation workspace is exported and the auditor is explicitly invoked.
+- Added structural validation and regression tests for the auditor's read-only tool contract.
+
+
 ## 2.12.0
 
 - Added isolated, credential-free import smoke tests for four candidate SDK runtimes, recording exact npm versions and import outcomes without invoking a model.

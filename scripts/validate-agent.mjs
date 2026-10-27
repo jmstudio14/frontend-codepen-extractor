@@ -22,6 +22,7 @@ function exists(rel) {
 
 const required = [
   '.claude/agents/frontend-codepen-extractor.md',
+  '.claude/agents/frontend-code-auditor.md', 'docs/agent-auditor.md',
   '.claude/skills/frontend-codepen-extractor/SKILL.md',
   '.claude/skills/frontend-codepen-extractor/references/codepen-ingestion.md',
   '.claude/skills/frontend-codepen-extractor/references/uiverse-ingestion.md',
@@ -49,6 +50,14 @@ for (const rel of required) exists(rel) ? pass(`Required file exists: ${rel}`) :
 
 const agent = read('.claude/agents/frontend-codepen-extractor.md') ?? '';
 const skill = read('.claude/skills/frontend-codepen-extractor/SKILL.md') ?? '';
+const auditor = read('.claude/agents/frontend-code-auditor.md') ?? '';
+const auditorFrontmatter = auditor.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+if (auditorFrontmatter && /\bname:\s*frontend-code-auditor\b/.test(auditorFrontmatter[1]) && /\bdescription:\s*\S/.test(auditorFrontmatter[1])) pass('Auditor agent frontmatter is valid');
+else fail('Auditor agent frontmatter is valid');
+if (/tools:\s*Read, Grep, Glob, Bash/.test(auditor) && !/^tools:.*\b(Edit|Write)\b/m.test(auditorFrontmatter?.[1] ?? '')) pass('Auditor profile is read-only (no Edit/Write tools)');
+else fail('Auditor profile is read-only (no Edit/Write tools)');
+const auditorGuide = read('docs/agent-auditor.md') ?? '';
+for (const term of ['PASS', 'FAIL', 'BLOCKED', 'correction rounds', 'does not automatically trigger itself in CI']) auditorGuide.toLowerCase().includes(term.toLowerCase()) ? pass('Auditor guide covers ' + term) : fail('Auditor guide covers ' + term);
 const frontmatter = agent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 if (!frontmatter) {
   fail('Agent frontmatter delimiters are present');
