@@ -159,7 +159,7 @@
       "id": "security-reviewer",
       "name": "frontend-security-reviewer",
       "priority": "P0",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "auditor-agent-merged"
       ],
@@ -209,7 +209,14 @@
         "Security claims beyond available evidence"
       ],
       "rollback": "Remove the reviewer profile and associated workflow/docs from its PR.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "pull_request": "pending",
+      "branch": "feat/frontend-security-reviewer",
+      "files": [
+        ".claude/agents/frontend-security-reviewer.md",
+        "docs/agents/frontend-security-reviewer.md",
+        "tests/agent-cases/security-reviewer.json"
+      ]
     },
     {
       "sequence": 4,
