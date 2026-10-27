@@ -1,87 +1,70 @@
 # Frontend CodePen Extractor — Claude Code plugin v2.1.0
 
-Convert CodePen prototypes into modular, accessible, type-safe frontend components that follow the target repository's existing architecture.
+Convert CodePen prototypes into modular, accessible, type-safe frontend components that follow your project's existing architecture.
 
-This repository provides **two installation options**:
-1. **Claude Code plugin (recommended):** install into Claude Code once and use it across projects.
-2. **Standalone `.claude/` configuration:** copy the agent and skill into one repository manually.
+This private repository offers two options:
 
-## Install directly in Claude Code (recommended)
+- **Recommended:** install the native Claude Code plugin once and use it across projects.
+- **Alternative:** copy the standalone `.claude/` agent/skill configuration into one project.
 
-The repository is private. Your local Git credentials must have access to `jmstudio14/frontend-codepen-extractor`.
+## Quick install
 
-### Option A — one command in a recent Claude Code session
+### From a Claude Code session
 
-With Claude Code v2.1.275 or newer, run this inside Claude Code:
+Requires Claude Code v2.1.275 or newer:
 
 ```text
 /plugin install frontend-codepen-extractor --marketplace jmstudio14/frontend-codepen-extractor
 ```
 
-Claude Code will ask you to confirm the marketplace source, then opens the plugin details so you can choose the installation scope.
+### From PowerShell / terminal
 
-### Option B — compatible two-step install in a session
+Requires Claude Code CLI v2.1.292 or newer:
 
-Run these commands inside Claude Code:
+```powershell
+claude plugin install frontend-codepen-extractor --marketplace jmstudio14/frontend-codepen-extractor --scope user
+```
+
+If you prefer compatibility with older versions, use the two-step flow:
 
 ```text
 /plugin marketplace add jmstudio14/frontend-codepen-extractor
 /plugin install frontend-codepen-extractor@jmstudio14-claude-plugins
 ```
 
-When prompted, choose **User scope** to use the plugin across all projects on this computer. Choose **Local scope** to use it only in the current project.
+The repository is **private**. The installing machine must already have Git credentials that can clone it. If needed, configure GitHub CLI with `gh auth login -h github.com -p https` and `gh auth setup-git`, or configure a working SSH key / Git Credential Manager.
 
-### Option B — from PowerShell / terminal
+**Full instructions:** see [INSTALL.md](INSTALL.md), including installation scopes, verification, updates, uninstallation, authentication, and troubleshooting.
 
-For Claude Code CLI installed and available on PATH:
+## Use the plugin
 
-```powershell
-claude plugin marketplace add jmstudio14/frontend-codepen-extractor
-claude plugin install frontend-codepen-extractor@jmstudio14-claude-plugins --scope user
+After installation, verify with `claude plugin list` or open `/plugin` and check the Installed tab.
+
+Run the skill:
+
+```text
+/frontend-codepen-extractor:frontend-codepen-extractor
 ```
 
-On Claude Code CLI v2.1.292 or newer, the marketplace can be added and the plugin installed in one command:
+Or invoke the agent explicitly:
 
-```powershell
-claude plugin install frontend-codepen-extractor --marketplace jmstudio14/frontend-codepen-extractor --scope user
+```text
+@agent-frontend-codepen-extractor:frontend-codepen-extractor
 ```
 
-If Git authentication is not set up, authenticate first. With GitHub CLI installed, use:
-
-```powershell
-gh auth login -h github.com -p https
-gh auth setup-git
-```
-
-Alternatively, configure Git Credential Manager or a working SSH key for GitHub. Do not paste a personal access token into the plugin, repository files, or chat.
-
-### Confirm installation
-
-```powershell
-claude plugin list
-claude plugin validate .\plugins\frontend-codepen-extractor
-claude plugin validate .
-```
-
-The last two commands require this repository to be cloned locally. The plugin can be validated by Claude Code CLI before installation. Once installed, use:
-
-- **Skill command:** `/frontend-codepen-extractor:frontend-codepen-extractor`
-- **Explicit agent:** `@agent-frontend-codepen-extractor:frontend-codepen-extractor`
-
-If the plugin was installed while a session was already open, run `/reload-plugins` if Claude Code requests it, or restart the session.
-
-## Example task
+Example task:
 
 > Use the Frontend CodePen Extractor plugin to convert this CodePen into my existing frontend project: [URL]. Inspect the repository and Git status first, preserve current work, scope styles, implement lifecycle cleanup, and run the available checks. Do not install dependencies or download assets without asking.
 
-If source panels cannot be accessed, provide the CodePen export ZIP or paste the HTML, CSS, JavaScript, preprocessor settings, and external resources. A screenshot helps with visual intent but cannot reveal hidden behavior or source dependencies.
+If source panels cannot be accessed, provide the CodePen export ZIP or paste its HTML, CSS, JavaScript, preprocessor settings, and external resources. A screenshot helps with visual intent but cannot reveal hidden behavior or source dependencies.
 
-## What the plugin includes
+## Included components
 
 ```text
 .claude-plugin/marketplace.json
 plugins/frontend-codepen-extractor/
 ├── .claude-plugin/plugin.json
+├── README.md
 ├── agents/frontend-codepen-extractor.md
 └── skills/frontend-codepen-extractor/
     ├── SKILL.md
@@ -92,31 +75,35 @@ plugins/frontend-codepen-extractor/
         └── quality-checklist.md
 ```
 
-The standalone `.claude/` version remains in the repository for users who prefer manual project-level integration. The package also includes validation scripts, test fixtures, a Windows PowerShell wrapper, and GitHub Actions.
+The standalone `.claude/` version remains available for manual project-level integration. Scripts, fixtures, a PowerShell wrapper, and GitHub Actions are also included.
 
-## Validate the package
+## Validate changes
 
-Node.js 18+ is required for repository checks; no npm dependencies are needed.
+Node.js 18+ is required; the repository uses no additional npm dependencies for validation.
 
 ```powershell
-node scripts/validate-agent.mjs
-node scripts/validate-plugin.mjs
-node scripts/test-agent.mjs
+node scripts\validate-agent.mjs
+node scripts\validate-plugin.mjs
+node scripts\test-agent.mjs
 ```
 
-Also run Claude Code's own validator on a local clone:
+Claude Code's native validator can also check the packaged plugin and marketplace from a local clone:
 
 ```powershell
 claude plugin validate .\plugins\frontend-codepen-extractor
 claude plugin validate .
 ```
 
-The repository's GitHub Actions workflow runs structural checks and smoke tests. These tests do not prove that every conversion is correct or visually identical. Test the installed agent with real prototypes and check the resulting project in a browser.
+GitHub Actions runs the structural checks and smoke tests on pushes and pull requests. These tests do not guarantee visual parity or correctness for every CodePen; test real prototypes and inspect the converted UI in a browser.
 
 ## Security
 
-- Review plugin files before installing. A plugin runs with your user permissions.
-- The plugin does not install npm packages, download assets, or enable a destructive-command hook automatically.
-- The standalone command guard is optional, best-effort defense-in-depth, not a security boundary.
-- Because the marketplace repository is private, each installing machine needs repository access and working local Git credentials.
+- Review plugin contents before installing; plugins execute with the permissions available to Claude Code.
+- The plugin does not install frontend dependencies, download prototype assets, or enable optional destructive-command hooks automatically.
+- The marketplace is private. Every installing machine needs repository access and functioning local Git credentials.
 - Never commit tokens, credentials, private project files, or downloaded assets without authorization.
+
+## Official documentation
+
+- [Install and manage Claude Code plugins](https://code.claude.com/docs/en/plugins/install)
+- [Create a Claude Code marketplace](https://code.claude.com/docs/en/plugin-marketplaces)
