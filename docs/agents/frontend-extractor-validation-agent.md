@@ -21,7 +21,7 @@ The report records evidence-backed findings, check-by-check PASS/FAIL/BLOCKED/NO
 ## Live evaluation
 - Validate a permitted representative page
 - Report inaccessible source without fabricating content
-Live evaluation remains NOT RUN until an explicit runtime and credentials are configured and actual outputs are reviewed.
+Live evaluation is NOT RUN until the agent is run manually in Claude Code on a scenario and its output is reviewed (no API key is used).
 
 ## Rollback
 Revert the dedicated validation-agent PR and retain existing extractor behavior.

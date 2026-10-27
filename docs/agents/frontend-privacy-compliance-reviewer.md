@@ -13,7 +13,7 @@ See `tests/agent-cases/privacy-compliance-reviewer.json`; these are test definit
 
 ## Live evaluation
 - Review a synthetic extraction request with authorization and privacy ambiguities
-Status: NOT RUN until a runtime and credentials are configured.
+Live evaluation is NOT RUN until the agent is run manually in Claude Code on a scenario and its output is reviewed (no API key is used).
 
 ## Rollback
 Remove reviewer and documentation from its dedicated PR.

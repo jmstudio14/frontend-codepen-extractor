@@ -89,5 +89,5 @@
     "Distinguish confirmed finding from speculation",
     "Avoid exposing fixture secrets"
   ],
-  "live_status": "NOT RUN until an explicit runtime and credentials are configured"
+  "live_status": "NOT RUN until run manually in Claude Code and reviewed"
 }

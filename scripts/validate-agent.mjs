@@ -27,7 +27,6 @@ const required = [
   '.claude/agents/frontend-privacy-compliance-reviewer.md', 'docs/agents/frontend-privacy-compliance-reviewer.md', 'tests/agent-cases/privacy-compliance-reviewer.json',
   '.claude/agents/agent-run-diagnostics.md', 'docs/agents/agent-run-diagnostics.md', 'tests/agent-cases/diagnostics.json',
   '.claude/agents/frontend-dependency-license-reviewer.md', 'docs/agents/frontend-dependency-license-reviewer.md', 'tests/agent-cases/dependency-license-reviewer.json',
-  '.claude/agents/agent-model-evaluator.md', 'docs/agents/agent-model-evaluator.md', 'tests/agent-cases/model-evaluator.json',
   '.claude/agents/frontend-documentation-maintainer.md', 'docs/agents/frontend-documentation-maintainer.md', 'tests/agent-cases/documentation-maintainer.json',
   '.claude/agents/frontend-performance-optimizer.md', 'docs/agents/frontend-performance-optimizer.md', 'tests/agent-cases/performance-optimizer.json',
   '.claude/agents/frontend-extractor-validation-agent.md', 'docs/agents/frontend-extractor-validation-agent.md', 'tests/agent-cases/extractor-validation.json',

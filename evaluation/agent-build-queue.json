@@ -407,69 +407,6 @@
       "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/11"
     },
     {
-      "sequence": 7,
-      "id": "model-evaluator",
-      "name": "agent-model-evaluator",
-      "priority": "P1",
-      "status": "in_pr",
-      "depends_on": [
-        "architect-planner-merged",
-        "qa-test-engineer-merged"
-      ],
-      "goal": "Compare supported model runtimes on a fixed benchmark suite using quality, reliability, latency, and cost evidence.",
-      "non_goals": [
-        "Select a winner from import smoke tests alone",
-        "Expose API keys",
-        "Treat fixture runs as live evaluations"
-      ],
-      "permissions": [
-        "Read",
-        "Grep",
-        "Glob",
-        "Bash for configured evaluation commands"
-      ],
-      "output_contract": "Versioned comparison report with model/runtime identifiers, sample counts, scores, costs, latency, failures, and limitations.",
-      "planned_files": [
-        ".claude/agents/agent-model-evaluator.md",
-        "docs/agent-model-evaluation.md",
-        "tests/model-evaluation-cases.json",
-        "scripts/evaluation/compare-model-agents.mjs",
-        "evaluation/model-baselines/",
-        "README.md",
-        "CHANGELOG.md"
-      ],
-      "acceptance_criteria": [
-        "All candidates use equivalent tasks and scoring",
-        "Credentials are never logged",
-        "Repeated runs and uncertainty are recorded",
-        "Missing live credentials yield NOT RUN"
-      ],
-      "tests": [
-        "Fixture-only run",
-        "Missing runtime",
-        "Invalid model output",
-        "Partial metric availability",
-        "Cost unavailable"
-      ],
-      "live_evaluation": [
-        "Run only when explicit runtime and credentials are configured"
-      ],
-      "risks": [
-        "Provider API drift",
-        "Non-deterministic output and cost"
-      ],
-      "rollback": "Revert evaluator additions without changing the selected production runtime.",
-      "plan_approval_required": true,
-      "branch": "feat/agent-model-evaluator",
-      "files": [
-        ".claude/agents/agent-model-evaluator.md",
-        "docs/agents/agent-model-evaluator.md",
-        "tests/agent-cases/model-evaluator.json"
-      ],
-      "pull_request": 12,
-      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/12"
-    },
-    {
       "sequence": 8,
       "id": "dependency-license-reviewer",
       "name": "frontend-dependency-license-reviewer",
@@ -537,7 +474,6 @@
       "priority": "P2",
       "status": "in_pr",
       "depends_on": [
-        "model-evaluator-merged",
         "qa-test-engineer-merged"
       ],
       "goal": "Classify failed agent runs, identify likely root causes from logs and artifacts, and recommend reproducible next steps.",
@@ -732,7 +668,6 @@
         "extractor-validation-merged",
         "performance-optimizer-merged",
         "documentation-maintainer-merged",
-        "model-evaluator-merged",
         "dependency-license-reviewer-merged",
         "diagnostics-merged",
         "privacy-compliance-reviewer-merged",

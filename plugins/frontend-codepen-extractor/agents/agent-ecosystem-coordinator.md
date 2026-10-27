@@ -41,7 +41,6 @@ Coordinate a bounded review workflow among the read-only specialist agents while
 | Skill/agent prompts, references, fixtures, adapters, extraction behavior | `frontend-codepen-extractor:frontend-extractor-validation-agent` |
 | `package.json`, lockfiles, new remote assets | `frontend-dependency-license-reviewer` |
 | Evaluation harness, performance claims | `frontend-codepen-extractor:frontend-performance-optimizer`, then re-run `frontend-codepen-extractor:frontend-qa-test-engineer` |
-| Runtime or model selection | `agent-model-evaluator` |
 | Personal data, auth, telemetry, logging | `frontend-privacy-compliance-reviewer` |
 | Every change, after the specialists above | `frontend-codepen-extractor:frontend-code-auditor`, then `frontend-codepen-extractor:frontend-documentation-maintainer` |
 | Before any merge or release request | `agent-release-engineer` |

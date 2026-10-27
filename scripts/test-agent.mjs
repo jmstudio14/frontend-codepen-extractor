@@ -352,6 +352,8 @@ test('no evaluation path requires a paid API key', () => {
   }
   const run = spawnSync('git', ['grep', '-l', '-E', 'ANTHROPIC_API_KEY|OPENAI_API_KEY|claude-agent-sdk', '--', ':!CHANGELOG.md', ':!scripts/test-agent.mjs'], { cwd: root, encoding: 'utf8' });
   assert.equal(run.stdout.trim(), '', 'files still reference a paid API key: ' + run.stdout);
+  const stale = spawnSync('git', ['grep', '-l', '-i', '-E', 'credentials (are|is) (explicitly )?configured|runtime and credentials|agent-model-evaluator', '--', ':!CHANGELOG.md', ':!scripts/test-agent.mjs'], { cwd: root, encoding: 'utf8' });
+  assert.equal(stale.stdout.trim(), '', 'files still say live evaluation needs credentials: ' + stale.stdout);
 });
 
 const manualEval = path.join(root, 'scripts/evaluation/manual-eval.mjs');
