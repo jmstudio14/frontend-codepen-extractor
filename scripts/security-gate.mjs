@@ -13,8 +13,8 @@ const rootArg = args.indexOf('--root') >= 0 ? args[args.indexOf('--root') + 1] :
 const root = path.resolve(rootArg || path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'evaluation-results', '__pycache__']);
 const SHELL_ALLOWLIST = new Set(['scripts/evaluate-agent.mjs']);
-// Every Claude Code subagent is read-only except the implementation agent.
-const WRITE_ALLOWED_AGENTS = new Set(['.claude/agents/frontend-codepen-extractor.md']);
+// Every Claude Code subagent, project or plugin, is read-only except the implementation agent.
+const WRITE_ALLOWED_AGENT_NAMES = new Set(['frontend-codepen-extractor']);
 const SECRET_RULES = [
   ['anthropic-api-key', /sk-ant-[A-Za-z0-9_-]{16,}/],
   ['openai-api-key', /\bsk-(?:proj-)?[A-Za-z0-9]{32,}/],
@@ -59,25 +59,34 @@ for (const { rel, full } of files.filter((item) => /^\.github\/workflows\/.*\.ya
   if (!/^permissions\s*:\s*\r?\n\s+contents\s*:\s*read\b/m.test(text)) finding('workflow-default-permissions', rel, 'top-level permissions must set contents: read');
 }
 
-for (const { rel, full } of files.filter((item) => /^\.claude\/agents\/[^/]+\.md$/.test(item.rel) && !WRITE_ALLOWED_AGENTS.has(item.rel))) {
-  const tools = (read(full) ?? '').match(/^---\r?\n[\s\S]*?^tools:\s*(.+)$/m)?.[1] ?? '';
-  if (/\b(?:Edit|Write|NotebookEdit)\b/.test(tools)) finding('read-only-agent-can-write', rel, `tools: ${tools}`);
+// Project agents are addressed by name; plugin agents by "<plugin>:<name>".
+const agentFiles = files.flatMap((item) => {
+  const project = item.rel.match(/^\.claude\/agents\/([^/]+)\.md$/);
+  if (project) return [{ ...item, name: project[1], id: project[1] }];
+  const plugin = item.rel.match(/^plugins\/([^/]+)\/agents\/([^/]+)\.md$/);
+  return plugin ? [{ ...item, name: plugin[2], id: `${plugin[1]}:${plugin[2]}` }] : [];
+});
+const agentsById = new Map(agentFiles.map((item) => [item.id, item]));
+const toolsOf = (full) => (read(full) ?? '').match(/^---\r?\n[\s\S]*?^tools:\s*(.+)$/m)?.[1] ?? '';
+
+for (const { rel, full, name } of agentFiles) {
+  const tools = toolsOf(full);
+  if (!WRITE_ALLOWED_AGENT_NAMES.has(name) && /\b(?:Edit|Write|NotebookEdit)\b/.test(tools)) finding('read-only-agent-can-write', rel, `tools: ${tools}`);
 }
 
-// Delegating agents must name each delegate, and delegates must be read-only.
-const agentFiles = files.filter((item) => /^\.claude\/agents\/[^/]+\.md$/.test(item.rel));
-const agentNames = new Set(agentFiles.map((item) => path.basename(item.rel, '.md')));
+// Delegating agents must name each delegate, and delegates must exist and be read-only.
 for (const { rel, full } of agentFiles) {
-  const tools = (read(full) ?? '').match(/^---\r?\n[\s\S]*?^tools:\s*(.+)$/m)?.[1] ?? '';
+  const tools = toolsOf(full);
   if (!/\bAgent\b/.test(tools)) continue;
   const list = tools.match(/\bAgent\(([^)]*)\)/)?.[1];
   if (list === undefined || /\bAgent\b(?!\()/.test(tools.replace(/\bAgent\([^)]*\)/, ''))) {
     finding('agent-delegation-scope', rel, 'Agent must list its delegates as Agent(name, ...)');
     continue;
   }
-  for (const name of list.split(',').map((item) => item.trim()).filter(Boolean)) {
-    if (!agentNames.has(name)) finding('agent-delegation-scope', rel, `delegate ${name} does not exist`);
-    else if (WRITE_ALLOWED_AGENTS.has(`.claude/agents/${name}.md`)) finding('agent-delegation-scope', rel, `delegate ${name} can write`);
+  for (const id of list.split(',').map((item) => item.trim()).filter(Boolean)) {
+    const delegate = agentsById.get(id);
+    if (!delegate) finding('agent-delegation-scope', rel, `delegate ${id} does not exist`);
+    else if (WRITE_ALLOWED_AGENT_NAMES.has(delegate.name)) finding('agent-delegation-scope', rel, `delegate ${id} can write`);
   }
 }
 

@@ -323,4 +323,28 @@ test('security gate limits delegation to existing read-only agents', () => {
   }
 });
 
+test('security gate resolves plugin-scoped delegates and applies read-only rules to plugin agents', () => {
+  const plugin = 'plugins/demo/agents/';
+  const base = {
+    [plugin + 'reviewer.md']: '---\nname: reviewer\ntools: Read, Grep\n---\n',
+    [plugin + 'frontend-codepen-extractor.md']: '---\nname: frontend-codepen-extractor\ntools: Read, Edit, Write\n---\n',
+  };
+  const coordinator = (tools) => ({ [plugin + 'coordinator.md']: `---\nname: coordinator\ntools: ${tools}\n---\n` });
+  assert.equal(runGate({ ...base, ...coordinator('Agent(demo:reviewer), Read') }).status, 0);
+  for (const [extra, detail] of [
+    [coordinator('Agent(demo:frontend-codepen-extractor), Read'), /delegate demo:frontend-codepen-extractor can write/],
+    [coordinator('Agent(reviewer), Read'), /delegate reviewer does not exist/],
+    [{ [plugin + 'writer.md']: '---\nname: writer\ntools: Read, Write\n---\n' }, /read-only-agent-can-write: plugins\/demo\/agents\/writer\.md/],
+  ]) {
+    const run = runGate({ ...base, ...extra });
+    assert.equal(run.status, 1);
+    assert.match(run.stderr, detail);
+  }
+});
+
+test('plugin agent copies are in sync with .claude/agents', () => {
+  const run = spawnSync(process.execPath, [path.join(root, 'scripts/sync-plugin-agents.mjs'), '--check'], { cwd: root, encoding: 'utf8', timeout: 30000 });
+  assert.equal(run.status, 0, `run node scripts/sync-plugin-agents.mjs; stderr: ${run.stderr}`);
+});
+
 console.log(`\nSmoke tests finished: ${passed} passed${process.exitCode ? ', with failures' : ''}.`);

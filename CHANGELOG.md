@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2.13.0
 
+- Bundled eight specialist agents in the Claude Code plugin: `frontend-architect-planner`, `frontend-qa-test-engineer`, `frontend-security-reviewer`, `frontend-extractor-validation-agent`, `frontend-performance-optimizer`, `frontend-documentation-maintainer`, `frontend-code-auditor`, and `agent-ecosystem-coordinator`. Plugin users get them without cloning the repository.
+- `scripts/sync-plugin-agents.mjs` generates the plugin copies from `.claude/agents`. Specialists are copied verbatim. The plugin coordinator uses plugin-scoped delegate names (`frontend-codepen-extractor:<name>`), lists only bundled delegates, and is invoked with `claude --agent frontend-codepen-extractor:agent-ecosystem-coordinator`. The plugin validator rejects copies that drift.
+- The coordinator's delivery gate now runs the target project's own validation and security checks, which are `npm run validate:all` and `npm run security` in this repository, and records NOT RUN when none exist.
+- The security gate now also checks plugin agents: write tools, and delegates that are missing or writable.
 - Turned `agent-ecosystem-coordinator` into a working coordinator: it runs as the main-thread agent, can launch only an explicit allowlist of the read-only specialists (never the implementation agent), routes by changed paths, bounds retries to run failures, and delivers only on independent security, QA and audit PASS verdicts plus its own `validate:all` and `security` runs.
 - The security gate now rejects delegation to missing or writable agents and `Agent` without an explicit list.
 - Added `scripts/security-gate.mjs` (`npm run security`), a deterministic CI gate that fails on committed secrets, `eval`/`new Function` in scripts, unapproved `shell: true`, workflow write permissions, and write tools on any subagent other than `frontend-codepen-extractor`. It enforces blocking without relying on an LLM verdict.

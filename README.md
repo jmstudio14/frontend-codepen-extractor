@@ -9,7 +9,7 @@ A repository-aware engineering agent that detects your project's language, frame
 [Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
 
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
-![Version](https://img.shields.io/badge/version-2.12.0-64748b)
+![Version](https://img.shields.io/badge/version-2.13.0-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/repository-private-8b5cf6)
 
@@ -247,7 +247,7 @@ GitHub Actions runs structural validation, smoke tests, the deterministic evalua
 
 ### Delivery review with the coordinator
 
-Run `claude --agent agent-ecosystem-coordinator` as the main-thread agent. It routes the current diff to the read-only specialist agents and returns DELIVER only when independent security, QA and audit verdicts pass and `npm run validate:all` and `npm run security` exit 0. It cannot launch the implementation agent, merge, or deploy.
+In a clone of this repository, run `claude --agent agent-ecosystem-coordinator` as the main-thread agent. With the plugin installed, run `claude --agent frontend-codepen-extractor:agent-ecosystem-coordinator`; the plugin bundles the coordinator and seven specialists (see the [plugin README](plugins/frontend-codepen-extractor/README.md#bundled-specialist-agents)). It routes the current diff to the read-only specialist agents and returns DELIVER only when independent security, QA and audit verdicts pass and `npm run validate:all` and `npm run security` exit 0. It cannot launch the implementation agent, merge, or deploy.
 
 ## Documentation
 
