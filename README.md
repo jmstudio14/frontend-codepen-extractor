@@ -9,7 +9,7 @@ A repository-aware engineering agent that progressively searches for frontend ex
 [Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
 
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
-![Version](https://img.shields.io/badge/version-2.6.1-64748b)
+![Version](https://img.shields.io/badge/version-2.6.2-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/repository-private-8b5cf6)
 
