@@ -96,7 +96,7 @@
       "id": "qa-test-engineer",
       "name": "frontend-qa-test-engineer",
       "priority": "P0",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "architect-planner-merged"
       ],
@@ -145,7 +145,14 @@
         "Browser tooling availability"
       ],
       "rollback": "Revert the dedicated QA-agent PR without changing the developer agent.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "pull_request": "pending",
+      "branch": "feat/frontend-qa-test-engineer",
+      "files": [
+        ".claude/agents/frontend-qa-test-engineer.md",
+        "docs/agents/frontend-qa-test-engineer.md",
+        "tests/agent-cases/qa-test-engineer.json"
+      ]
     },
     {
       "sequence": 3,
