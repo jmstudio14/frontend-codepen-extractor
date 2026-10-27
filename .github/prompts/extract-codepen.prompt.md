@@ -1,13 +1,15 @@
 ---
 name: extract-codepen
-description: Convert a CodePen prototype into the current repository's frontend architecture safely.
+description: Convert a CodePen prototype or UIverse.io component into the current repository's frontend architecture safely.
 ---
 
 Use the Frontend CodePen Extractor workflow to convert this prototype into the current project.
 
-**Prototype URL or source:** [Paste a CodePen URL or describe the provided source files]
+**Source URL or code:** [Paste a CodePen/UIverse URL or describe the provided source files]
 
 Requirements:
+- Identify whether the source is CodePen, UIverse.io, a combined demo, or supplied files.
+- For UIverse, preserve source attribution/license information where available; do not claim hidden source access.
 - Inspect existing architecture and Git status first.
 - Identify which source panels, preprocessors, settings, dependencies, and assets were actually accessible.
 - Preserve the intended design and behavior while following current framework/styling conventions.
