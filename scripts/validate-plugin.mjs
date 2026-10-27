@@ -72,7 +72,7 @@ for (const relativePath of required) {
 const marketplace = loadJson('.claude-plugin/marketplace.json');
 if (marketplace) {
   check(marketplace.name === 'jmstudio14-claude-plugins', 'Marketplace name is correct');
-  check(marketplace.version === '2.6.1', 'Marketplace version is 2.6.1');
+  check(marketplace.version === '2.6.2', 'Marketplace version is 2.6.2');
   check(typeof marketplace.description === 'string' && marketplace.description.length > 0, 'Marketplace description is present');
   check(typeof marketplace.owner?.name === 'string' && marketplace.owner.name.length > 0, 'Marketplace owner.name is present');
   const entry = Array.isArray(marketplace.plugins)
@@ -85,7 +85,7 @@ if (marketplace) {
 const manifest = loadJson(pluginRoot + '/.claude-plugin/plugin.json');
 if (manifest) {
   check(manifest.name === 'frontend-codepen-extractor', 'Plugin manifest name matches marketplace entry');
-  check(manifest.version === '2.6.1', 'Plugin version is 2.6.1');
+  check(manifest.version === '2.6.2', 'Plugin version is 2.6.2');
   check(typeof manifest.description === 'string' && manifest.description.length > 10, 'Plugin manifest description is present');
   check(typeof manifest.author?.name === 'string' && manifest.author.name.length > 0, 'Plugin manifest author.name is present');
   check(/^https:\/\//.test(manifest.homepage || ''), 'Plugin homepage is a valid HTTPS URL');
@@ -126,6 +126,11 @@ for (const [portablePath, pluginPath] of portableSkillPaths) {
   if (portableContent !== null && pluginContent !== null) {
     check(portableContent === pluginContent, 'Portable skill stays in sync: ' + portablePath);
   }
+}
+
+const searchGuide = readFile('.agents/skills/frontend-codepen-extractor/references/progressive-search.md') || '';
+for (const term of ['Mandatory fallback rule', 'proceed to Stage 2 automatically', 'do not ask the user whether to search externally']) {
+  check(searchGuide.toLowerCase().includes(term.toLowerCase()), 'Progressive search enforces external fallback: ' + term);
 }
 
 const copilotAgent = readFile('.github/agents/frontend-codepen-extractor.agent.md') || '';
