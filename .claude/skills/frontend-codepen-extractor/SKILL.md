@@ -14,6 +14,7 @@ Read relevant guides in `references/`:
 - `css-tricks-reference.md` — CSS-Tricks technical research, cross-checking, and application
 - `progressive-search.md` — staged source discovery, candidate scoring, evidence tracking, and external fallback
 - `multilanguage-engineering.md` — stack detection, language/framework-specific workflows, technical research, verification, and safety
+- `agent-architecture.md` — stable contracts, workflow routing, adapters, checkpoints, evidence and regression strategy
 - `dependency-policy.md` — packages, assets, licenses, install approval
 - `framework-patterns.md` — framework-specific conversion
 - `quality-checklist.md` — acceptance and verification
@@ -24,7 +25,7 @@ Read relevant guides in `references/`:
 - General implementation, debugging, refactoring, explanation, audits, tests, and documentation across the project's native languages and frameworks
 - Cross-stack work spanning frontend, backend, APIs, data, mobile, systems, and infrastructure where the repository and available toolchain support it
 
-For any task beyond web-component discovery, read `references/multilanguage-engineering.md` first. Do not force HTML/CSS rules onto backend, systems, data, mobile, or infrastructure tasks.
+For any task beyond web-component discovery, read `references/multilanguage-engineering.md` first. Use `references/agent-architecture.md` to preserve cross-host contracts, evidence/provenance, safety checkpoints, and evaluation boundaries when extending the agent or changing shared behavior. Do not force HTML/CSS rules onto backend, systems, data, mobile, or infrastructure tasks.
 
 ## Supported source types
 - CodePen demos and panel exports
