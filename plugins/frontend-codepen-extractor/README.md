@@ -1,6 +1,6 @@
 # Frontend CodePen Extractor plugin
 
-This is the packaged Claude Code plugin for extracting, reconstructing, and integrating CodePen prototypes, UIverse.io components, and CSS-Tricks technical references The canonical installation guide is [../../INSTALL.md](../../INSTALL.md).
+This is the packaged Claude Code plugin for progressively searching and evaluating CodePen, UIverse.io, CodeMyUI, GitHub, and external sources before extracting, reconstructing, and integrating frontend examples The canonical installation guide is [../../INSTALL.md](../../INSTALL.md).
 
 ## Quick install
 
