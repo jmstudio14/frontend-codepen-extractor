@@ -43,4 +43,30 @@ test('no local absolute paths are embedded in project instructions', () => {
   }
 });
 
+test('evaluation scenario suite parses and declares schema version', () => {
+  const suite = JSON.parse(fs.readFileSync(path.join(root, 'tests/agent-evaluation-cases.json'), 'utf8'));
+  assert.equal(suite.schema_version, 1);
+  assert.ok(Array.isArray(suite.cases));
+  assert.ok(suite.cases.length >= 8);
+});
+
+test('evaluation scenario IDs are unique and acceptance criteria are non-empty', () => {
+  const suite = JSON.parse(fs.readFileSync(path.join(root, 'tests/agent-evaluation-cases.json'), 'utf8'));
+  const ids = suite.cases.map(item => item.id);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const item of suite.cases) {
+    assert.ok(item.prompt?.trim(), `${item.id} needs a prompt`);
+    assert.ok(item.must?.length, `${item.id} needs required behavior`);
+    assert.ok(item.must_not?.length, `${item.id} needs forbidden behavior`);
+  }
+});
+
+test('evaluation suite covers core multilingual and extraction risks', () => {
+  const suite = JSON.parse(fs.readFileSync(path.join(root, 'tests/agent-evaluation-cases.json'), 'utf8'));
+  const categories = new Set(suite.cases.map(item => item.category));
+  for (const category of ['multilanguage', 'progressive-search', 'provenance', 'verification', 'safety', 'security', 'web-component']) {
+    assert.ok(categories.has(category), `missing ${category} scenario`);
+  }
+});
+
 console.log(`\nSmoke tests finished: ${passed} passed.`);
