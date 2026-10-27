@@ -32,6 +32,8 @@ const required = [
   '.claude/skills/frontend-codepen-extractor/references/progressive-search.md',
   '.claude/skills/frontend-codepen-extractor/references/codemyui-ingestion.md',
   '.claude/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
+  '.claude/skills/frontend-codepen-extractor/references/agent-architecture.md',
+  'tests/agent-evaluation-cases.json',
   '.claude/settings.example.json',
   'CLAUDE.md', 'README.md', 'CHANGELOG.md', 'package.json',
   'scripts/block-dangerous-commands.mjs', 'scripts/test-agent.mjs',
@@ -90,6 +92,29 @@ if (packageText) {
 const searchGuide = read('.claude/skills/frontend-codepen-extractor/references/progressive-search.md') ?? '';
 for (const term of ['predefined sources', 'external sources', 'Source quality', 'Observed', 'reconstructed', 'Mandatory fallback rule', 'proceed to Stage 2 automatically', 'do not ask the user whether to search externally']) {
   searchGuide.toLowerCase().includes(term.toLowerCase()) ? pass(`Progressive search guide includes ${term}`) : fail(`Progressive search guide includes ${term}`);
+}
+
+const architectureGuide = read('.claude/skills/frontend-codepen-extractor/references/agent-architecture.md') ?? '';
+for (const term of ['Core contract', 'Orchestration layer', 'Adapter layer', 'Evidence and provenance record', 'PASS / FAIL / NOT RUN', 'Static validators can prove']) {
+  architectureGuide.toLowerCase().includes(term.toLowerCase()) ? pass('Architecture guide includes ' + term) : fail('Architecture guide includes ' + term);
+}
+const architectureCopies = [read('.agents/skills/frontend-codepen-extractor/references/agent-architecture.md'), architectureGuide, read('plugins/frontend-codepen-extractor/skills/frontend-codepen-extractor/references/agent-architecture.md')];
+architectureCopies.every((copy) => copy !== null && copy === architectureCopies[0]) ? pass('Architecture guide copies are byte-identical') : fail('Architecture guide copies are byte-identical');
+const skillCopies = [read('.agents/skills/frontend-codepen-extractor/SKILL.md'), skill, read('plugins/frontend-codepen-extractor/skills/frontend-codepen-extractor/SKILL.md')];
+skillCopies.every((copy) => copy !== null && copy === skillCopies[0]) ? pass('Portable and Claude/plugin skill files are byte-identical') : fail('Portable and Claude/plugin skill files are byte-identical');
+const agentCopies = [agent, read('.github/agents/frontend-codepen-extractor.agent.md'), read('plugins/frontend-codepen-extractor/agents/frontend-codepen-extractor.md')];
+agentCopies.every((copy) => copy !== null && copy === agentCopies[0]) ? pass('Standalone, Copilot and plugin agent profiles are byte-identical') : fail('Standalone, Copilot and plugin agent profiles are byte-identical');
+let evaluationCases = null;
+try { evaluationCases = JSON.parse(read('tests/agent-evaluation-cases.json') ?? ''); pass('Agent evaluation cases parse as JSON'); }
+catch (error) { fail('Agent evaluation cases parse as JSON (' + error.message + ')'); }
+if (evaluationCases) {
+  const ids = evaluationCases.cases?.map((item) => item.id) ?? [];
+  const categories = new Set(evaluationCases.cases?.map((item) => item.category) ?? []);
+  ids.length >= 8 && new Set(ids).size === ids.length ? pass('Evaluation cases have unique IDs and minimum coverage') : fail('Evaluation cases have unique IDs and minimum coverage');
+  for (const category of ['multilanguage', 'progressive-search', 'provenance', 'verification', 'safety', 'security', 'web-component']) {
+    categories.has(category) ? pass('Evaluation scenarios cover ' + category) : fail('Evaluation scenarios cover ' + category);
+  }
+  evaluationCases.cases.every((item) => item.prompt && item.must?.length && item.must_not?.length) ? pass('Every evaluation scenario defines prompt, required behavior and forbidden behavior') : fail('Every evaluation scenario defines prompt, required behavior and forbidden behavior');
 }
 
 const multiGuide = read('.claude/skills/frontend-codepen-extractor/references/multilanguage-engineering.md') ?? '';
