@@ -1,14 +1,15 @@
 {
   "name": "frontend-codepen-extractor-agent",
-  "version": "2.8.0",
+  "version": "2.9.0",
   "private": true,
-  "description": "Multilanguage, multiframework coding agent with progressive source discovery, modular workflow contracts, web-component extraction, and cross-stack regression scenarios",
+  "description": "Multilanguage coding agent with runtime evaluation, progressive source discovery, and repository-aware verification",
   "type": "module",
   "scripts": {
     "validate": "node scripts/validate-agent.mjs && node scripts/validate-plugin.mjs",
     "validate:plugin": "node scripts/validate-plugin.mjs",
     "test": "node scripts/test-agent.mjs",
-    "validate:all": "node scripts/validate-agent.mjs && node scripts/validate-plugin.mjs && node scripts/test-agent.mjs"
+    "validate:all": "node scripts/validate-agent.mjs && node scripts/validate-plugin.mjs && node scripts/test-agent.mjs",
+    "evaluate:fixture": "node scripts/evaluate-agent.mjs --adapter \"node tests/fixtures/evaluation-adapter.mjs\""
   },
   "engines": {
     "node": ">=18"
