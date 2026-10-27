@@ -47,22 +47,17 @@ for (const rel of required) exists(rel) ? pass(`Required file exists: ${rel}`) :
 
 const agent = read('.claude/agents/frontend-codepen-extractor.md') ?? '';
 const skill = read('.claude/skills/frontend-codepen-extractor/SKILL.md') ?? '';
-const frontmatter = agent.match(/^---\r?
-([\s\S]*?)\r?
----/);
+const frontmatter = agent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 if (!frontmatter) {
   fail('Agent frontmatter delimiters are present');
 } else {
   const fm = frontmatter[1];
   /\bname:\s*frontend-codepen-extractor\b/.test(fm) ? pass('Agent name frontmatter is correct') : fail('Agent name frontmatter is correct');
   /\bdescription:\s*\S/.test(fm) ? pass('Agent description frontmatter is present') : fail('Agent description frontmatter is present');
-  /\bskills:\s*\r?
-\s*-\s*frontend-codepen-extractor\b/.test(fm) ? pass('Agent preloads the matching skill') : fail('Agent preloads the matching skill');
+  /\bskills:\s*\r?\n\s*-\s*frontend-codepen-extractor\b/.test(fm) ? pass('Agent preloads the matching skill') : fail('Agent preloads the matching skill');
   /\btools:\s*.+/.test(fm) ? pass('Agent tools frontmatter is present') : fail('Agent tools frontmatter is present');
 }
-const skillFm = skill.match(/^---\r?
-([\s\S]*?)\r?
----/);
+const skillFm = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 if (skillFm && /\bname:\s*frontend-codepen-extractor\b/.test(skillFm[1]) && /\bdescription:\s*\S/.test(skillFm[1])) {
   pass('Skill frontmatter contains name and description');
 } else {
