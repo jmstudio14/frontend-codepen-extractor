@@ -1,17 +1,17 @@
 # Install Frontend CodePen Extractor in Claude Code
 
-This repository is a **private Claude Code plugin marketplace**. You only need to install the plugin once per machine if you choose **User scope**.
+This repository is a **public Claude Code plugin marketplace**. You only need to install the plugin once per machine if you choose **User scope**.
 
 ## Before you start
 
 - Install Claude Code and sign in.
-- Make sure your local Git setup can clone the private repository `jmstudio14/frontend-codepen-extractor`.
+- Make sure Git is installed; the public repository `jmstudio14/frontend-codepen-extractor` is cloned without credentials.
 - For the one-command in-session install, use Claude Code **v2.1.275 or newer**.
 - For the one-command shell install, use Claude Code **v2.1.292 or newer**.
 
-Because the repository is private, Claude Code uses existing Git credentials and does not prompt interactively during cloning. Verify that cloning private GitHub repositories already works in your terminal.
+The repository is public, so no GitHub credentials are needed to install. If your Git setup is configured to require authentication for every GitHub URL, or you work from a fork you made private, set up credentials as follows.
 
-### Set up GitHub credentials if needed
+### Set up GitHub credentials only if needed
 
 With GitHub CLI installed, open PowerShell and run:
 
@@ -119,9 +119,9 @@ You can also manage, update, disable, or uninstall it from the `/plugin` panel.
 
 ## Troubleshooting
 
-### Private repository authentication fails
+### Cloning the repository fails
 
-1. Confirm the account has access to the private GitHub repository.
+1. Confirm that https://github.com/jmstudio14/frontend-codepen-extractor opens in a browser and that your network or proxy allows GitHub.
 2. Confirm that `git clone https://github.com/jmstudio14/frontend-codepen-extractor.git` works from the same terminal and credential setup.
 3. If using SSH, confirm the key works without an interactive passphrase prompt and GitHub is in `known_hosts`.
 4. Retry the marketplace add/install command.
@@ -153,7 +153,7 @@ The repository includes a portable Agent Skills version at `.agents/skills/front
 
 ### Recommended: install into all detected supported agents
 
-Requirements: Node.js 22.20 or newer, npm/npx, and Git credentials with access to this private repository.
+Requirements: Node.js 22.20 or newer, npm/npx, and Git.
 
 Run in PowerShell:
 
@@ -176,7 +176,7 @@ npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-ex
 npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --global --agent gemini-cli
 ```
 
-Because this repository is private, the installer needs authenticated Git access. It can use GitHub CLI or your configured Git/SSH credential setup; never paste tokens into command arguments or commit them. If the command cannot read the private repository, first verify that you can clone the repository with Git from the same terminal.
+The repository is public, so the installer does not need authenticated Git access. Never paste tokens into command arguments or commit them. If the command cannot read the repository, first verify that you can clone it with Git from the same terminal.
 
 ### Codex
 
@@ -233,7 +233,7 @@ To remove this skill from integrations managed by the CLI, use `npx skills remov
 
 - Review plugin contents before installing. Plugins execute with the permissions available to Claude Code.
 - This plugin does not install frontend npm dependencies, download assets, or enable optional destructive-command hooks automatically.
-- The repository remains private. Every installing machine needs access and valid local Git credentials.
+- The repository is public. Anyone can read and install it, so never commit secrets or confidential code to it.
 - Repository validation does not guarantee visual parity or correctness for every CodePen. Test with real prototypes and inspect the result in a browser.
 
 ## Official documentation

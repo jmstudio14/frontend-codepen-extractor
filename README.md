@@ -11,7 +11,8 @@ A repository-aware engineering agent that detects your project's language, frame
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
 ![Version](https://img.shields.io/badge/version-2.13.0-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
-![License](https://img.shields.io/badge/repository-private-8b5cf6)
+![Repository](https://img.shields.io/badge/repository-public-22c55e)
+![License: MIT](https://img.shields.io/badge/license-MIT-0ea5e9)
 
 </div>
 
@@ -80,7 +81,7 @@ The repository distributes the same core workflow through native or portable int
 
 ### Claude Code — recommended native integration
 
-This repository is private. Before installing, ensure the machine has Git credentials that can access it.
+This repository is public; no GitHub credentials are needed to install it.
 
 From a Claude Code session:
 
@@ -252,7 +253,7 @@ In a clone of this repository, run `claude --agent agent-ecosystem-coordinator` 
 
 ## Documentation
 
-- **[Installation guide](INSTALL.md)** — agent-specific installation, private GitHub authentication, verification, updates, uninstalling, and troubleshooting.
+- **[Installation guide](INSTALL.md)** — agent-specific installation, verification, updates, uninstalling, and troubleshooting.
 - **[Changelog](CHANGELOG.md)** — version history.
 - **[Independent code auditor](docs/agent-auditor.md)** — read-only audit workflow, verdict policy, and correction loop.
 - **[CodeMyUI ingestion guide](.agents/skills/frontend-codepen-extractor/references/codemyui-ingestion.md)** — finding examples, tracing original sources, extraction limits, attribution, and reconstruction.
@@ -260,7 +261,9 @@ In a clone of this repository, run `claude --agent agent-ecosystem-coordinator` 
 
 ## Contributing
 
-Contributions and issue reports are welcome from users with access to this private repository.
+Contributions and issue reports are welcome.
+
+To try the agent and report the result, follow the [testing guide](docs/testing-guide.md) and open an issue with the **Test report** template. Failures are especially useful.
 
 Before submitting a change:
 
@@ -268,6 +271,10 @@ Before submitting a change:
 2. Update tests or validation when distribution files change.
 3. Run `npm run validate:all`.
 4. Document behavior changes and any compatibility caveats.
+
+## License
+
+Released under the [MIT License](LICENSE). Third-party components that the agent extracts or adapts into your projects remain under their original authors' licenses; the skill records source and attribution so you can comply with them.
 
 ## Security
 

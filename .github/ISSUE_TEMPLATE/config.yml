@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Testing guide
+    url: https://github.com/jmstudio14/frontend-codepen-extractor/blob/main/docs/testing-guide.md
+    about: How to install the plugin, run a test and what to report.

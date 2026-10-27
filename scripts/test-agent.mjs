@@ -387,4 +387,29 @@ for (const fixture of listFixtures(root)) {
   });
 }
 
+test('test-report issue form is valid and keeps required, privacy-safe fields', async () => {
+  const { parse } = await import('yaml');
+  const form = parse(fs.readFileSync(path.join(root, '.github/ISSUE_TEMPLATE/test-report.yml'), 'utf8'));
+  assert.equal(form.name, 'Test report');
+  assert.ok(form.description && Array.isArray(form.body));
+  const ids = form.body.filter((item) => item.id).map((item) => item.id);
+  assert.equal(new Set(ids).size, ids.length, 'field ids must be unique');
+  for (const id of ['scenario', 'result', 'problems', 'honesty', 'environment', 'confirm']) assert.ok(ids.includes(id), `missing field ${id}`);
+  const scenarios = form.body.find((item) => item.id === 'scenario').attributes.options;
+  for (const fixture of listFixtures(root)) assert.ok(scenarios.includes(`Fixture: ${fixture.manifest.case_id}`), `scenario list misses ${fixture.manifest.case_id}`);
+  const confirm = form.body.find((item) => item.id === 'confirm').attributes.options[0];
+  assert.equal(confirm.required, true);
+  assert.match(confirm.label, /secrets/);
+  const config = parse(fs.readFileSync(path.join(root, '.github/ISSUE_TEMPLATE/config.yml'), 'utf8'));
+  assert.ok(config.contact_links.every((link) => /^https:\/\//.test(link.url)));
+});
+
+test('repository is MIT licensed consistently', () => {
+  const license = fs.readFileSync(path.join(root, 'LICENSE'), 'utf8');
+  assert.match(license, /^MIT License/);
+  assert.match(license, /Copyright \(c\) 2026 jmstudio14/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).license, 'MIT');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'plugins/frontend-codepen-extractor/.claude-plugin/plugin.json'), 'utf8')).license, 'MIT');
+});
+
 console.log(`\nSmoke tests finished: ${passed} passed${process.exitCode ? ', with failures' : ''}.`);

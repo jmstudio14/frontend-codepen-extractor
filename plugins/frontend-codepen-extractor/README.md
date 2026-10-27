@@ -23,7 +23,7 @@ Two-step option, for compatibility:
 /plugin install frontend-codepen-extractor@jmstudio14-claude-plugins
 ```
 
-The repository is private. The machine installing it must already have Git credentials that can access `jmstudio14/frontend-codepen-extractor`. See [INSTALL.md](../../INSTALL.md#before-you-start) for credential setup and [INSTALL.md](../../INSTALL.md#troubleshooting) for common errors.
+The repository is public, so no GitHub credentials are needed. See [INSTALL.md](../../INSTALL.md#before-you-start) for requirements and [INSTALL.md](../../INSTALL.md#troubleshooting) for common errors.
 
 ## Use it
 
