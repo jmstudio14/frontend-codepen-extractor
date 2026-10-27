@@ -97,16 +97,21 @@ if (manifest) {
 }
 
 const agent = readFile(pluginRoot + '/agents/frontend-codepen-extractor.md') || '';
-const agentMeta = agent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+const agentMeta = agent.match(/^---\r?
+([\s\S]*?)\r?
+---/);
 check(Boolean(agentMeta), 'Plugin agent frontmatter is present');
 if (agentMeta) {
   check(/^name:\s*frontend-codepen-extractor\s*$/m.test(agentMeta[1]), 'Plugin agent name is correct');
   check(/^description:\s*\S/m.test(agentMeta[1]), 'Plugin agent description is present');
-  check(/^skills:\s*\r?\n\s*-\s*frontend-codepen-extractor\s*$/m.test(agentMeta[1]), 'Plugin agent declares its matching skill');
+  check(/^skills:\s*\r?
+\s*-\s*frontend-codepen-extractor\s*$/m.test(agentMeta[1]), 'Plugin agent declares its matching skill');
 }
 
 const skill = readFile(pluginRoot + '/skills/frontend-codepen-extractor/SKILL.md') || '';
-const skillMeta = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+const skillMeta = skill.match(/^---\r?
+([\s\S]*?)\r?
+---/);
 check(Boolean(skillMeta), 'Plugin skill frontmatter is present');
 if (skillMeta) {
   check(/^name:\s*frontend-codepen-extractor\s*$/m.test(skillMeta[1]), 'Plugin skill name is correct');
@@ -135,7 +140,11 @@ for (const [portablePath, pluginPath] of portableSkillPaths) {
   }
 }
 
-const evaluationRunner = readFile('scripts/evaluate-agent.mjs') || '';\nfor (const term of ['language_detected_correctly', 'version_detected_correctly', 'external_fallback_performed', 'tool_calls', 'elapsed_ms']) {\n  check(evaluationRunner.includes(term), 'Runtime evaluator records ' + term);\n}\nconst architectureGuide = readFile('.agents/skills/frontend-codepen-extractor/references/agent-architecture.md') || '';
+const evaluationRunner = readFile('scripts/evaluate-agent.mjs') || '';
+for (const term of ['language_detected_correctly', 'version_detected_correctly', 'external_fallback_performed', 'tool_calls', 'elapsed_ms']) {
+  check(evaluationRunner.includes(term), 'Runtime evaluator records ' + term);
+}
+const architectureGuide = readFile('.agents/skills/frontend-codepen-extractor/references/agent-architecture.md') || '';
 for (const term of ['Core contract', 'Orchestration layer', 'Adapter layer', 'Evidence and provenance record']) {
   check(architectureGuide.toLowerCase().includes(term.toLowerCase()), 'Architecture guide includes ' + term);
 }
@@ -159,7 +168,9 @@ for (const term of ['Mandatory fallback rule', 'proceed to Stage 2 automatically
 }
 
 const copilotAgent = readFile('.github/agents/frontend-codepen-extractor.agent.md') || '';
-const copilotMeta = copilotAgent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+const copilotMeta = copilotAgent.match(/^---\r?
+([\s\S]*?)\r?
+---/);
 check(Boolean(copilotMeta), 'GitHub Copilot custom agent frontmatter is present');
 if (copilotMeta) {
   check(/^name:\s*frontend-codepen-extractor\s*$/m.test(copilotMeta[1]), 'Copilot agent name is correct');
@@ -173,5 +184,6 @@ for (const relativePath of referencePaths) {
   check(readFile(relativePath) !== null, 'Skill reference exists: ' + relativePath);
 }
 
-console.log('\nPlugin packaging validation: ' + (total - failed) + '/' + total + ' checks passed.');
+console.log('
+Plugin packaging validation: ' + (total - failed) + '/' + total + ' checks passed.');
 if (failed > 0) process.exitCode = 1;
