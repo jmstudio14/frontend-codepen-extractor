@@ -1,0 +1,21 @@
+{
+  "name": "frontend-codepen-extractor",
+  "displayName": "Frontend CodePen Extractor",
+  "version": "2.1.0",
+  "description": "Converts CodePen prototypes into maintainable, accessible, type-safe frontend components that fit an existing repository.",
+  "author": {
+    "name": "jmstudio14",
+    "url": "https://github.com/jmstudio14"
+  },
+  "homepage": "https://github.com/jmstudio14/frontend-codepen-extractor",
+  "repository": "https://github.com/jmstudio14/frontend-codepen-extractor",
+  "keywords": [
+    "frontend",
+    "codepen",
+    "refactoring",
+    "react",
+    "vue",
+    "svelte",
+    "typescript"
+  ]
+}
