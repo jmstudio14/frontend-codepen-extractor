@@ -224,6 +224,7 @@ Requirements: Node.js 18+.
 From the repository root:
 
 ```powershell
+npm ci --ignore-scripts
 node scripts\validate-agent.mjs
 node scripts\validate-plugin.mjs
 node scripts\test-agent.mjs

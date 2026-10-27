@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: 22
       - name: Install pinned validation dependencies without lifecycle scripts
-        run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Validate standalone agent package
         run: node scripts/validate-agent.mjs
       - name: Validate Claude Code plugin and marketplace
