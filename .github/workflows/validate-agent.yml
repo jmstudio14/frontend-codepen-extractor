@@ -67,7 +67,7 @@ jobs:
         run: touch "$RUNNER_TEMP/agent-evaluation-history.jsonl"
       - name: Install Claude Agent SDK
         if: env.ANTHROPIC_API_KEY != ''
-        run: npm install --no-save @anthropic-ai/claude-agent-sdk
+        run: npm install --no-save @anthropic-ai/claude-agent-sdk@0.3.301
       - name: Run repeated real-agent evaluation
         if: env.ANTHROPIC_API_KEY != ''
         run: |

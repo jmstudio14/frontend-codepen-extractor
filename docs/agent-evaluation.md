@@ -13,7 +13,7 @@ On PowerShell, set the ANTHROPIC_API_KEY environment variable in the current ses
 
 The adapter loads the local plugin at plugins/frontend-codepen-extractor, copies a dedicated fixture into a fresh temporary directory, initializes a disposable Git repository, records SDK tool hooks, and removes the workspace after writing the report. Its tool hook restricts file access to the workspace and permits only exact read-only verification commands. This is tool-level containment, not an OS/container sandbox; use an ephemeral runner and do not expose sensitive runner data to the agent.
 
-The first executable case is web-extraction-regression. Other prompts do not yet have dedicated workspaces and task-specific assertions; the adapter refuses to run them without AGENT_EVAL_WORKSPACE_ROOT rather than scoring an unrelated repository. Optional controls: CLAUDE_AGENT_EVAL_MODEL (default sonnet), AGENT_EVAL_MAX_TURNS (12), AGENT_EVAL_MAX_BUDGET_USD (1), and AGENT_EVAL_WORKSPACE_ROOT.
+The first executable case is web-extraction-regression. Other prompts do not yet have dedicated workspaces and task-specific assertions; the adapter refuses them even if AGENT_EVAL_WORKSPACE_ROOT is set, rather than scoring an unrelated repository with the wrong assertions. AGENT_EVAL_WORKSPACE_ROOT can override the fixture source for this supported case. The evaluator records wall-clock duration. If no host adapter is configured, no real agent run has occurred. Optional controls: CLAUDE_AGENT_EVAL_MODEL (default sonnet), AGENT_EVAL_MAX_TURNS (12), AGENT_EVAL_MAX_BUDGET_USD (1), and AGENT_EVAL_WORKSPACE_ROOT.
 
 ## Reports, repeats, history, and costs
 

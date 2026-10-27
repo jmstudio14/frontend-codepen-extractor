@@ -9,7 +9,7 @@ const id=process.env.AGENT_EVAL_CASE_ID, out=process.env.AGENT_EVAL_RESULT_PATH;
 const suite=JSON.parse(fs.readFileSync(path.join(root,'tests/agent-evaluation-cases.json'),'utf8'));
 const testCase=suite.cases.find(c=>c.id===id);
 if(!testCase||!out) throw new Error('Valid AGENT_EVAL_CASE_ID and AGENT_EVAL_RESULT_PATH are required.');
-if(id!=='web-extraction-regression'&&!process.env.AGENT_EVAL_WORKSPACE_ROOT){console.error('No dedicated workspace for this scenario; no agent run started. Set AGENT_EVAL_WORKSPACE_ROOT.');process.exit(2);}
+if(id!=='web-extraction-regression'){console.error('This adapter currently has objective fixture assertions only for web-extraction-regression; no agent run started for this case.');process.exit(2);}
 if(!process.env.ANTHROPIC_API_KEY&&!process.env.CLAUDE_CODE_USE_BEDROCK&&!process.env.CLAUDE_CODE_USE_VERTEX&&!process.env.CLAUDE_CODE_USE_FOUNDRY){console.error('Claude SDK authentication missing; no agent run started.');process.exit(2);}
 const fixture=path.resolve(process.env.AGENT_EVAL_WORKSPACE_ROOT||path.join(root,'tests/fixtures/leaky-animation-prototype'));
 if(!fs.existsSync(fixture))throw new Error('Workspace fixture not found.');
