@@ -38,7 +38,7 @@ jobs:
         run: node scripts/validate-plugin.mjs
       - name: Syntax-check evaluation scripts
         run: |
-          node --check scripts/evaluation/validate-architect-plan.mjs\n          node --check scripts/evaluation/assess-runtimes.mjs
+          node --check scripts/evaluation/evaluate-planner-live.mjs\n          node --check scripts/evaluation/validate-architect-plan.mjs\n          node --check scripts/evaluation/assess-runtimes.mjs
           node --check scripts/evaluation/probe-runtimes.mjs
           node --check scripts/adapters/claude-agent-sdk.mjs
           node --check scripts/evaluation/check-web-fixture.mjs
