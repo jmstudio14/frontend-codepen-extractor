@@ -85,8 +85,8 @@ const skill = readFile(pluginRoot + '/skills/frontend-codepen-extractor/SKILL.md
 const skillMeta = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 check(Boolean(skillMeta), 'Plugin skill frontmatter is present');
 if (skillMeta) {
-  check(/^name:\\s*frontend-codepen-extractor\\s*$/m.test(skillMeta[1]), 'Plugin skill name is correct');
-  check(/^description:\\s*\\S/m.test(skillMeta[1]), 'Plugin skill description is present');
+  check(/^name:\s*frontend-codepen-extractor\s*$/m.test(skillMeta[1]), 'Plugin skill name is correct');
+  check(/^description:\s*\S/m.test(skillMeta[1]), 'Plugin skill description is present');
 }
 
 const referencePaths = required.filter((item) => item.includes('/references/'));
