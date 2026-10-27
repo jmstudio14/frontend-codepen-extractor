@@ -70,11 +70,14 @@ try {
   browser = await chromium.launch();
 } catch (error) {
   // The playwright package can be installed without its browser download; that is NOT RUN, not FAIL.
-  if (/Executable doesn't exist|npx playwright install|browserType\.launch/i.test(error.message)) {
+  // Only a missing browser download is NOT RUN. Any other launch error (crash, sandbox, missing system
+  // library) means the check could not verify the page, so it fails.
+  if (/Executable doesn't exist|npx playwright install/i.test(error.message)) {
     report({ status: 'NOT RUN', reason: 'Chromium for Playwright is not installed (run npx playwright install chromium); browser check skipped', failures: [] });
     process.exit(0);
   }
-  throw error;
+  report({ status: 'FAIL', failures: ['browser could not start: ' + error.message.split('\n')[0].slice(0, 300)] });
+  process.exit(1);
 }
 try {
   const viewport = { width: config.viewport_width ?? 360, height: 800 };

@@ -28,6 +28,7 @@ The cases are `dynamic-js-widget`, `broken-html-card`, `external-deps-gallery` a
    ```
    node scripts/evaluation/manual-eval.mjs score <workspace>
    ```
+   It prints PASS, FAIL or INCOMPLETE. INCOMPLETE means nothing failed but a check could not run, usually the browser check without Playwright; report it as INCOMPLETE, not as PASS.
 
 The full procedure is in [measurement-protocol.md](measurement-protocol.md).
 

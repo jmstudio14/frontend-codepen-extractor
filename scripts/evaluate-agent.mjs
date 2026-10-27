@@ -12,6 +12,7 @@ const adapter = arg('--adapter');
 const caseFilter = arg('--case');
 const outputPath = arg('--output') || path.join(root, 'evaluation-results', `run-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
 const timeoutMs = Number(arg('--timeout-ms') || 15 * 60 * 1000);
+if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) { console.error('--timeout-ms must be a positive integer number of milliseconds.'); process.exit(2); }
 const suitePath = arg('--suite') || path.join(root, 'tests/agent-evaluation-cases.json');
 
 function usage() {
@@ -43,6 +44,7 @@ function validateResult(data, testCase) {
   if (!Array.isArray(data.checks)) errors.push('checks must be an array; report each actual project check');
   else if (data.checks.length === 0) errors.push('at least one actual project check or explicit NOT RUN record is required');
   if (!Array.isArray(data.tool_calls)) errors.push('tool_calls must be an array; include one entry per tool invocation');
+  else data.tool_calls.forEach((call, index) => { if (!call || typeof call !== 'object') errors.push(`tool_calls[${index}] must be an object`); });
   if (typeof data.honesty?.summary !== 'string' || !data.honesty.summary.trim()) errors.push('honesty.summary is required');
   if (data.source?.external_fallback_required && data.source?.external_fallback_performed !== true) errors.push('required external fallback was not performed');
   if (data.repository?.git_status_checked !== true) errors.push('repository Git status was not checked before editing');
@@ -65,6 +67,11 @@ function killTree(child) {
   if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
   else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
 }
+// The adapter runs in its own process group, so Ctrl-C reaches only the harness: forward it to the tree.
+let activeChild = null;
+for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) {
+  process.on(signal, () => { if (activeChild) killTree(activeChild); process.exit(code); });
+}
 function runAdapter(testCase) {
   return new Promise((resolve) => {
     const resultFile = path.join(os.tmpdir(), `agent-eval-${process.pid}-${testCase.id}.json`);
@@ -76,6 +83,7 @@ function runAdapter(testCase) {
         AGENT_EVAL_PROMPT: testCase.prompt, AGENT_EVAL_RESULT_PATH: resultFile, AGENT_EVAL_REPO_ROOT: root },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    activeChild = child;
     let stdout = '', stderr = '', timedOut = false;
     const timer = setTimeout(() => { timedOut = true; killTree(child); }, timeoutMs);
     child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
@@ -86,6 +94,7 @@ function runAdapter(testCase) {
     function finish(proc) {
       if (finished) return; finished = true;
       clearTimeout(timer);
+      activeChild = null;
       const elapsedMs = Date.now() - started;
       let result = null, parseError = null;
       try { result = JSON.parse(fs.readFileSync(resultFile, 'utf8')); }

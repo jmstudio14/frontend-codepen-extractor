@@ -13,17 +13,23 @@ Fixes from a full review of the repository: three independent read-only reviews 
 - **Manual measurement integrity.**
   - `manual-eval prepare` creates the workspace in the system temporary folder and refuses one inside the clone. Inside the clone, Claude Code loaded this repository's `CLAUDE.md` and the reference solutions were a few folders away.
   - Scoring compares against the prepared commit, so changes the agent commits are still scored and checked for unexpected files.
-  - The initial commit ignores global signing and hooks, and a failed `prepare` removes its partial workspace.
+  - The guard against a workspace inside the clone also resolves symlinked ancestors that point into the clone, and it treats folder names that start with `..` correctly.
+  - The initial commit ignores global signing and hooks. If `prepare` fails, it removes only what that run created. An existing `--dir` and its files are never deleted.
+  - `score` rejects a `base_commit` that is not a commit id. It also fails the case when the workspace history no longer starts at the prepared commit.
+  - A score with no failures but a NOT RUN check is `INCOMPLETE` (exit code 3), not PASS.
   - The `web-extraction-regression` fixture README, which listed every seeded defect, now stays on the host (`host_only_files`) and is written for maintainers.
 - **Browser check.**
-  - A missing Chromium download is NOT RUN instead of FAIL.
+  - A missing Chromium download is NOT RUN instead of FAIL. Any other launch error is still FAIL.
   - Clicks must change the page: the expected result is checked absent before and present after. `dynamic-js-widget` checks Alpha's own vote count, so a ticking clock can no longer satisfy it.
   - The listener tracker counts each listener once and ignores removals of listeners that were never added.
   - `web-extraction-regression` now asks for `window.orbitDemo.destroy()` and verifies its teardown in the browser.
 - **Evaluation harness.**
-  - On timeout, the harness kills the adapter's whole process tree; it used to wait for orphaned processes holding the pipes.
-  - It reports timeouts and signals, and malformed `checks` or `tool_calls` entries fail the case instead of crashing the run.
-- **Smoke tests.** Async tests are awaited, so a failing async test is reported as FAIL instead of PASS.
+  - On timeout or interrupt (Ctrl-C, SIGTERM), the harness kills the adapter's whole process tree. It used to wait for orphaned processes holding the pipes.
+  - It reports timeouts and signals and rejects an invalid `--timeout-ms`. Malformed `checks` or `tool_calls` entries fail the case instead of crashing the run.
+- **Smoke tests.**
+  - Async tests are awaited, so a failing async test is reported as FAIL instead of PASS.
+  - Browser tests that cannot run are reported as NOT RUN and counted separately, not as PASS.
+  - A malformed fixture manifest no longer stops the whole suite.
 - **Agent frontmatter.** `frontend-documentation-maintainer` had invalid YAML: an unquoted colon in its description. It is now quoted.
 - **Plugin coordinator.** It no longer promises reviewers it cannot launch. Unbundled specialists (dependency/license, privacy, release, run diagnostics) are recorded as NOT RUN and need human acceptance; the removed model evaluator is no longer mentioned.
 - **Plugin docs and links.**
@@ -41,11 +47,13 @@ Fixes from a full review of the repository: three independent read-only reviews 
 
 ### Changed
 - **Security gate.**
-  - Agent frontmatter is parsed as YAML, so tools given as a list are understood.
-  - An agent without `tools` is blocked because it inherits Edit and Write.
-  - `child_process` `exec`/`execSync` are blocked like `shell: true`, and Node helpers under `tests/` are scanned.
-  - New token formats: OpenAI project keys, GitHub fine-grained tokens, Slack, Google and npm.
-  - UTF-16 files are scanned, and skipped files are listed instead of being dropped silently.
+  - Agent frontmatter is parsed as YAML, so tools given as a list are understood. A byte-order mark no longer hides it, nested agent folders are checked, and an agent file without frontmatter is a finding.
+  - Scoped write tools such as `Edit(src/**)`, `MultiEdit` and `Write(*)` count as write access. Only an unscoped `disallowedTools` entry removes a tool.
+  - An agent whose `tools` is missing, empty or `*` is blocked, because it inherits Edit and Write. `Task` is checked like `Agent`.
+  - In any file that loads `child_process`, `exec`/`execSync` calls, property access and destructuring are blocked like `shell: true`. So are a `shell` option other than `false` and spawning a shell binary directly. The rule is a documented heuristic, not a parser.
+  - The code rules cover all Node code, including hooks and the `.mjs` helpers under `tests/`, but not the browser files of the fixtures.
+  - New token formats: OpenAI project keys, GitHub fine-grained tokens, Slack, Google and npm. An OpenAI-style match now needs a digit, so long hyphenated CSS class names are not reported.
+  - UTF-16 files are scanned. Symlinks, files over 2 MB and binaries without a binary extension are findings rather than silently skipped.
 - **Skill copies.** The plugin validator compares the three skill copies file by file, including `css-tricks-reference.md`, and takes the expected version from `package.json`.
 - **Agent cases.** Every review agent must have evaluation cases; `frontend-code-auditor` now has them. Case files and fixture manifests are parsed, and errors are reported instead of crashing.
 - **Build queue.** `evaluation/agent-build-queue.json` lists the files each agent delivered, numbers the agents without gaps, and drops the superseded `planned_files`.

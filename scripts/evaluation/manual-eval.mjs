@@ -27,9 +27,17 @@ const git = (args, cwd) => run('git', args, cwd);
 // and the solutions and assertion scripts would be a few directories away from the agent.
 const isInside = (child, parent) => {
   const rel = path.relative(parent, child);
-  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+  return rel === '' || (rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel));
 };
-const realOrSelf = (target) => { try { return fs.realpathSync(target); } catch { return target; } };
+// Resolves symlinks through the nearest existing ancestor, so a link pointing into the clone is caught
+// even when the folders below it do not exist yet.
+function resolveThroughExisting(target) {
+  let existing = path.resolve(target);
+  const rest = [];
+  while (!fs.existsSync(existing) && path.dirname(existing) !== existing) { rest.unshift(path.basename(existing)); existing = path.dirname(existing); }
+  try { return path.join(fs.realpathSync(existing), ...rest); } catch { return path.resolve(target); }
+}
+const COMMIT_ID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 
 function prepare(caseId) {
   const suite = JSON.parse(fs.readFileSync(path.join(root, 'tests/agent-evaluation-cases.json'), 'utf8'));
@@ -38,14 +46,15 @@ function prepare(caseId) {
   if (!fixture) { console.error(`No executable fixture for case "${caseId}". Cases with fixtures: see tests/fixtures/*/fixture.json.`); process.exit(2); }
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const base = path.resolve(option('--dir') || path.join(os.tmpdir(), 'frontend-extractor-eval', `${caseId}-${stamp}`));
-  if (isInside(realOrSelf(path.dirname(base)), realOrSelf(root)) || isInside(base, root)) {
+  if (isInside(resolveThroughExisting(base), resolveThroughExisting(root)) || isInside(base, root)) {
     console.error(`The workspace must be outside this repository (${root}); Claude Code would load its CLAUDE.md and the solutions would be reachable. Choose another --dir.`);
     process.exit(2);
   }
   const workspace = path.join(base, 'workspace');
   if (fs.existsSync(workspace)) { console.error(`Workspace already exists: ${workspace}`); process.exit(2); }
   const hidden = hostOnlyFiles(fixture.manifest);
-  fs.mkdirSync(base, { recursive: true });
+  // On failure, remove only what this run created: the first new folder, or else just the workspace.
+  const createdRoot = fs.mkdirSync(base, { recursive: true });
   fs.cpSync(fixture.dir, workspace, { recursive: true, filter: (src) => !['.git', 'node_modules', ...hidden].includes(path.basename(src)) });
   // Signing and hooks from the user's global Git config must not break or alter the initial commit.
   const steps = [['init', '-q'], ['config', 'user.name', 'Manual Evaluation'], ['config', 'user.email', 'manual-evaluation@localhost'], ['add', '.'], ['-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'Initial fixture'], ['rev-parse', 'HEAD']];
@@ -53,7 +62,7 @@ function prepare(caseId) {
   for (const args of steps) {
     const r = git(args, workspace);
     if (r.exit_code) {
-      fs.rmSync(base, { recursive: true, force: true });
+      fs.rmSync(createdRoot ?? workspace, { recursive: true, force: true });
       console.error('Could not initialize the workspace Git repository: ' + (r.stderr || r.error));
       process.exit(1);
     }
@@ -73,10 +82,15 @@ function score(workspaceArg) {
   const fixture = findFixture(root, meta.case_id);
   if (!fixture) { console.error(`Fixture for case "${meta.case_id}" no longer exists.`); process.exit(2); }
   const { manifest } = fixture;
-  // Diff against the prepared commit, not HEAD, so commits made by the agent are still scored.
+  // Diff against the prepared commit, not HEAD, so commits made by the agent are still scored. Workspaces
+  // prepared before base_commit existed fall back to HEAD.
+  if (meta.base_commit !== undefined && !COMMIT_ID.test(String(meta.base_commit))) { console.error('meta.json base_commit is not a commit id; prepare the workspace again.'); process.exit(2); }
   const baseCommit = meta.base_commit || 'HEAD';
-  const diff = git(['diff', '--name-only', baseCommit], workspace), untracked = git(['ls-files', '--others', '--exclude-standard'], workspace);
+  const diff = git(['diff', '--name-only', baseCommit, '--'], workspace), untracked = git(['ls-files', '--others', '--exclude-standard'], workspace);
   if (diff.exit_code || untracked.exit_code) { console.error('Could not read the workspace Git state.'); process.exit(1); }
+  // The history must still start at the prepared commit; a rewritten or replaced history is not scored.
+  const roots = git(['rev-list', '--max-parents=0', 'HEAD'], workspace);
+  const historyIntact = !meta.base_commit || roots.stdout.split(/\r?\n/).includes(meta.base_commit);
   const changed = [...new Set([...diff.stdout.split(/\r?\n/), ...untracked.stdout.split(/\r?\n/)].filter(Boolean))].sort();
   const unexpected = changed.filter((file) => !manifest.editable_files.includes(file));
   const checks = [];
@@ -91,14 +105,18 @@ function score(workspaceArg) {
   try { browser = JSON.parse(browserRun.stdout.trim().split(/\r?\n/).pop()); } catch {}
   checks.push({ name: 'Browser check (Playwright, network blocked)', command: browserRun.command, status: browser?.status || 'FAIL', exit_code: browserRun.exit_code, output_excerpt: browser ? JSON.stringify(browser) : [browserRun.stdout, browserRun.stderr].join('\n').slice(-2500) });
   // CRLF line endings (common on Windows) are not trailing whitespace; real trailing spaces still fail.
-  add('Git diff whitespace', git(['-c', 'core.whitespace=cr-at-eol', 'diff', '--check', baseCommit], workspace));
+  add('Git diff whitespace', git(['-c', 'core.whitespace=cr-at-eol', 'diff', '--check', baseCommit, '--'], workspace));
+  if (!historyIntact) checks.push({ name: 'Workspace history starts at the prepared commit', command: 'git rev-list --max-parents=0 HEAD', status: 'FAIL', exit_code: 1, output_excerpt: roots.stdout.trim() });
   if (unexpected.length) checks.push({ name: 'Only editable files changed', command: `git diff --name-only ${baseCommit}`, status: 'FAIL', exit_code: 1, output_excerpt: unexpected.join('\n') });
 
+  // A check that did not run never counts as passed: no FAIL plus any NOT RUN is INCOMPLETE, not PASS.
   const failed = checks.filter((check) => check.status === 'FAIL').map((check) => check.name);
+  const notRun = checks.filter((check) => check.status === 'NOT RUN').map((check) => check.name);
+  const status = failed.length ? 'FAIL' : notRun.length ? 'INCOMPLETE' : 'PASS';
   const report = {
     schema_version: 1, mode: 'manual', case_id: meta.case_id, scored_at: new Date().toISOString(), workspace,
-    status: failed.length ? 'FAIL' : 'PASS',
-    objective: { passed: failed.length === 0, failed_checks: failed, screenshots_dir: browser?.screenshots?.length ? shots : null },
+    status,
+    objective: { passed: status === 'PASS', failed_checks: failed, not_run_checks: notRun, screenshots_dir: browser?.screenshots?.length ? shots : null },
     repository: { changed_files: changed, editable_files: manifest.editable_files, unexpected_files: unexpected },
     checks,
     human_review: [
@@ -111,8 +129,9 @@ function score(workspaceArg) {
   const output = path.resolve(option('--output') || path.join(path.dirname(workspace), 'report.json'));
   fs.writeFileSync(output, JSON.stringify(report, null, 2) + '\n');
   for (const check of checks) console.log(`${check.status.padEnd(7)} ${check.name}`);
-  console.log(`\n${report.status}: ${meta.case_id}. Report: ${output}`);
-  if (failed.length) process.exitCode = 1;
+  console.log(`\n${report.status}: ${meta.case_id}.${notRun.length ? ` NOT RUN: ${notRun.join(', ')}.` : ''} Report: ${output}`);
+  // Exit codes: 0 PASS, 1 FAIL, 3 INCOMPLETE (no failure, but at least one check did not run).
+  process.exitCode = status === 'FAIL' ? 1 : status === 'INCOMPLETE' ? 3 : 0;
 }
 
 if (command === 'prepare' && target) prepare(target);

@@ -33,7 +33,7 @@ export function listFixtures(root) {
       const dir = path.join(base, entry.name);
       try {
         const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'fixture.json'), 'utf8'));
-        return { name: entry.name, dir, manifest, checkPath: path.resolve(dir, manifest.check ?? '') };
+        return { name: entry.name, dir, manifest, checkPath: path.resolve(dir, typeof manifest?.check === 'string' ? manifest.check : '') };
       } catch (error) {
         // Reported by validateManifest(null) callers instead of crashing every script that lists fixtures.
         return { name: entry.name, dir, manifest: null, error: `fixture.json does not parse: ${error.message}`, checkPath: null };

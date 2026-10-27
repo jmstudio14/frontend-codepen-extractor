@@ -50,7 +50,7 @@ The same commands work in PowerShell and bash. Write each command on one line.
    ```
    node scripts/evaluation/manual-eval.mjs score <workspace path>
    ```
-   This writes `report.json` and, when Playwright is available, a `screenshots/` folder next to the workspace. It exits with 0 on PASS and 1 on FAIL.
+   This writes `report.json` and, when Playwright is available, a `screenshots/` folder next to the workspace. It prints one status and exits with its code: PASS (0), FAIL (1), or INCOMPLETE (3) when nothing failed but a check was NOT RUN, usually the browser check without Playwright. INCOMPLETE is not a pass.
 5. **Repeat** for the other three cases, and preferably more than once per case: one PASS is not reliability.
 
 ## Review

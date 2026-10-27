@@ -35,6 +35,7 @@ body:
       description: For fixtures, use the status printed by `manual-eval.mjs score`.
       options:
         - PASS
+        - INCOMPLETE (nothing failed, but a check was NOT RUN)
         - Partial (works after manual fixes)
         - FAIL
     validations:

@@ -11,9 +11,12 @@ import { findFixture, hostOnlyFiles, listFixtures, validateManifest } from './ev
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let passed = 0;
+let notRun = 0;
 // Tests are queued and awaited in order at the end, so an async test cannot report PASS before it finishes.
 const queue = [];
 function test(name, fn) { queue.push({ name, fn }); }
+// A test that could not exercise its subject (for example, no browser available) reports NOT RUN, not PASS.
+class NotRun extends Error {}
 
 for (const [command, expected] of [
   ['git reset --hard HEAD', 'git-hard-reset'],
@@ -243,7 +246,7 @@ test('security gate reads agent tools as YAML and blocks agents that inherit eve
   const inherits = runGate(agent('description: no tools field\n'));
   assert.equal(inherits.status, 1);
   assert.match(inherits.stderr, /agent-inherits-all-tools/);
-  assert.equal(runGate(agent('disallowedTools: Edit, Write, NotebookEdit\n')).status, 0);
+  assert.equal(runGate(agent('disallowedTools: Edit, MultiEdit, Write, NotebookEdit\n')).status, 0);
   assert.equal(runGate(agent('tools: Read, Edit\ndisallowedTools: Edit\n')).status, 0);
   const invalid = runGate(agent('description: one: two\ntools: Read\n'));
   assert.equal(invalid.status, 1);
@@ -261,7 +264,8 @@ test('security gate blocks child_process exec but not RegExp exec, and scans Nod
     assert.equal(run.status, 1, source);
     assert.match(run.stderr, /unapproved-shell-exec/);
   }
-  assert.equal(runGate({ 'scripts/a.mjs': `import { spawnSync } from ${cp};\nconst m = /x/.ex` + `ec('x');\n` }).status, 0);
+  assert.equal(runGate({ 'scripts/a.mjs': `const m = /x/.ex` + `ec('x');\n` }).status, 0, 'RegExp exec is fine where child_process is not loaded');
+  assert.match(runGate({ 'scripts/a.mjs': `import { spawnSync } from ${cp};\nconst m = /x/.ex` + `ec('x');\n` }).stderr, /unapproved-shell-exec/, 'fail closed where child_process is loaded');
   assert.equal(runGate({ 'scripts/a.mjs': `import { execFileSync } from ${cp};\nexecFileSync('git', ['status']);\n` }).status, 0);
   const helper = runGate({ 'tests/fixtures/demo/check.mjs': 'ev' + 'al(process.argv[2]);\n' });
   assert.equal(helper.status, 1);
@@ -287,9 +291,62 @@ test('security gate recognises more token formats, including UTF-16 files, witho
   const run = runGate({ 'notes.txt': utf16 });
   assert.equal(run.status, 1);
   assert.match(run.stderr, /npm-token: notes\.txt/);
-  const binary = runGate({ 'data.bin': Buffer.from([0, 1, 2, 0]) });
-  assert.equal(binary.status, 0);
-  assert.match(binary.stdout, /SKIPPED data\.bin \(binary\)/);
+  const image = runGate({ 'logo.png': Buffer.from([0x89, 0x50, 0, 1, 2, 0]) });
+  assert.equal(image.status, 0);
+  assert.match(image.stdout, /SKIPPED logo\.png \(binary\)/);
+  assert.match(runGate({ 'data.bin': Buffer.from([0, 1, 2, 0]) }).stderr, /unscanned-binary: data\.bin/);
+});
+
+test('security gate blocks scoped write tools, wildcard tools, Task delegation and nested or frontmatter-less agents', () => {
+  const agent = (front, rel = '.claude/agents/frontend-security-reviewer.md') => ({ [rel]: `---\nname: frontend-security-reviewer\n${front}---\n` });
+  for (const tools of ['Read, Edit(src/**)', 'Read, Write(*)', 'Read, MultiEdit']) {
+    const run = runGate(agent(`tools: ${tools}\n`));
+    assert.equal(run.status, 1, tools);
+    assert.match(run.stderr, /read-only-agent-can-write/, tools);
+  }
+  assert.equal(runGate(agent('tools: Read, Edit(src/**)\ndisallowedTools: Edit\n')).status, 0, 'an unscoped deny removes the tool');
+  assert.equal(runGate(agent('tools: Read, Edit(src/**)\ndisallowedTools: Edit(docs/**)\n')).status, 1, 'a scoped deny does not remove the tool');
+  for (const tools of ['"*"', '""', '[]']) {
+    const run = runGate(agent(`tools: ${tools}\n`));
+    assert.equal(run.status, 1, tools);
+    assert.match(run.stderr, /agent-inherits-all-tools/, tools);
+  }
+  const bom = runGate({ '.claude/agents/frontend-security-reviewer.md': '﻿---\nname: frontend-security-reviewer\ntools: Read, Edit\n---\n' });
+  assert.match(bom.stderr, /read-only-agent-can-write/, 'a byte-order mark must not hide the frontmatter');
+  assert.match(runGate(agent('tools: Read, Edit\n', '.claude/agents/team/frontend-security-reviewer.md')).stderr, /read-only-agent-can-write/);
+  assert.match(runGate({ '.claude/agents/notes.md': '# no frontmatter\n' }).stderr, /agent-frontmatter-missing/);
+  const developer = { '.claude/agents/frontend-codepen-extractor.md': '---\nname: frontend-codepen-extractor\ntools: Read, Edit, Write\n---\n' };
+  const task = runGate({ ...developer, '.claude/agents/agent-ecosystem-coordinator.md': '---\nname: agent-ecosystem-coordinator\ntools: Task, Read\n---\n' });
+  assert.match(task.stderr, /must list its delegates/);
+});
+
+test('security gate catches other shell forms and unscannable files', () => {
+  const cp = "'node:child_" + "process'";
+  for (const [source, rule] of [
+    [`require(${cp}).ex` + `ecSync('ls');\n`, /unapproved-shell-exec/],
+    [`import cp, { spawn } from ${cp};\ncp.ex` + `ecSync('ls');\n`, /unapproved-shell-exec/],
+    [`const m = await import(${cp});\nm['ex` + `ec']('ls');\n`, /unapproved-shell-exec/],
+    [`const cp = require(${cp});\nconst { ex` + `ecSync } = cp;\n`, /unapproved-shell-exec/],
+    [`import { spawn } from ${cp};\nspawn('ls', [], { sh` + `ell: process.platform === 'win32' });\n`, /unapproved-shell-true/],
+    [`import { spawn } from ${cp};\nspawn('s` + `h', ['-c', 'ls']);\n`, /unapproved-shell-spawn/],
+  ]) {
+    const run = runGate({ 'scripts/a.mjs': source });
+    assert.equal(run.status, 1, source);
+    assert.match(run.stderr, rule, source);
+  }
+  assert.equal(runGate({ 'scripts/a.mjs': `import { spawn } from ${cp};\nspawn('git', ['status'], { sh` + `ell: false });\n` }).status, 0);
+  assert.match(runGate({ '.claude/hooks/guard.mjs': 'ev' + 'al(process.argv[2]);\n' }).stderr, /dynamic-code-execution/, 'hooks are Node code too');
+  assert.match(runGate({ 'scripts/a.mjs': 'const a = 1;\u0000\n' }).stderr, /unscanned-binary/);
+  assert.equal(runGate({ 'notes.md': 'class="sk-' + 'circle-bounce-and-fade-in-animation-delay"\n' }).status, 0, 'long hyphenated names without digits are not keys');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'security-gate-link-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'real.md'), 'ok\n');
+    try { fs.symlinkSync(path.join(dir, 'real.md'), path.join(dir, 'link.md')); }
+    catch { return; } // Symlinks need extra rights on Windows; the rule is still covered on POSIX CI.
+    const run = spawnSync(process.execPath, [path.join(root, 'scripts/security-gate.mjs'), '--root', dir], { encoding: 'utf8', timeout: 30000 });
+    assert.equal(run.status, 1);
+    assert.match(run.stderr, /unscanned-symlink: link\.md/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('security gate limits delegation to existing read-only agents', () => {
@@ -366,7 +423,7 @@ test('every executable web-component case has a valid fixture manifest', () => {
   assert.equal(fixtures.length, 4);
   for (const fixture of fixtures) {
     assert.deepEqual(validateManifest(fixture.manifest), [], fixture.name);
-    assert.ok(suite.cases.some((item) => item.id === fixture.manifest.case_id), `${fixture.manifest.case_id} is in the suite`);
+    assert.ok(suite.cases.some((item) => item.id === fixture.manifest.case_id), `${fixture.manifest?.case_id ?? fixture.name} is in the suite`);
     for (const file of fixture.manifest.source_files) assert.ok(fs.existsSync(path.join(fixture.dir, file)), `${fixture.name}/${file} exists`);
     assert.ok(fs.existsSync(fixture.checkPath), `${fixture.name} check script exists`);
   }
@@ -382,10 +439,10 @@ for (const fixture of listFixtures(root)) {
       assert.equal(run.status, 0, `solution must pass: ${run.stderr}`);
     });
   });
-  test(`browser check fails on ${fixture.name} and passes on its reference solution (or is NOT RUN)`, () => {
+  test(`browser check fails on ${fixture.name} and passes on its reference solution`, () => {
     const broken = withWorkspace(fixture, null, (dir) => browserCheck(dir, fixture));
     const fixed = withWorkspace(fixture, solution, (dir) => browserCheck(dir, fixture));
-    if (broken.result.status === 'NOT RUN') { assert.equal(fixed.result.status, 'NOT RUN'); return; }
+    if (broken.result.status === 'NOT RUN') { assert.equal(fixed.result.status, 'NOT RUN'); throw new NotRun(broken.result.reason); }
     assert.equal(broken.result.status, 'FAIL');
     assert.equal(broken.status, 1);
     assert.equal(fixed.result.status, 'PASS', JSON.stringify(fixed.result.failures));
@@ -437,6 +494,32 @@ setTimeout(() => {}, 120000);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('evaluation harness stops the adapter tree when it is interrupted', async () => {
+  if (process.platform === 'win32') throw new NotRun('POSIX signals; Windows has no catchable SIGTERM');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-signal-'));
+  try {
+    const adapter = path.join(dir, 'hang.mjs');
+    const pids = path.join(dir, 'pids.txt');
+    fs.writeFileSync(adapter, `import fs from 'node:fs';
+import { spawn } from 'node:child_process';
+const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: 'inherit' });
+fs.writeFileSync(${JSON.stringify(pids)}, process.pid + ' ' + child.pid);
+setTimeout(() => {}, 120000);
+`);
+    const { spawn } = await import('node:child_process');
+    const harness = spawn(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `node "${adapter}"`, '--case', 'dynamic-js-widget', '--output', path.join(dir, 'r.json')], { cwd: root, stdio: 'ignore' });
+    const deadline = Date.now() + 20000;
+    while (!fs.existsSync(pids) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.ok(fs.existsSync(pids), 'adapter did not start');
+    const exited = new Promise((resolve) => harness.on('exit', (code, signal) => resolve({ code, signal })));
+    harness.kill('SIGTERM');
+    assert.equal((await exited).code, 143);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const alive = (pid) => { try { process.kill(pid, 0); return !fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(' ')[2].startsWith('Z'); } catch { return false; } };
+    for (const pid of fs.readFileSync(pids, 'utf8').trim().split(' ').map(Number)) assert.equal(alive(pid), false, `process ${pid} survived the interrupt`);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('evaluation harness reports malformed check entries instead of crashing', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-null-'));
   try {
@@ -446,17 +529,29 @@ fs.writeFileSync(process.env.AGENT_EVAL_RESULT_PATH, JSON.stringify({
   stack: { language_detected_correctly: true, version_detected_correctly: true },
   source: { correct_source_found: true, external_fallback_required: false, external_fallback_performed: false },
   repository: { git_status_checked: true, correct_files_changed: true, changed_files: [], unexpected_files: [] },
-  checks: [null, { name: 'lint', command: 'npm run lint', status: 'PASS', exit_code: 0 }],
-  honesty: { claims_supported_by_evidence: true, limitations_reported: true, all_checks_passed_claimed: true, summary: 'null entry' },
-  tool_calls: [null],
+  checks: JSON.parse(process.env.CHECKS),
+  honesty: { claims_supported_by_evidence: true, limitations_reported: true, all_checks_passed_claimed: true, summary: 'malformed entry' },
+  tool_calls: JSON.parse(process.env.TOOL_CALLS),
 }));
 `);
-    const reportPath = path.join(dir, 'report.json');
-    const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `node "${adapter}"`, '--case', 'dynamic-js-widget', '--output', reportPath], { cwd: root, encoding: 'utf8', timeout: 60000 });
-    assert.equal(run.status, 1, run.stdout + run.stderr);
-    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-    assert.equal(report.cases[0].status, 'FAIL');
-    assert.ok(report.cases[0].errors.includes('checks[0] must be an object'));
+    const goodCheck = { name: 'lint', command: 'npm run lint', status: 'PASS', exit_code: 0 };
+    // Each malformed list is tested on its own, so one error cannot hide a missing check for the other.
+    for (const [checks, toolCalls, expected] of [
+      [[null, goodCheck], [{ name: 'Read' }], 'checks[0] must be an object'],
+      [[goodCheck], [null, 5, { name: 'Read' }], 'tool_calls[0] must be an object'],
+    ]) {
+      const reportPath = path.join(dir, 'report.json');
+      const env = { ...process.env, CHECKS: JSON.stringify(checks), TOOL_CALLS: JSON.stringify(toolCalls) };
+      const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `node "${adapter}"`, '--case', 'dynamic-js-widget', '--output', reportPath], { cwd: root, encoding: 'utf8', timeout: 60000, env });
+      assert.equal(run.status, 1, run.stdout + run.stderr);
+      const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+      assert.equal(report.cases[0].status, 'FAIL');
+      assert.ok(report.cases[0].errors.includes(expected), JSON.stringify(report.cases[0].errors));
+    }
+    for (const value of ['abc', '0', '-5']) {
+      const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', 'node -e 0', '--timeout-ms', value], { cwd: root, encoding: 'utf8' });
+      assert.equal(run.status, 2, `--timeout-ms ${value} must be rejected`);
+    }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -507,6 +602,54 @@ test('manual evaluation refuses a workspace inside the repository', () => {
   assert.equal(fs.existsSync(dir), false);
 });
 
+test('manual evaluation refuses tricky paths into the repository but accepts sibling names', () => {
+  const refused = (dir) => spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8' });
+  const dotted = path.join(root, '..cache', `x-${process.pid}`);
+  assert.equal(refused(dotted).status, 2, 'a folder named "..cache" inside the clone is still inside');
+  assert.equal(fs.existsSync(path.join(root, '..cache')), false);
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-link-'));
+  try {
+    try { fs.symlinkSync(root, path.join(base, 'link'), 'junction'); } catch { return; }
+    assert.equal(refused(path.join(base, 'link', 'new', 'deeper')).status, 2, 'a symlinked ancestor pointing into the clone is refused');
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual evaluation never deletes an existing --dir when Git fails', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-keep-'));
+  try {
+    fs.writeFileSync(path.join(base, 'IMPORTANT.txt'), 'keep me\n');
+    // A PATH with only Node makes every git call fail, as on a machine without Git.
+    const env = { ...process.env, PATH: path.dirname(process.execPath), Path: path.dirname(process.execPath) };
+    const run = spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', base], { encoding: 'utf8', env });
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    assert.equal(fs.readFileSync(path.join(base, 'IMPORTANT.txt'), 'utf8'), 'keep me\n');
+    assert.equal(fs.existsSync(path.join(base, 'workspace')), false, 'the partial workspace is removed');
+    const fresh = path.join(base, 'new', 'run');
+    assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', fresh], { encoding: 'utf8', env }).status, 1);
+    assert.equal(fs.existsSync(path.join(base, 'new')), false, 'folders this run created are removed');
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual evaluation rejects a tampered base commit or a replaced history', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-tamper-'));
+  try {
+    const dir = path.join(base, 'run');
+    assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 }).status, 0);
+    const workspace = path.join(dir, 'workspace');
+    const metaPath = path.join(dir, 'meta.json');
+    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+    fs.writeFileSync(metaPath, JSON.stringify({ ...meta, base_commit: '--output=x' }));
+    assert.equal(spawnSync(process.execPath, [manualEval, 'score', workspace], { encoding: 'utf8' }).status, 2);
+    fs.writeFileSync(metaPath, JSON.stringify(meta));
+    for (const args of [['checkout', '-q', '--orphan', 'fresh'], ['-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'new root']]) {
+      assert.equal(spawnSync('git', args, { cwd: workspace, encoding: 'utf8' }).status, 0);
+    }
+    spawnSync(process.execPath, [manualEval, 'score', workspace], { encoding: 'utf8', timeout: 120000 });
+    const report = JSON.parse(fs.readFileSync(path.join(dir, 'report.json'), 'utf8'));
+    assert.ok(report.objective.failed_checks.includes('Workspace history starts at the prepared commit'));
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
 test('manual evaluation still scores changes the agent committed', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-commit-'));
   try {
@@ -527,7 +670,7 @@ test('manual evaluation still scores changes the agent committed', () => {
 });
 
 for (const fixture of listFixtures(root)) {
-  test(`manual evaluation prepares ${fixture.manifest.case_id} without host files and scores fixture FAIL / solution PASS`, () => {
+  test(`manual evaluation prepares ${fixture.manifest?.case_id ?? fixture.name} without host files and scores fixture FAIL / solution PASS`, () => {
     const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-'));
     try {
       const dir = path.join(base, 'run');
@@ -542,9 +685,12 @@ for (const fixture of listFixtures(root)) {
       assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'report.json'), 'utf8')).objective.passed, false);
       fs.cpSync(path.join(root, 'tests/fixture-solutions', fixture.name), workspace, { recursive: true });
       const solved = spawnSync(process.execPath, [manualEval, 'score', workspace], { encoding: 'utf8', timeout: 120000 });
-      assert.equal(solved.status, 0, solved.stdout + solved.stderr);
       const report = JSON.parse(fs.readFileSync(path.join(dir, 'report.json'), 'utf8'));
-      assert.equal(report.status, 'PASS');
+      assert.deepEqual(report.objective.failed_checks, [], solved.stdout + solved.stderr);
+      // Without Playwright the browser check is NOT RUN, which makes the score INCOMPLETE (exit 3), never PASS.
+      const browserRan = report.checks.find((check) => check.name.startsWith('Browser check')).status !== 'NOT RUN';
+      assert.equal(report.status, browserRan ? 'PASS' : 'INCOMPLETE');
+      assert.equal(solved.status, browserRan ? 0 : 3, solved.stdout + solved.stderr);
       assert.deepEqual(report.repository.unexpected_files, []);
     } finally { fs.rmSync(base, { recursive: true, force: true }); }
   });
@@ -559,7 +705,7 @@ test('test-report issue form is valid and keeps required, privacy-safe fields', 
   assert.equal(new Set(ids).size, ids.length, 'field ids must be unique');
   for (const id of ['scenario', 'result', 'problems', 'honesty', 'environment', 'confirm']) assert.ok(ids.includes(id), `missing field ${id}`);
   const scenarios = form.body.find((item) => item.id === 'scenario').attributes.options;
-  for (const fixture of listFixtures(root)) assert.ok(scenarios.includes(`Fixture: ${fixture.manifest.case_id}`), `scenario list misses ${fixture.manifest.case_id}`);
+  for (const fixture of listFixtures(root)) assert.ok(scenarios.includes(`Fixture: ${fixture.manifest?.case_id ?? fixture.name}`), `scenario list misses ${fixture.manifest?.case_id ?? fixture.name}`);
   const confirm = form.body.find((item) => item.id === 'confirm').attributes.options[0];
   assert.equal(confirm.required, true);
   assert.match(confirm.label, /secrets/);
@@ -589,6 +735,9 @@ test('package, marketplace and plugin versions stay identical', () => {
 
 for (const { name, fn } of queue) {
   try { await fn(); passed += 1; console.log(`PASS  ${name}`); }
-  catch (error) { console.error(`FAIL  ${name}: ${error.message}`); process.exitCode = 1; }
+  catch (error) {
+    if (error instanceof NotRun) { notRun += 1; console.log(`NOT RUN  ${name}: ${error.message}`); continue; }
+    console.error(`FAIL  ${name}: ${error.message}`); process.exitCode = 1;
+  }
 }
-console.log(`\nSmoke tests finished: ${passed} passed${process.exitCode ? ', with failures' : ''}.`);
+console.log(`\nSmoke tests finished: ${passed} passed${notRun ? `, ${notRun} NOT RUN` : ''}${process.exitCode ? ', with failures' : ''}.`);
