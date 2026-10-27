@@ -1,0 +1,21 @@
+{
+  "case_id": "external-deps-gallery",
+  "description": "Gallery that depends on an unpinned CDN library, a remote font and remote images.",
+  "defects": [
+    "lodash is loaded from a CDN without a pinned version or integrity hash; with no network the page throws and shows nothing.",
+    "The Inter web font is loaded remotely and the CSS has no generic fallback family.",
+    "Images are hotlinked from a third-party service and the img has no alt text.",
+    "The caption is written with innerHTML."
+  ],
+  "source_files": ["index.html", "gallery.css", "gallery.js", "assets/photo-1.svg", "assets/photo-2.svg", "assets/photo-3.svg"],
+  "editable_files": ["index.html", "gallery.css", "gallery.js", "DEPENDENCIES.md"],
+  "check": "check.mjs",
+  "prompt_suffix": "Do not install packages or download anything. The gallery must work fully offline: remove the runtime dependency on the CDN library (use native JavaScript), use the local images in assets/ with meaningful alt text, give the font a generic fallback, and write the caption with textContent as 'Image N of 3' in display order (the first image is 'Image 1 of 3'). Record every external dependency you found (library, font, images), its risk and what you did with it in a new DEPENDENCIES.md. Keep the root element class 'gallery' and the Next button.",
+  "browser": {
+    "visible": ".gallery",
+    "roles": [{ "role": "button", "name": "Next" }, { "role": "img", "name": "." }],
+    "click": { "role": "button", "name": "Next", "expect_text": "Image 2 of 3" },
+    "literal_text": "Image 1 of 3",
+    "max_blocked_requests": 0
+  }
+}

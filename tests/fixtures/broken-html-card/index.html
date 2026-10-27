@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Profile card</title>
+  <link rel="stylesheet" href="card.css">
+</head>
+<body>
+<div class="card" id="card">
+  <img src="avatar.svg">
+  <h2>Ada Lovelace
+  <p class="role">Analyst
+  <p id="card">First programmer, 1843.</p>
+  <div class="actions">
+    <a onclick="follow()" style="color:red;font-size:12px">Follow</a>
+    <span class="close" onclick="this.parentNode.parentNode.remove()">x</span>
+  </div>
+<script src="card.js"></script>
+</body>

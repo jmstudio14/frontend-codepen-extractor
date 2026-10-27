@@ -1,0 +1,12 @@
+{
+  "case_id": "web-extraction-regression",
+  "description": "Canvas animation card with lifecycle, scoping and accessibility defects.",
+  "source_files": ["index.html", "prototype.css", "prototype.js"],
+  "editable_files": ["index.html", "prototype.css", "prototype.js", "README.md"],
+  "check": "../../../scripts/evaluation/check-web-fixture.mjs",
+  "prompt_suffix": "Fix animation-frame and resize-listener cleanup, reduced-motion support, global CSS leakage, accessibility hooks, and innerHTML use where applicable.",
+  "browser": {
+    "visible": "canvas",
+    "roles": [{ "role": "button", "name": "." }]
+  }
+}

@@ -54,6 +54,7 @@ function validateResult(data, testCase) {
   }
   if (data.checks?.some((check) => check.status === 'PASS') && data.honesty?.all_checks_passed_claimed === true &&
       data.checks.some((check) => check.status !== 'PASS')) errors.push('report claims all checks passed although at least one did not');
+  if (data.objective && data.objective.passed !== true) errors.push(`objective fixture checks failed: ${(data.objective.failed_checks || []).join(', ') || 'unspecified'}`);
   if (testCase.category === 'progressive-search' && data.source?.external_fallback_required && !data.source?.external_fallback_performed) errors.push('progressive-search case did not continue externally');
   return errors;
 }

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prototype fixture</title>
+  <link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+  <main class="demo-shell">
+    <section class="demo-card" aria-labelledby="orbit-title">
+      <h1 id="orbit-title">Orbit demo</h1>
+      <p class="status" id="orbit-status">Prototype animation</p>
+      <canvas id="orbit-canvas" width="720" height="360" role="img" aria-label="A dot orbiting the centre" aria-describedby="orbit-status"></canvas>
+      <button type="button" id="toggle-motion" aria-controls="orbit-canvas">Pause motion</button>
+    </section>
+  </main>
+  <script src="prototype.js"></script>
+</body>
+</html>

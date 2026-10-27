@@ -47,6 +47,8 @@ jobs:
           node --check scripts/evaluation/check-web-fixture.mjs
           node --check scripts/evaluation/compare-baseline.mjs
           node --check scripts/evaluation/run-repeated.mjs
+          node --check scripts/evaluation/fixtures.mjs
+          node --check scripts/evaluation/browser-check.mjs
           python -m py_compile scripts/evaluation/run_deepeval.py
       - name: Run deterministic security gate
         run: node scripts/security-gate.mjs

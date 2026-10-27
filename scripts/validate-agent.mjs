@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { listFixtures, validateManifest } from './evaluation/fixtures.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let failures = 0;
@@ -57,6 +58,8 @@ const required = [
   'tests/fixtures/leaky-animation-prototype/prototype.css',
   'tests/fixtures/leaky-animation-prototype/prototype.js',
   '.github/workflows/validate-agent.yml', 'scripts/security-gate.mjs', 'scripts/sync-plugin-agents.mjs',
+  'scripts/evaluation/fixtures.mjs', 'scripts/evaluation/browser-check.mjs', 'docs/measurement-protocol.md',
+  ...['leaky-animation-prototype', 'dynamic-js-widget', 'broken-html-card', 'external-deps-gallery'].flatMap((name) => [`tests/fixtures/${name}/fixture.json`, `tests/fixture-solutions/${name}`]),
 ];
 for (const rel of required) exists(rel) ? pass(`Required file exists: ${rel}`) : fail(`Missing required file: ${rel}`);
 
@@ -102,6 +105,11 @@ if (skillFm && /\bname:\s*frontend-codepen-extractor\b/.test(skillFm[1]) && /\bd
   pass('Skill frontmatter contains name and description');
 } else {
   fail('Skill frontmatter contains name and description');
+}
+
+for (const fixture of listFixtures(root)) {
+  const errors = validateManifest(fixture.manifest);
+  errors.length ? fail(`Fixture manifest ${fixture.name} is valid (${errors.join('; ')})`) : pass(`Fixture manifest ${fixture.name} is valid`);
 }
 
 const settingsText = read('.claude/settings.example.json');

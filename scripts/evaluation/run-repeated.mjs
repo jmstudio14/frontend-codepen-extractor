@@ -2,8 +2,8 @@
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {spawnSync} from 'node:child_process';import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),args=process.argv.slice(2),arg=n=>{const i=args.indexOf(n);return i>=0?args[i+1]:null;};
 const adapter=arg('--adapter'),filter=arg('--case'),repeat=Number(arg('--repeat')||1),output=path.resolve(arg('--output')||path.join(os.tmpdir(),'agent-evaluation.json')),history=arg('--history')?path.resolve(arg('--history')):null,baseline=arg('--baseline'),suitePath=path.resolve(arg('--suite')||path.join(root,'tests/agent-evaluation-cases.json'));
-if(!adapter||!Number.isInteger(repeat)||repeat<1||repeat>10){console.error('Usage: run-repeated.mjs --adapter "command" [--case ID] [--repeat 1..10] [--output path] [--history path] [--baseline path]');process.exit(2);}
-const suite=JSON.parse(fs.readFileSync(suitePath,'utf8')),cases=filter?suite.cases.filter(c=>c.id===filter):suite.cases;if(!cases.length){console.error('No cases selected: '+filter);process.exit(2);}
+if(!adapter||!Number.isInteger(repeat)||repeat<1||repeat>10){console.error('Usage: run-repeated.mjs --adapter "command" [--case ID[,ID...]] [--repeat 1..10] [--output path] [--history path] [--baseline path]');process.exit(2);}
+const suite=JSON.parse(fs.readFileSync(suitePath,'utf8')),wanted=filter?filter.split(',').map(x=>x.trim()).filter(Boolean):null,cases=wanted?suite.cases.filter(c=>wanted.includes(c.id)):suite.cases;if(!cases.length||(wanted&&cases.length!==wanted.length)){console.error('Unknown or missing case IDs: '+filter);process.exit(2);}
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'eval-repeat-')),runs=[];
 try{
  for(let n=1;n<=repeat;n++)for(const c of cases){const p=path.join(tmp,c.id+'-'+n+'.json');console.log('RUN '+n+'/'+repeat+' '+c.id);const proc=spawnSync(process.execPath,[path.join(root,'scripts/evaluate-agent.mjs'),'--adapter',adapter,'--case',c.id,'--output',p,'--suite',suitePath],{cwd:root,encoding:'utf8',timeout:20*60*1000,env:process.env});

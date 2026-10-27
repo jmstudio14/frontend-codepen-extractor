@@ -1,0 +1,6 @@
+* { margin: 0; padding: 0; }
+body { font-family: Georgia, serif; background: #f3f4f6; }
+.widget { width: 480px; margin: 40px auto; padding: 24px; background: white; border-radius: 12px; }
+li { list-style: none; display: flex; gap: 12px; padding: 8px 0; }
+.vote { color: #2563eb; cursor: pointer; }
+.clock { color: #6b7280; font-size: 12px; }

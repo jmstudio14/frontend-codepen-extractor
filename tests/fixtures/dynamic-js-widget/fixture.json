@@ -1,0 +1,21 @@
+{
+  "case_id": "dynamic-js-widget",
+  "description": "Poll widget whose DOM is built entirely at runtime.",
+  "defects": [
+    "Item names are interpolated with innerHTML, so the '<b>Gamma</b>' entry renders as markup instead of text.",
+    "Vote controls are div elements: no keyboard access and no accessible name.",
+    "A document-level click listener and a 1-second setInterval are never removed; there is no teardown.",
+    "Global *, body and li selectors leak into the host page; the 480px fixed width overflows at 360px."
+  ],
+  "source_files": ["index.html", "widget.css", "widget.js"],
+  "editable_files": ["index.html", "widget.css", "widget.js"],
+  "check": "check.mjs",
+  "prompt_suffix": "This widget builds its DOM at runtime. Render all item names as text (the third item must display literally as <b>Gamma</b>), make each vote control a real button with the accessible name 'Vote for <name>', keep the root element class 'widget', scope the CSS to the widget, avoid fixed widths that overflow a 360px viewport, and expose window.pollWidget.destroy() that clears the interval and removes every listener the widget added.",
+  "browser": {
+    "visible": ".widget",
+    "roles": [{ "role": "button", "name": "Vote for Alpha" }],
+    "click": { "role": "button", "name": "Vote for Alpha", "expect_text": "4" },
+    "literal_text": "<b>Gamma</b>",
+    "teardown": "window.pollWidget && window.pollWidget.destroy()"
+  }
+}

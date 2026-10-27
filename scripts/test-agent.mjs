@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { classifyCommand } from './block-dangerous-commands.mjs';
+import { findFixture, listFixtures, validateManifest } from './evaluation/fixtures.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let passed = 0;
@@ -184,8 +185,8 @@ test('runtime evaluation harness executes adapter and writes a measurable report
     ], { cwd: root, encoding: 'utf8', timeout: 120000 });
     assert.equal(run.status, 0, `evaluator should pass fixture run; stdout: ${run.stdout}; stderr: ${run.stderr}`);
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-    assert.equal(report.selected_cases, 8);
-    assert.equal(report.passed_cases, 8);
+    assert.equal(report.selected_cases, 11);
+    assert.equal(report.passed_cases, 11);
     assert.equal(report.failed_cases, 0);
     assert.ok(report.elapsed_ms_total >= 0);
     assert.ok(report.tool_calls_total >= 8);
@@ -348,6 +349,90 @@ test('security gate resolves plugin-scoped delegates and applies read-only rules
 test('plugin agent copies are in sync with .claude/agents', () => {
   const run = spawnSync(process.execPath, [path.join(root, 'scripts/sync-plugin-agents.mjs'), '--check'], { cwd: root, encoding: 'utf8', timeout: 30000 });
   assert.equal(run.status, 0, `run node scripts/sync-plugin-agents.mjs; stderr: ${run.stderr}`);
+});
+
+function withWorkspace(fixture, overlay, fn) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fixture-workspace-'));
+  try {
+    fs.cpSync(fixture.dir, dir, { recursive: true });
+    if (overlay) fs.cpSync(overlay, dir, { recursive: true });
+    return fn(dir);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+const browserCheck = (dir, fixture) => {
+  const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), dir, path.join(fixture.dir, 'fixture.json')], { cwd: root, encoding: 'utf8', timeout: 60000 });
+  return { ...run, result: JSON.parse(run.stdout.trim().split(/\r?\n/).pop() || '{}') };
+};
+
+test('every executable web-component case has a valid fixture manifest', () => {
+  const suite = JSON.parse(fs.readFileSync(path.join(root, 'tests/agent-evaluation-cases.json'), 'utf8'));
+  const fixtures = listFixtures(root);
+  assert.equal(fixtures.length, 4);
+  for (const fixture of fixtures) {
+    assert.deepEqual(validateManifest(fixture.manifest), [], fixture.name);
+    assert.ok(suite.cases.some((item) => item.id === fixture.manifest.case_id), `${fixture.manifest.case_id} is in the suite`);
+    for (const file of fixture.manifest.source_files) assert.ok(fs.existsSync(path.join(fixture.dir, file)), `${fixture.name}/${file} exists`);
+    assert.ok(fs.existsSync(fixture.checkPath), `${fixture.name} check script exists`);
+  }
+  assert.equal(findFixture(root, 'python-native-change'), null);
+});
+
+for (const fixture of listFixtures(root)) {
+  const solution = path.join(root, 'tests/fixture-solutions', fixture.name);
+  test(`fixture checks fail on ${fixture.name} and pass on its reference solution`, () => {
+    withWorkspace(fixture, null, (dir) => assert.equal(spawnSync(process.execPath, [fixture.checkPath, dir], { encoding: 'utf8' }).status, 1, 'untouched fixture must fail'));
+    withWorkspace(fixture, solution, (dir) => {
+      const run = spawnSync(process.execPath, [fixture.checkPath, dir], { encoding: 'utf8' });
+      assert.equal(run.status, 0, `solution must pass: ${run.stderr}`);
+    });
+  });
+  test(`browser check fails on ${fixture.name} and passes on its reference solution (or is NOT RUN)`, () => {
+    const broken = withWorkspace(fixture, null, (dir) => browserCheck(dir, fixture));
+    const fixed = withWorkspace(fixture, solution, (dir) => browserCheck(dir, fixture));
+    if (broken.result.status === 'NOT RUN') { assert.equal(fixed.result.status, 'NOT RUN'); return; }
+    assert.equal(broken.result.status, 'FAIL');
+    assert.equal(broken.status, 1);
+    assert.equal(fixed.result.status, 'PASS', JSON.stringify(fixed.result.failures));
+    assert.equal(fixed.status, 0);
+  });
+}
+
+test('live adapter refuses unsupported cases and missing credentials without starting a run', () => {
+  const resultPath = path.join(os.tmpdir(), `adapter-refusal-${process.pid}.json`);
+  const env = { ...process.env, AGENT_EVAL_RESULT_PATH: resultPath };
+  for (const key of ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY']) delete env[key];
+  const adapter = path.join(root, 'scripts/adapters/claude-agent-sdk.mjs');
+  const unsupported = spawnSync(process.execPath, [adapter], { cwd: root, encoding: 'utf8', env: { ...env, AGENT_EVAL_CASE_ID: 'python-native-change' } });
+  assert.equal(unsupported.status, 2);
+  assert.match(unsupported.stderr, /No fixture with objective assertions/);
+  const noKey = spawnSync(process.execPath, [adapter], { cwd: root, encoding: 'utf8', env: { ...env, AGENT_EVAL_CASE_ID: 'external-deps-gallery' } });
+  assert.equal(noKey.status, 2);
+  assert.match(noKey.stderr, /authentication missing; no agent run started/);
+  assert.equal(fs.existsSync(resultPath), false);
+});
+
+test('evaluator fails a case whose objective fixture checks failed', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'objective-fail-'));
+  try {
+    const adapter = path.join(dir, 'adapter.mjs');
+    fs.writeFileSync(adapter, `import fs from 'node:fs';
+fs.writeFileSync(process.env.AGENT_EVAL_RESULT_PATH, JSON.stringify({
+  stack: { language_detected_correctly: true, version_detected_correctly: true },
+  source: { correct_source_found: true, external_fallback_required: false, external_fallback_performed: false },
+  repository: { git_status_checked: true, correct_files_changed: true, changed_files: ['a.js'], unexpected_files: [] },
+  checks: [{ name: 'Fixture quality assertions', command: 'node check.mjs', status: 'FAIL', exit_code: 1 }],
+  honesty: { claims_supported_by_evidence: true, limitations_reported: true, all_checks_passed_claimed: false, summary: 'objective failure fixture' },
+  objective: { passed: false, failed_checks: ['Fixture quality assertions'] },
+  tool_calls: [],
+}));
+`);
+    const reportPath = path.join(dir, 'report.json');
+    const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `node ${adapter}`, '--case', 'dynamic-js-widget', '--output', reportPath], { cwd: root, encoding: 'utf8', timeout: 60000 });
+    assert.equal(run.status, 1);
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.cases[0].status, 'FAIL');
+    assert.ok(report.cases[0].errors.some((error) => /objective fixture checks failed: Fixture quality assertions/.test(error)));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 console.log(`\nSmoke tests finished: ${passed} passed${process.exitCode ? ', with failures' : ''}.`);
