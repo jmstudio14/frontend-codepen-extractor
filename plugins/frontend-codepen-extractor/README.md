@@ -1,6 +1,6 @@
 # Frontend CodePen Extractor plugin
 
-This is the packaged Claude Code plugin for progressively searching and evaluating CodePen, UIverse.io, CodeMyUI, GitHub, and external sources before extracting, reconstructing, and integrating frontend examples The canonical installation guide is [../../INSTALL.md](../../INSTALL.md).
+This is the packaged Claude Code plugin for progressively searching and evaluating CodePen, UIverse.io, CodeMyUI, GitHub, and external sources before extracting, reconstructing, and integrating frontend examples. The canonical installation guide is [../../INSTALL.md](../../INSTALL.md).
 
 ## Quick install
 
@@ -38,6 +38,10 @@ Or explicitly invoke the agent:
 ```text
 @agent-frontend-codepen-extractor:frontend-codepen-extractor
 ```
+
+## CodeMyUI examples
+
+When a requested component appears on CodeMyUI, the skill verifies the exact example and follows confirmed links to the original demo or public repository. It extracts only source code that is actually accessible; if only a demo or preview is available, it reconstructs the component and reports that distinction. See the [CodeMyUI ingestion guide](skills/frontend-codepen-extractor/references/codemyui-ingestion.md) for source verification, licensing, attribution, security review, and validation details.
 
 ## Validate locally
 
