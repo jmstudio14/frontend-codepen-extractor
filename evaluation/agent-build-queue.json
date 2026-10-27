@@ -29,19 +29,67 @@
       "id": "architect-planner",
       "name": "frontend-architect-planner",
       "priority": "P0",
-      "status": "planned",
-      "depends_on": ["auditor-pr-4-branch-available"],
+      "status": "in_pr",
+      "depends_on": [
+        "auditor-pr-4-branch-available"
+      ],
       "goal": "Analyze requests and repository context, then produce a verifiable plan before implementation.",
-      "non_goals": ["Edit source files", "Approve its own plan", "Invoke the developer automatically"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for safe read-only inspection"],
+      "non_goals": [
+        "Edit source files",
+        "Approve its own plan",
+        "Invoke the developer automatically"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for safe read-only inspection"
+      ],
       "output_contract": "Versioned YAML with READY, NEEDS_INPUT, or BLOCKED status; requirements, tasks, dependencies, risks, verification, and human approval pending.",
-      "planned_files": [".claude/agents/frontend-architect-planner.md", "docs/agent-architect-planner.md", "scripts/validate-agent.mjs", "scripts/test-agent.mjs", "tests/architect-planner-evaluation-cases.json", "scripts/evaluation/evaluate-planner.mjs", "scripts/adapters/claude-architect-planner-sdk.mjs", "package.json", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["Read-only permissions are validated", "YAML is parsed with a real parser and validated against a versioned schema", "Ambiguous tasks request input instead of inventing facts", "Every task has verification criteria", "Human approval remains PENDING until a person approves", "Deterministic and live evaluations are reported separately"],
-      "tests": ["Valid and invalid YAML", "Missing fields and duplicate IDs", "Ambiguous and blocked requests", "Unverified paths", "Prompt injection in repository content", "No write tools or automatic developer invocation"],
-      "live_evaluation": ["Simple feature request", "Cross-file change with dependencies", "Ambiguous requirement", "Impossible requirement", "Security-sensitive change"],
-      "risks": ["YAML parser dependency choice", "SDK execution may require configured credentials"],
+      "planned_files": [
+        ".claude/agents/frontend-architect-planner.md",
+        "docs/frontend-architect-planner.md",
+        "scripts/validate-agent.mjs",
+        "scripts/test-agent.mjs",
+        "tests/architect-planner-cases.json",
+        "scripts/evaluation/validate-architect-plan.mjs",
+        "scripts/evaluation/evaluate-planner-live.mjs",
+        "package.json",
+        ".github/workflows/validate-agent.yml",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "Read-only permissions are validated",
+        "YAML is parsed with a real parser and validated against a versioned schema",
+        "Ambiguous tasks request input instead of inventing facts",
+        "Every task has verification criteria",
+        "Human approval remains PENDING until a person approves",
+        "Deterministic and live evaluations are reported separately"
+      ],
+      "tests": [
+        "Valid and invalid YAML",
+        "Missing fields and duplicate IDs",
+        "Ambiguous and blocked requests",
+        "Unverified paths",
+        "Prompt injection in repository content",
+        "No write tools or automatic developer invocation"
+      ],
+      "live_evaluation": [
+        "Simple feature request",
+        "Cross-file change with dependencies",
+        "Ambiguous requirement",
+        "Impossible requirement",
+        "Security-sensitive change"
+      ],
+      "risks": [
+        "YAML parser dependency choice",
+        "SDK execution may require configured credentials"
+      ],
       "rollback": "Remove the profile, evaluator and docs; revert the dedicated PR.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "pull_request": 6,
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/6"
     },
     {
       "sequence": 2,
@@ -49,16 +97,53 @@
       "name": "frontend-qa-test-engineer",
       "priority": "P0",
       "status": "planned",
-      "depends_on": ["architect-planner-merged"],
+      "depends_on": [
+        "architect-planner-merged"
+      ],
       "goal": "Design and run focused unit, integration, regression, and browser-level checks for extractor behavior.",
-      "non_goals": ["Modify product source to make tests pass", "Claim browser coverage without executing a browser"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for approved test commands"],
+      "non_goals": [
+        "Modify product source to make tests pass",
+        "Claim browser coverage without executing a browser"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for approved test commands"
+      ],
       "output_contract": "Structured test matrix and report with PASS, FAIL, or NOT RUN per check, commands, exit codes, and evidence.",
-      "planned_files": [".claude/agents/frontend-qa-test-engineer.md", "docs/agent-qa.md", "tests/qa-evaluation-cases.json", "scripts/evaluation/evaluate-qa.mjs", "scripts/validate-agent.mjs", "scripts/test-agent.mjs", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["Test scope derives from requirements and changed files", "Negative and regression cases are included", "NOT RUN is distinct from PASS", "Test report cites reproducible commands and evidence"],
-      "tests": ["Known passing fixture", "Known failing fixture", "Missing test runner", "Flaky or unavailable browser test", "Regression checklist coverage"],
-      "live_evaluation": ["Plan tests for a multi-file extractor change", "Detect a missing regression test", "Report a browser test that was not run"],
-      "risks": ["Overlapping with static validation", "Browser tooling availability"],
+      "planned_files": [
+        ".claude/agents/frontend-qa-test-engineer.md",
+        "docs/agent-qa.md",
+        "tests/qa-evaluation-cases.json",
+        "scripts/evaluation/evaluate-qa.mjs",
+        "scripts/validate-agent.mjs",
+        "scripts/test-agent.mjs",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "Test scope derives from requirements and changed files",
+        "Negative and regression cases are included",
+        "NOT RUN is distinct from PASS",
+        "Test report cites reproducible commands and evidence"
+      ],
+      "tests": [
+        "Known passing fixture",
+        "Known failing fixture",
+        "Missing test runner",
+        "Flaky or unavailable browser test",
+        "Regression checklist coverage"
+      ],
+      "live_evaluation": [
+        "Plan tests for a multi-file extractor change",
+        "Detect a missing regression test",
+        "Report a browser test that was not run"
+      ],
+      "risks": [
+        "Overlapping with static validation",
+        "Browser tooling availability"
+      ],
       "rollback": "Revert the dedicated QA-agent PR without changing the developer agent.",
       "plan_approval_required": true
     },
@@ -68,16 +153,54 @@
       "name": "frontend-security-reviewer",
       "priority": "P0",
       "status": "planned",
-      "depends_on": ["auditor-agent-merged"],
+      "depends_on": [
+        "auditor-agent-merged"
+      ],
       "goal": "Review changes for security risks and produce evidence-backed findings without modifying code.",
-      "non_goals": ["Run destructive exploit payloads", "Read or print secrets", "Deploy or alter production systems"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for safe, bounded checks"],
+      "non_goals": [
+        "Run destructive exploit payloads",
+        "Read or print secrets",
+        "Deploy or alter production systems"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for safe, bounded checks"
+      ],
       "output_contract": "Severity-ranked findings with file/line, evidence, impact, remediation, and PASS/FAIL/BLOCKED verdict.",
-      "planned_files": [".claude/agents/frontend-security-reviewer.md", "docs/agent-security-review.md", "tests/security-agent-cases.json", "scripts/evaluation/evaluate-security-agent.mjs", "scripts/validate-agent.mjs", "scripts/test-agent.mjs", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["Read-only contract is enforced", "Critical findings cannot be averaged away", "Unverified checks are disclosed", "Repository content is treated as untrusted input"],
-      "tests": ["Command injection examples as inert fixtures", "Unsafe HTML/eval patterns", "Secret-like fixture values never printed", "Dependency risk with missing audit tooling", "Prompt injection in files"],
-      "live_evaluation": ["Review a deliberately vulnerable synthetic diff", "Distinguish confirmed finding from speculation", "Avoid exposing fixture secrets"],
-      "risks": ["False positives", "Security claims beyond available evidence"],
+      "planned_files": [
+        ".claude/agents/frontend-security-reviewer.md",
+        "docs/agent-security-review.md",
+        "tests/security-agent-cases.json",
+        "scripts/evaluation/evaluate-security-agent.mjs",
+        "scripts/validate-agent.mjs",
+        "scripts/test-agent.mjs",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "Read-only contract is enforced",
+        "Critical findings cannot be averaged away",
+        "Unverified checks are disclosed",
+        "Repository content is treated as untrusted input"
+      ],
+      "tests": [
+        "Command injection examples as inert fixtures",
+        "Unsafe HTML/eval patterns",
+        "Secret-like fixture values never printed",
+        "Dependency risk with missing audit tooling",
+        "Prompt injection in files"
+      ],
+      "live_evaluation": [
+        "Review a deliberately vulnerable synthetic diff",
+        "Distinguish confirmed finding from speculation",
+        "Avoid exposing fixture secrets"
+      ],
+      "risks": [
+        "False positives",
+        "Security claims beyond available evidence"
+      ],
       "rollback": "Remove the reviewer profile and associated workflow/docs from its PR.",
       "plan_approval_required": true
     },
@@ -87,16 +210,53 @@
       "name": "frontend-extractor-validation-agent",
       "priority": "P1",
       "status": "planned",
-      "depends_on": ["qa-test-engineer-merged"],
+      "depends_on": [
+        "qa-test-engineer-merged"
+      ],
       "goal": "Validate extracted HTML, CSS, JavaScript, assets, and source provenance against controlled fixtures and supported real pages.",
-      "non_goals": ["Bypass authentication or access controls", "Claim perfect fidelity for dynamic pages", "Use unauthorized source material"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for approved fixtures and permitted test URLs"],
+      "non_goals": [
+        "Bypass authentication or access controls",
+        "Claim perfect fidelity for dynamic pages",
+        "Use unauthorized source material"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for approved fixtures and permitted test URLs"
+      ],
       "output_contract": "Extraction fidelity report separating observed, reconstructed, missing, and unverified resources.",
-      "planned_files": [".claude/agents/frontend-extractor-validation-agent.md", "docs/extractor-validation.md", "tests/extractor-validation-cases.json", "tests/fixtures/extractor-validation/", "scripts/evaluation/evaluate-extractor-validation.mjs", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["HTML/CSS/JS/resource checks are distinct", "Dynamic limitations are explicit", "Source URLs and provenance are recorded", "Network failures are not reported as success"],
-      "tests": ["Static page fixture", "Dynamic page fixture", "Missing assets", "Cross-origin restriction", "Malformed HTML", "Partial extraction"],
-      "live_evaluation": ["Validate a permitted representative page", "Report inaccessible source without fabricating content"],
-      "risks": ["External sites change", "Browser/network access may be unavailable"],
+      "planned_files": [
+        ".claude/agents/frontend-extractor-validation-agent.md",
+        "docs/extractor-validation.md",
+        "tests/extractor-validation-cases.json",
+        "tests/fixtures/extractor-validation/",
+        "scripts/evaluation/evaluate-extractor-validation.mjs",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "HTML/CSS/JS/resource checks are distinct",
+        "Dynamic limitations are explicit",
+        "Source URLs and provenance are recorded",
+        "Network failures are not reported as success"
+      ],
+      "tests": [
+        "Static page fixture",
+        "Dynamic page fixture",
+        "Missing assets",
+        "Cross-origin restriction",
+        "Malformed HTML",
+        "Partial extraction"
+      ],
+      "live_evaluation": [
+        "Validate a permitted representative page",
+        "Report inaccessible source without fabricating content"
+      ],
+      "risks": [
+        "External sites change",
+        "Browser/network access may be unavailable"
+      ],
       "rollback": "Revert the dedicated validation-agent PR and retain existing extractor behavior.",
       "plan_approval_required": true
     },
@@ -106,16 +266,50 @@
       "name": "frontend-performance-optimizer",
       "priority": "P1",
       "status": "planned",
-      "depends_on": ["qa-test-engineer-merged", "extractor-validation-merged"],
+      "depends_on": [
+        "qa-test-engineer-merged",
+        "extractor-validation-merged"
+      ],
       "goal": "Find measurable performance bottlenecks and recommend low-risk optimizations with before/after evidence.",
-      "non_goals": ["Optimize without a baseline", "Trade correctness or fidelity for speed without explicit approval"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for benchmark commands"],
+      "non_goals": [
+        "Optimize without a baseline",
+        "Trade correctness or fidelity for speed without explicit approval"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for benchmark commands"
+      ],
       "output_contract": "Benchmark report with environment, baseline, measurements, uncertainty, recommendation, and regression checks.",
-      "planned_files": [".claude/agents/frontend-performance-optimizer.md", "docs/agent-performance.md", "tests/performance-cases.json", "scripts/evaluation/benchmark-extractor.mjs", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["Baseline is recorded before recommendation", "Claims cite reproducible measurements", "Performance changes require correctness regression checks", "No benchmark is fabricated when tooling is unavailable"],
-      "tests": ["Repeatable fixture benchmark", "Regression threshold", "Missing benchmark runtime", "Large resource set", "Memory-heavy synthetic page"],
-      "live_evaluation": ["Analyze a measured slow fixture and explain evidence-supported bottleneck"],
-      "risks": ["Noisy timing data", "Hardware-dependent thresholds"],
+      "planned_files": [
+        ".claude/agents/frontend-performance-optimizer.md",
+        "docs/agent-performance.md",
+        "tests/performance-cases.json",
+        "scripts/evaluation/benchmark-extractor.mjs",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "Baseline is recorded before recommendation",
+        "Claims cite reproducible measurements",
+        "Performance changes require correctness regression checks",
+        "No benchmark is fabricated when tooling is unavailable"
+      ],
+      "tests": [
+        "Repeatable fixture benchmark",
+        "Regression threshold",
+        "Missing benchmark runtime",
+        "Large resource set",
+        "Memory-heavy synthetic page"
+      ],
+      "live_evaluation": [
+        "Analyze a measured slow fixture and explain evidence-supported bottleneck"
+      ],
+      "risks": [
+        "Noisy timing data",
+        "Hardware-dependent thresholds"
+      ],
       "rollback": "Revert the optimizer profile and benchmark additions.",
       "plan_approval_required": true
     },
@@ -125,16 +319,51 @@
       "name": "frontend-documentation-maintainer",
       "priority": "P1",
       "status": "planned",
-      "depends_on": ["architect-planner-merged", "qa-test-engineer-merged"],
+      "depends_on": [
+        "architect-planner-merged",
+        "qa-test-engineer-merged"
+      ],
       "goal": "Keep README, usage docs, changelog, examples, and runtime compatibility claims aligned with actual code.",
-      "non_goals": ["Invent unsupported capabilities", "Edit implementation files", "Publish releases"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for safe link and docs checks"],
+      "non_goals": [
+        "Invent unsupported capabilities",
+        "Edit implementation files",
+        "Publish releases"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for safe link and docs checks"
+      ],
       "output_contract": "Documentation diff proposal with source-of-truth references, broken links, stale claims, and suggested updates.",
-      "planned_files": [".claude/agents/frontend-documentation-maintainer.md", "docs/agent-documentation-maintainer.md", "tests/documentation-agent-cases.json", "scripts/evaluation/evaluate-documentation-agent.mjs", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["Claims map to verified code or tests", "Links and examples are checked", "Unverified capabilities are flagged rather than asserted", "No product code writes are allowed"],
-      "tests": ["Broken-link fixture", "Stale command example", "Unsupported feature claim", "Version mismatch", "Missing changelog entry"],
-      "live_evaluation": ["Review a synthetic release diff and identify stale docs without inventing facts"],
-      "risks": ["Documentation copies drift", "External links may be transient"],
+      "planned_files": [
+        ".claude/agents/frontend-documentation-maintainer.md",
+        "docs/agent-documentation-maintainer.md",
+        "tests/documentation-agent-cases.json",
+        "scripts/evaluation/evaluate-documentation-agent.mjs",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "Claims map to verified code or tests",
+        "Links and examples are checked",
+        "Unverified capabilities are flagged rather than asserted",
+        "No product code writes are allowed"
+      ],
+      "tests": [
+        "Broken-link fixture",
+        "Stale command example",
+        "Unsupported feature claim",
+        "Version mismatch",
+        "Missing changelog entry"
+      ],
+      "live_evaluation": [
+        "Review a synthetic release diff and identify stale docs without inventing facts"
+      ],
+      "risks": [
+        "Documentation copies drift",
+        "External links may be transient"
+      ],
       "rollback": "Remove the profile and its tests/docs.",
       "plan_approval_required": true
     },
@@ -144,16 +373,52 @@
       "name": "agent-model-evaluator",
       "priority": "P1",
       "status": "planned",
-      "depends_on": ["architect-planner-merged", "qa-test-engineer-merged"],
+      "depends_on": [
+        "architect-planner-merged",
+        "qa-test-engineer-merged"
+      ],
       "goal": "Compare supported model runtimes on a fixed benchmark suite using quality, reliability, latency, and cost evidence.",
-      "non_goals": ["Select a winner from import smoke tests alone", "Expose API keys", "Treat fixture runs as live evaluations"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for configured evaluation commands"],
+      "non_goals": [
+        "Select a winner from import smoke tests alone",
+        "Expose API keys",
+        "Treat fixture runs as live evaluations"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for configured evaluation commands"
+      ],
       "output_contract": "Versioned comparison report with model/runtime identifiers, sample counts, scores, costs, latency, failures, and limitations.",
-      "planned_files": [".claude/agents/agent-model-evaluator.md", "docs/agent-model-evaluation.md", "tests/model-evaluation-cases.json", "scripts/evaluation/compare-model-agents.mjs", "evaluation/model-baselines/", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["All candidates use equivalent tasks and scoring", "Credentials are never logged", "Repeated runs and uncertainty are recorded", "Missing live credentials yield NOT RUN"],
-      "tests": ["Fixture-only run", "Missing runtime", "Invalid model output", "Partial metric availability", "Cost unavailable"],
-      "live_evaluation": ["Run only when explicit runtime and credentials are configured"],
-      "risks": ["Provider API drift", "Non-deterministic output and cost"],
+      "planned_files": [
+        ".claude/agents/agent-model-evaluator.md",
+        "docs/agent-model-evaluation.md",
+        "tests/model-evaluation-cases.json",
+        "scripts/evaluation/compare-model-agents.mjs",
+        "evaluation/model-baselines/",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "All candidates use equivalent tasks and scoring",
+        "Credentials are never logged",
+        "Repeated runs and uncertainty are recorded",
+        "Missing live credentials yield NOT RUN"
+      ],
+      "tests": [
+        "Fixture-only run",
+        "Missing runtime",
+        "Invalid model output",
+        "Partial metric availability",
+        "Cost unavailable"
+      ],
+      "live_evaluation": [
+        "Run only when explicit runtime and credentials are configured"
+      ],
+      "risks": [
+        "Provider API drift",
+        "Non-deterministic output and cost"
+      ],
       "rollback": "Revert evaluator additions without changing the selected production runtime.",
       "plan_approval_required": true
     },
@@ -163,16 +428,50 @@
       "name": "frontend-dependency-license-reviewer",
       "priority": "P2",
       "status": "planned",
-      "depends_on": ["security-reviewer-merged"],
+      "depends_on": [
+        "security-reviewer-merged"
+      ],
       "goal": "Review dependency health, version compatibility, license obligations, and supply-chain risks.",
-      "non_goals": ["Upgrade packages automatically", "Claim legal advice", "Install packages without approval"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for safe package metadata/audit commands"],
+      "non_goals": [
+        "Upgrade packages automatically",
+        "Claim legal advice",
+        "Install packages without approval"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for safe package metadata/audit commands"
+      ],
       "output_contract": "Dependency inventory and severity-ranked recommendations with source, version, license evidence, and confidence.",
-      "planned_files": [".claude/agents/frontend-dependency-license-reviewer.md", "docs/dependency-license-review.md", "tests/dependency-agent-cases.json", "scripts/evaluation/evaluate-dependency-agent.mjs", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["Versions and licenses are evidence-backed", "Unknown license is not treated as permissive", "No automatic upgrade or install occurs", "Tooling gaps are disclosed"],
-      "tests": ["Known permissive license fixture", "Copyleft license fixture", "Unknown license", "Deprecated package", "Unavailable registry"],
-      "live_evaluation": ["Review a lockfile with known synthetic dependency risks"],
-      "risks": ["License detection is not legal advice", "Registry access may be unavailable"],
+      "planned_files": [
+        ".claude/agents/frontend-dependency-license-reviewer.md",
+        "docs/dependency-license-review.md",
+        "tests/dependency-agent-cases.json",
+        "scripts/evaluation/evaluate-dependency-agent.mjs",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "Versions and licenses are evidence-backed",
+        "Unknown license is not treated as permissive",
+        "No automatic upgrade or install occurs",
+        "Tooling gaps are disclosed"
+      ],
+      "tests": [
+        "Known permissive license fixture",
+        "Copyleft license fixture",
+        "Unknown license",
+        "Deprecated package",
+        "Unavailable registry"
+      ],
+      "live_evaluation": [
+        "Review a lockfile with known synthetic dependency risks"
+      ],
+      "risks": [
+        "License detection is not legal advice",
+        "Registry access may be unavailable"
+      ],
       "rollback": "Remove reviewer and its reports/tests.",
       "plan_approval_required": true
     },
@@ -182,16 +481,52 @@
       "name": "agent-run-diagnostics",
       "priority": "P2",
       "status": "planned",
-      "depends_on": ["model-evaluator-merged", "qa-test-engineer-merged"],
+      "depends_on": [
+        "model-evaluator-merged",
+        "qa-test-engineer-merged"
+      ],
       "goal": "Classify failed agent runs, identify likely root causes from logs and artifacts, and recommend reproducible next steps.",
-      "non_goals": ["Claim root cause without evidence", "Print secrets from logs", "Retry unboundedly"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for safe log inspection"],
+      "non_goals": [
+        "Claim root cause without evidence",
+        "Print secrets from logs",
+        "Retry unboundedly"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for safe log inspection"
+      ],
       "output_contract": "Incident-style report with observed facts, hypotheses, confidence, evidence, and next diagnostic step.",
-      "planned_files": [".claude/agents/agent-run-diagnostics.md", "docs/agent-run-diagnostics.md", "tests/diagnostics-cases.json", "scripts/evaluation/evaluate-diagnostics.mjs", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["Facts are separated from hypotheses", "Sensitive values are redacted", "Each recommendation is reproducible", "No infinite retry recommendation"],
-      "tests": ["Timeout", "Malformed output", "Missing credential (redacted)", "Provider error", "Test regression", "Truncated logs"],
-      "live_evaluation": ["Diagnose a synthetic failed run with ground-truth labels"],
-      "risks": ["Overconfident root-cause attribution", "Sensitive log content"],
+      "planned_files": [
+        ".claude/agents/agent-run-diagnostics.md",
+        "docs/agent-run-diagnostics.md",
+        "tests/diagnostics-cases.json",
+        "scripts/evaluation/evaluate-diagnostics.mjs",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "Facts are separated from hypotheses",
+        "Sensitive values are redacted",
+        "Each recommendation is reproducible",
+        "No infinite retry recommendation"
+      ],
+      "tests": [
+        "Timeout",
+        "Malformed output",
+        "Missing credential (redacted)",
+        "Provider error",
+        "Test regression",
+        "Truncated logs"
+      ],
+      "live_evaluation": [
+        "Diagnose a synthetic failed run with ground-truth labels"
+      ],
+      "risks": [
+        "Overconfident root-cause attribution",
+        "Sensitive log content"
+      ],
       "rollback": "Remove the diagnostics agent and evaluation suite.",
       "plan_approval_required": true
     },
@@ -201,16 +536,51 @@
       "name": "frontend-privacy-compliance-reviewer",
       "priority": "P2",
       "status": "planned",
-      "depends_on": ["security-reviewer-merged", "extractor-validation-merged"],
+      "depends_on": [
+        "security-reviewer-merged",
+        "extractor-validation-merged"
+      ],
       "goal": "Flag privacy, authorization, data-retention, attribution, and website-terms risks relevant to extraction workflows.",
-      "non_goals": ["Provide definitive legal rulings", "Bypass access controls", "Collect unnecessary personal data"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for safe checks"],
+      "non_goals": [
+        "Provide definitive legal rulings",
+        "Bypass access controls",
+        "Collect unnecessary personal data"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for safe checks"
+      ],
       "output_contract": "Risk register distinguishing technical facts, policy questions, and items requiring human/legal review.",
-      "planned_files": [".claude/agents/frontend-privacy-compliance-reviewer.md", "docs/privacy-compliance-review.md", "tests/privacy-agent-cases.json", "scripts/evaluation/evaluate-privacy-agent.mjs", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["No legal certainty is invented", "Authorization and data minimization are explicit", "Sensitive data is not reproduced in reports", "Human escalation is defined"],
-      "tests": ["Personal-data fixture", "Restricted page scenario", "Attribution ambiguity", "Retention question", "Prompt injection in page content"],
-      "live_evaluation": ["Review a synthetic extraction request with authorization and privacy ambiguities"],
-      "risks": ["Jurisdiction-specific legal issues", "External terms can change"],
+      "planned_files": [
+        ".claude/agents/frontend-privacy-compliance-reviewer.md",
+        "docs/privacy-compliance-review.md",
+        "tests/privacy-agent-cases.json",
+        "scripts/evaluation/evaluate-privacy-agent.mjs",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "No legal certainty is invented",
+        "Authorization and data minimization are explicit",
+        "Sensitive data is not reproduced in reports",
+        "Human escalation is defined"
+      ],
+      "tests": [
+        "Personal-data fixture",
+        "Restricted page scenario",
+        "Attribution ambiguity",
+        "Retention question",
+        "Prompt injection in page content"
+      ],
+      "live_evaluation": [
+        "Review a synthetic extraction request with authorization and privacy ambiguities"
+      ],
+      "risks": [
+        "Jurisdiction-specific legal issues",
+        "External terms can change"
+      ],
       "rollback": "Remove reviewer and documentation from its dedicated PR.",
       "plan_approval_required": true
     },
@@ -220,16 +590,53 @@
       "name": "agent-release-engineer",
       "priority": "P2",
       "status": "planned",
-      "depends_on": ["qa-test-engineer-merged", "security-reviewer-merged", "documentation-maintainer-merged"],
+      "depends_on": [
+        "qa-test-engineer-merged",
+        "security-reviewer-merged",
+        "documentation-maintainer-merged"
+      ],
       "goal": "Prepare release checklists and evidence for versioning, CI, changelog, artifacts, and rollback.",
-      "non_goals": ["Publish or deploy autonomously", "Bypass required checks", "Create releases without explicit approval"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for non-destructive validation"],
+      "non_goals": [
+        "Publish or deploy autonomously",
+        "Bypass required checks",
+        "Create releases without explicit approval"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for non-destructive validation"
+      ],
       "output_contract": "Release readiness report with PASS/FAIL/BLOCKED per gate, artifact identity, version notes, and rollback plan.",
-      "planned_files": [".claude/agents/agent-release-engineer.md", "docs/agent-release-engineer.md", "tests/release-agent-cases.json", "scripts/evaluation/evaluate-release-agent.mjs", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["Release gates derive from actual workflow configuration", "No publishing permissions are granted", "Rollback is documented", "Skipped checks block or are explicitly accepted by a human"],
-      "tests": ["Green release fixture", "Failed CI fixture", "Missing changelog", "Version mismatch", "Artifact missing", "Rollback missing"],
-      "live_evaluation": ["Assess a synthetic release candidate with one intentionally failed gate"],
-      "risks": ["Workflow changes", "False confidence from stale artifacts"],
+      "planned_files": [
+        ".claude/agents/agent-release-engineer.md",
+        "docs/agent-release-engineer.md",
+        "tests/release-agent-cases.json",
+        "scripts/evaluation/evaluate-release-agent.mjs",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "Release gates derive from actual workflow configuration",
+        "No publishing permissions are granted",
+        "Rollback is documented",
+        "Skipped checks block or are explicitly accepted by a human"
+      ],
+      "tests": [
+        "Green release fixture",
+        "Failed CI fixture",
+        "Missing changelog",
+        "Version mismatch",
+        "Artifact missing",
+        "Rollback missing"
+      ],
+      "live_evaluation": [
+        "Assess a synthetic release candidate with one intentionally failed gate"
+      ],
+      "risks": [
+        "Workflow changes",
+        "False confidence from stale artifacts"
+      ],
       "rollback": "Remove the profile and release checklist additions.",
       "plan_approval_required": true
     },
@@ -239,16 +646,65 @@
       "name": "agent-ecosystem-coordinator",
       "priority": "P3",
       "status": "planned",
-      "depends_on": ["architect-planner-merged", "qa-test-engineer-merged", "security-reviewer-merged", "extractor-validation-merged", "performance-optimizer-merged", "documentation-maintainer-merged", "model-evaluator-merged", "dependency-license-reviewer-merged", "diagnostics-merged", "privacy-compliance-reviewer-merged", "release-engineer-merged"],
+      "depends_on": [
+        "architect-planner-merged",
+        "qa-test-engineer-merged",
+        "security-reviewer-merged",
+        "extractor-validation-merged",
+        "performance-optimizer-merged",
+        "documentation-maintainer-merged",
+        "model-evaluator-merged",
+        "dependency-license-reviewer-merged",
+        "diagnostics-merged",
+        "privacy-compliance-reviewer-merged",
+        "release-engineer-merged"
+      ],
       "goal": "Route tasks to specialist agents, preserve shared requirements and evidence, and enforce human approval and bounded retries.",
-      "non_goals": ["Override a specialist's failing verdict", "Merge PRs or deploy", "Trigger unbounded agent loops"],
-      "permissions": ["Read", "Grep", "Glob", "Bash for approved orchestration only"],
+      "non_goals": [
+        "Override a specialist's failing verdict",
+        "Merge PRs or deploy",
+        "Trigger unbounded agent loops"
+      ],
+      "permissions": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash for approved orchestration only"
+      ],
       "output_contract": "Traceable workflow record with task ID, agent invocations, inputs/outputs, gates, approvals, retries, and final status.",
-      "planned_files": [".claude/agents/agent-ecosystem-coordinator.md", "docs/agent-ecosystem-coordinator.md", "tests/coordinator-cases.json", "scripts/evaluation/evaluate-coordinator.mjs", "README.md", "CHANGELOG.md"],
-      "acceptance_criteria": ["Uses stable specialist contracts", "Requires human approval before implementation and merge", "Stops after bounded retries", "Preserves original requirements", "A BLOCKED/FAIL specialist cannot be overridden by majority vote"],
-      "tests": ["Happy path", "QA failure", "Security blocker", "Missing specialist", "Approval denied", "Retry limit", "Prompt injection", "Partial tool failure"],
-      "live_evaluation": ["Exercise end-to-end orchestration only in a sandbox with explicit approval"],
-      "risks": ["Complexity and shared state", "Privilege escalation", "Unbounded cost"],
+      "planned_files": [
+        ".claude/agents/agent-ecosystem-coordinator.md",
+        "docs/agent-ecosystem-coordinator.md",
+        "tests/coordinator-cases.json",
+        "scripts/evaluation/evaluate-coordinator.mjs",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "acceptance_criteria": [
+        "Uses stable specialist contracts",
+        "Requires human approval before implementation and merge",
+        "Stops after bounded retries",
+        "Preserves original requirements",
+        "A BLOCKED/FAIL specialist cannot be overridden by majority vote"
+      ],
+      "tests": [
+        "Happy path",
+        "QA failure",
+        "Security blocker",
+        "Missing specialist",
+        "Approval denied",
+        "Retry limit",
+        "Prompt injection",
+        "Partial tool failure"
+      ],
+      "live_evaluation": [
+        "Exercise end-to-end orchestration only in a sandbox with explicit approval"
+      ],
+      "risks": [
+        "Complexity and shared state",
+        "Privilege escalation",
+        "Unbounded cost"
+      ],
       "rollback": "Disable coordinator entry point and return to manual agent invocation.",
       "plan_approval_required": true
     }
