@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.0
+
+- Added a portable Agent Skills copy under `.agents/skills/` for Codex, GitHub Copilot, Cursor, Gemini CLI, Windsurf, and other compatible coding agents.
+- Added a GitHub Copilot custom agent profile, repository instructions, and reusable prompt template.
+- Added a cross-agent installation guide using the `skills` CLI and per-host installation notes.
+- Expanded automated validation to cover portable skill copies, Copilot adapter files, and multi-agent metadata.
+
+
 ## 2.1.0
 
 - Packaged the existing extractor as a native Claude Code plugin with `.claude-plugin/plugin.json`.
