@@ -146,13 +146,14 @@
       ],
       "rollback": "Revert the dedicated QA-agent PR without changing the developer agent.",
       "plan_approval_required": true,
-      "pull_request": "pending",
+      "pull_request": 7,
       "branch": "feat/frontend-qa-test-engineer",
       "files": [
         ".claude/agents/frontend-qa-test-engineer.md",
         "docs/agents/frontend-qa-test-engineer.md",
         "tests/agent-cases/qa-test-engineer.json"
-      ]
+      ],
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/7"
     },
     {
       "sequence": 3,
@@ -210,13 +211,14 @@
       ],
       "rollback": "Remove the reviewer profile and associated workflow/docs from its PR.",
       "plan_approval_required": true,
-      "pull_request": "pending",
+      "pull_request": 8,
       "branch": "feat/frontend-security-reviewer",
       "files": [
         ".claude/agents/frontend-security-reviewer.md",
         "docs/agents/frontend-security-reviewer.md",
         "tests/agent-cases/security-reviewer.json"
-      ]
+      ],
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/8"
     },
     {
       "sequence": 4,
@@ -279,7 +281,8 @@
         "docs/agents/frontend-extractor-validation-agent.md",
         "tests/agent-cases/extractor-validation.json"
       ],
-      "pull_request": "pending"
+      "pull_request": 9,
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/9"
     },
     {
       "sequence": 5,
@@ -339,7 +342,8 @@
         "docs/agents/frontend-performance-optimizer.md",
         "tests/agent-cases/performance-optimizer.json"
       ],
-      "pull_request": "pending"
+      "pull_request": 10,
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/10"
     },
     {
       "sequence": 6,
@@ -400,7 +404,8 @@
         "docs/agents/frontend-documentation-maintainer.md",
         "tests/agent-cases/documentation-maintainer.json"
       ],
-      "pull_request": "pending"
+      "pull_request": 11,
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/11"
     },
     {
       "sequence": 7,
@@ -462,7 +467,8 @@
         "docs/agents/agent-model-evaluator.md",
         "tests/agent-cases/model-evaluator.json"
       ],
-      "pull_request": "pending"
+      "pull_request": 12,
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/12"
     },
     {
       "sequence": 8,
@@ -522,7 +528,8 @@
         "docs/agents/frontend-dependency-license-reviewer.md",
         "tests/agent-cases/dependency-license-reviewer.json"
       ],
-      "pull_request": "pending"
+      "pull_request": 13,
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/13"
     },
     {
       "sequence": 9,
@@ -584,7 +591,8 @@
         "docs/agents/agent-run-diagnostics.md",
         "tests/agent-cases/diagnostics.json"
       ],
-      "pull_request": "pending"
+      "pull_request": 14,
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/14"
     },
     {
       "sequence": 10,
@@ -645,7 +653,8 @@
         "docs/agents/frontend-privacy-compliance-reviewer.md",
         "tests/agent-cases/privacy-compliance-reviewer.json"
       ],
-      "pull_request": "pending"
+      "pull_request": 15,
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/15"
     },
     {
       "sequence": 11,
@@ -708,14 +717,15 @@
         "docs/agents/agent-release-engineer.md",
         "tests/agent-cases/release-engineer.json"
       ],
-      "pull_request": "pending"
+      "pull_request": 17,
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/17"
     },
     {
       "sequence": 12,
       "id": "coordinator",
       "name": "agent-ecosystem-coordinator",
       "priority": "P3",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "architect-planner-merged",
         "qa-test-engineer-merged",
@@ -776,7 +786,15 @@
         "Unbounded cost"
       ],
       "rollback": "Disable coordinator entry point and return to manual agent invocation.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "branch": "feat/agent-ecosystem-coordinator",
+      "files": [
+        ".claude/agents/agent-ecosystem-coordinator.md",
+        "docs/agents/agent-ecosystem-coordinator.md",
+        "tests/agent-cases/coordinator.json"
+      ],
+      "pull_request": 18,
+      "url": "https://github.com/jmstudio14/frontend-codepen-extractor/pull/18"
     }
   ]
 }
