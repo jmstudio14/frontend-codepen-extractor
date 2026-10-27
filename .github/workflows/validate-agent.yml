@@ -37,6 +37,7 @@ jobs:
         run: node scripts/validate-plugin.mjs
       - name: Syntax-check evaluation scripts
         run: |
+          node --check scripts/evaluation/assess-runtimes.mjs
           node --check scripts/adapters/claude-agent-sdk.mjs
           node --check scripts/evaluation/check-web-fixture.mjs
           node --check scripts/evaluation/compare-baseline.mjs
@@ -47,8 +48,45 @@ jobs:
       - name: Run evaluation harness fixture
         run: node scripts/evaluate-agent.mjs --adapter "node tests/fixtures/evaluation-adapter.mjs" --output "$RUNNER_TEMP/agent-evaluation-smoke.json"
 
+  runtime-compatibility-assessment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Assess documented runtime compatibility without installing SDKs
+        run: node scripts/evaluation/assess-runtimes.mjs --output "$RUNNER_TEMP/runtime-compatibility.json"
+      - name: Upload runtime compatibility report
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-compatibility-${{ github.run_id }}
+          path: ${{ runner.temp }}/runtime-compatibility.json
+          retention-days: 90
+
+  runtime-selection-pending:
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && vars.AGENT_EVAL_SELECTED_RUNTIME != 'claude-agent-sdk'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record why live model evaluation was not run
+        env:
+          SELECTED_RUNTIME: ${{ vars.AGENT_EVAL_SELECTED_RUNTIME || 'NOT_SELECTED' }}
+        run: |
+          cat > "$RUNNER_TEMP/runtime-selection.json" <<EOF
+          {"status":"NOT RUN","selected_runtime":"$SELECTED_RUNTIME","reason":"No compatible live adapter has been explicitly selected; no model invocation occurred."}
+          EOF
+          cat "$RUNNER_TEMP/runtime-selection.json"
+      - name: Upload runtime selection status
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-selection-${{ github.run_id }}
+          path: ${{ runner.temp }}/runtime-selection.json
+          retention-days: 90
+
   live-agent-evaluation:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && vars.AGENT_EVAL_SELECTED_RUNTIME == 'claude-agent-sdk'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "assessment_type": "documentation_based_static_compatibility",
+  "assessed_at": "2026-10-27",
+  "status": "NOT_SELECTED_PENDING_RUNTIME_SMOKE_TEST",
+  "scoring": {
+    "scale": "1-5; qualitative evidence-based assessment, not benchmark results",
+    "weighted_score_formula": "sum(weight_percent * score / 5)",
+    "criteria": [
+      {
+        "id": "native_plugin_loading",
+        "label": "Native loading of this repository's Claude plugin/skills",
+        "weight_percent": 25
+      },
+      {
+        "id": "workspace_isolation",
+        "label": "Support for controlled workspace/filesystem execution",
+        "weight_percent": 20
+      },
+      {
+        "id": "tool_trace",
+        "label": "Observable tool lifecycle and results",
+        "weight_percent": 20
+      },
+      {
+        "id": "usage_cost",
+        "label": "Token/usage and cost metadata",
+        "weight_percent": 15
+      },
+      {
+        "id": "offline_testing",
+        "label": "Deterministic or offline test support",
+        "weight_percent": 10
+      },
+      {
+        "id": "node_ci_fit",
+        "label": "Fit with the existing Node.js 22 GitHub Actions baseline",
+        "weight_percent": 10
+      }
+    ],
+    "caveat": "Scores are a documented capability-fit review. No candidate SDK has been installed or live-invoked by this assessment."
+  },
+  "candidates": [
+    {
+      "id": "claude-agent-sdk",
+      "label": "Claude Agent SDK (TypeScript)",
+      "package": "@anthropic-ai/claude-agent-sdk",
+      "docs": [
+        "https://code.claude.com/docs/en/agent-sdk/overview",
+        "https://code.claude.com/docs/en/agent-sdk/plugins",
+        "https://code.claude.com/docs/en/agent-sdk/hooks",
+        "https://code.claude.com/docs/en/agent-sdk/costs"
+      ],
+      "scores": {
+        "native_plugin_loading": 5,
+        "workspace_isolation": 3,
+        "tool_trace": 5,
+        "usage_cost": 5,
+        "offline_testing": 3,
+        "node_ci_fit": 4
+      },
+      "evidence": {
+        "native_plugin_loading": "Official docs list local-path plugin loading and loading skills/agents from Claude Code project configuration.",
+        "workspace_isolation": "SDK provides local filesystem tools and permission hooks, but runs in a process the project operates; temporary Git workspace is tool-level containment, not an OS sandbox.",
+        "tool_trace": "Official docs describe lifecycle hooks and tool events.",
+        "usage_cost": "Official docs expose cost and usage tracking.",
+        "offline_testing": "No project-specific offline SDK test has been run; deterministic harness fixture is separate from the SDK.",
+        "node_ci_fit": "The project workflow uses Node.js 22; package import and live smoke compatibility remain unverified."
+      },
+      "status": "CANDIDATE_NOT_RUNTIME_TESTED"
+    },
+    {
+      "id": "openai-agents-sdk",
+      "label": "OpenAI Agents SDK (TypeScript)",
+      "package": "@openai/agents",
+      "docs": [
+        "https://openai.github.io/openai-agents-js/",
+        "https://openai.github.io/openai-agents-js/guides/tracing/",
+        "https://openai.github.io/openai-agents-js/guides/testing/",
+        "https://openai.github.io/openai-agents-js/guides/troubleshooting/"
+      ],
+      "scores": {
+        "native_plugin_loading": 1,
+        "workspace_isolation": 5,
+        "tool_trace": 5,
+        "usage_cost": 5,
+        "offline_testing": 5,
+        "node_ci_fit": 5
+      },
+      "evidence": {
+        "native_plugin_loading": "No native loader for this repository's Claude Code plugin is established by the reviewed docs; instructions/tools would need a dedicated adapter.",
+        "workspace_isolation": "Official TypeScript SDK documents sandbox agents with filesystem and shell workspace capabilities.",
+        "tool_trace": "Official docs document built-in traces for model generations and tool calls.",
+        "usage_cost": "Official trace documentation includes token usage and task/turn spans.",
+        "offline_testing": "Official docs provide deterministic test doubles for agent workflows.",
+        "node_ci_fit": "Official troubleshooting docs list Node.js 22+ as supported."
+      },
+      "status": "CANDIDATE_NOT_RUNTIME_TESTED"
+    },
+    {
+      "id": "google-adk-js",
+      "label": "Google Agent Development Kit (JavaScript/TypeScript)",
+      "package": "@google/adk",
+      "docs": [
+        "https://github.com/google/adk-js",
+        "https://google.github.io/adk-docs/"
+      ],
+      "scores": {
+        "native_plugin_loading": 1,
+        "workspace_isolation": 2,
+        "tool_trace": 4,
+        "usage_cost": 3,
+        "offline_testing": 4,
+        "node_ci_fit": 3
+      },
+      "evidence": {
+        "native_plugin_loading": "No native loader for this repository's Claude Code plugin was established by this documentation pass.",
+        "workspace_isolation": "An equivalent disposable Git workspace was not verified in the reviewed source; an explicit sandbox/tool boundary would be needed.",
+        "tool_trace": "ADK is an agent development toolkit with callbacks and evaluation capabilities; exact adapter event mapping still needs a prototype.",
+        "usage_cost": "Provider usage/cost normalization for this exact scenario was not verified.",
+        "offline_testing": "The toolkit advertises evaluation/testing capabilities; compatibility with this repo's report contract is not tested.",
+        "node_ci_fit": "A TypeScript toolkit exists; exact Node.js 22 package/runtime compatibility is not yet verified here."
+      },
+      "status": "CANDIDATE_NOT_RUNTIME_TESTED"
+    },
+    {
+      "id": "langgraph-js",
+      "label": "LangGraph.js",
+      "package": "@langchain/langgraph",
+      "docs": [
+        "https://docs.langchain.com/oss/javascript/langgraph/",
+        "https://github.com/langchain-ai/langgraphjs"
+      ],
+      "scores": {
+        "native_plugin_loading": 1,
+        "workspace_isolation": 3,
+        "tool_trace": 4,
+        "usage_cost": 2,
+        "offline_testing": 4,
+        "node_ci_fit": 4
+      },
+      "evidence": {
+        "native_plugin_loading": "No native loader for this repository's Claude Code plugin was established by this documentation pass.",
+        "workspace_isolation": "Graph nodes and tools are customizable, but safe disposable filesystem/shell execution must be implemented and audited for this task.",
+        "tool_trace": "LangGraph supports graph execution and ecosystem tracing; adapter-specific tool lifecycle mapping remains to be implemented.",
+        "usage_cost": "Token usage depends on model/provider integration; normalized cost for this run has not been verified.",
+        "offline_testing": "Graph logic can be tested independently, but this repo's live-adapter contract has not been integrated.",
+        "node_ci_fit": "JavaScript/TypeScript library is in scope; exact Node.js 22 compatibility for a pinned dependency has not been tested."
+      },
+      "status": "CANDIDATE_NOT_RUNTIME_TESTED"
+    }
+  ],
+  "decision_gate": [
+    "Install a candidate only in an isolated CI job and record the exact resolved version.",
+    "Run a credential-free import/configuration smoke test where supported.",
+    "For any live smoke test, require explicitly configured credentials and a dedicated fixture.",
+    "Verify observed tool calls, actual command exit codes, workspace escape prevention, token usage and cost fields.",
+    "Record the actual live run and human review before setting selected_runtime."
+  ],
+  "selected_runtime": null
+}
