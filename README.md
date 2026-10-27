@@ -127,6 +127,8 @@ Or invoke the agent:
 @agent-frontend-codepen-extractor:frontend-codepen-extractor
 ```
 
+For an independent, read-only review after implementation, delegate to the `frontend-code-auditor` subagent. It reports PASS / FAIL / BLOCKED with findings and evidence; it does not modify code. See [the auditor workflow](docs/agent-auditor.md).
+
 Example request:
 
 > Convert this CodePen into my existing frontend project: [CodePen URL]. Inspect the repository and Git status first. Preserve current work, follow the existing architecture, scope styles, implement lifecycle cleanup, and run the available checks. Do not install dependencies or download assets without asking.
@@ -246,6 +248,7 @@ GitHub Actions runs structural validation, smoke tests, the deterministic evalua
 
 - **[Installation guide](INSTALL.md)** — agent-specific installation, private GitHub authentication, verification, updates, uninstalling, and troubleshooting.
 - **[Changelog](CHANGELOG.md)** — version history.
+- **[Independent code auditor](docs/agent-auditor.md)** — read-only audit workflow, verdict policy, and correction loop.
 - **[CodeMyUI ingestion guide](.agents/skills/frontend-codepen-extractor/references/codemyui-ingestion.md)** — finding examples, tracing original sources, extraction limits, attribution, and reconstruction.
 - **[Claude Code plugin](plugins/frontend-codepen-extractor/README.md)** — plugin-specific instructions.
 
