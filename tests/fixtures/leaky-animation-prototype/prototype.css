@@ -1,0 +1,7 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, sans-serif; background: #111827; color: white; }
+section { width: 760px; margin: 48px auto; }
+.demo-card { padding: 24px; background: #253047; border-radius: 24px; }
+.status { color: #b9c6dd; }
+#orbit-canvas { display: block; width: 720px; height: 360px; }
+button { cursor: pointer; padding: 12px 20px; }
