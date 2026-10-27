@@ -23,7 +23,7 @@ function exists(rel) {
 const required = [
   '.claude/agents/frontend-codepen-extractor.md',
   '.claude/agents/frontend-code-auditor.md', 'docs/agent-auditor.md',
-  '.claude/agents/frontend-architect-planner.md', 'docs/frontend-architect-planner.md', 'tests/architect-planner-cases.json',
+  '.claude/agents/frontend-architect-planner.md', 'docs/frontend-architect-planner.md', 'tests/architect-planner-cases.json', 'scripts/evaluation/validate-architect-plan.mjs',
   '.claude/skills/frontend-codepen-extractor/SKILL.md',
   '.claude/skills/frontend-codepen-extractor/references/codepen-ingestion.md',
   '.claude/skills/frontend-codepen-extractor/references/uiverse-ingestion.md',
