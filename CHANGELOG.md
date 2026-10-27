@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.1
+
+- Added a dedicated CodeMyUI ingestion guide to the portable Agent Skill, Claude Code skill, and packaged plugin skill.
+- Documented exact-title discovery, verification of canonical pages and source links, source availability classification, code/assets/dependency inventory, reconstruction boundaries, licensing, attribution, security review, and validation/reporting.
+- Wired CodeMyUI-specific instructions into all three skill copies and strengthened validation to require the guide, check its key requirements, and verify distribution parity.
+- Bumped package and plugin metadata to 2.6.1.
+
+
 ## 2.6.0
 
 - Added a progressive search workflow: search exact names in predefined sources first, then expand to external web sources and GitHub when evidence is weak or source is unavailable.
