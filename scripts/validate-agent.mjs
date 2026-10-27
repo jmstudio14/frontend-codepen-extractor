@@ -31,6 +31,7 @@ const required = [
   '.claude/skills/frontend-codepen-extractor/references/reconstruction-playbook.md',
   '.claude/skills/frontend-codepen-extractor/references/progressive-search.md',
   '.claude/skills/frontend-codepen-extractor/references/codemyui-ingestion.md',
+  '.claude/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
   '.claude/settings.example.json',
   'CLAUDE.md', 'README.md', 'CHANGELOG.md', 'package.json',
   'scripts/block-dangerous-commands.mjs', 'scripts/test-agent.mjs',
@@ -91,6 +92,11 @@ for (const term of ['predefined sources', 'external sources', 'Source quality', 
   searchGuide.toLowerCase().includes(term.toLowerCase()) ? pass(`Progressive search guide includes ${term}`) : fail(`Progressive search guide includes ${term}`);
 }
 
+const multiGuide = read('.claude/skills/frontend-codepen-extractor/references/multilanguage-engineering.md') ?? '';
+for (const term of ['Detect the actual task and stack first', 'authoritative documentation', 'language-specific', 'PASS / FAIL / NOT RUN', 'Do not install']) {
+  multiGuide.toLowerCase().includes(term.toLowerCase()) ? pass(`Multilanguage guide includes ${term}`) : fail(`Multilanguage guide includes ${term}`);
+}
+
 const codemyuiGuide = read('.claude/skills/frontend-codepen-extractor/references/codemyui-ingestion.md') ?? '';
 for (const term of ['Original source available', 'Preview only', 'reconstruction', 'license', 'canonical original-source URL']) {
   codemyuiGuide.toLowerCase().includes(term.toLowerCase()) ? pass(`CodeMyUI ingestion guide includes ${term}`) : fail(`CodeMyUI ingestion guide includes ${term}`);
@@ -110,6 +116,9 @@ for (const term of ['lifecycle', 'responsive', 'accessibility', 'Visual evidence
 }
 
 const agentText = agent + skill;
+for (const term of ['multilanguage', 'multiframework', 'multilanguage-engineering.md']) {
+  agentText.toLowerCase().includes(term.toLowerCase()) ? pass(`Agent instructions include ${term}`) : fail(`Agent instructions include ${term}`);
+}
 for (const term of ['git status', 'untrusted', 'Do not install', 'NOT RUN']) {
   agentText.toLowerCase().includes(term.toLowerCase()) ? pass(`Agent instructions include ${term}`) : fail(`Agent instructions include ${term}`);
 }
