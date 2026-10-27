@@ -43,6 +43,7 @@ The adapter must return a non-zero exit code if it could not complete its run. T
   },
   "repository": {
     "git_status_checked": true,
+    "correct_files_changed": true,
     "changed_files": ["src/target.ts", "src/target.test.ts"],
     "expected_files": ["src/target.ts", "src/target.test.ts"],
     "unexpected_files": []
