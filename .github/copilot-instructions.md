@@ -7,4 +7,4 @@
 - Clean up event listeners, timers, observers, subscriptions, and animation loops.
 - Do not install dependencies, download assets, publish, push, or run destructive operations without appropriate user approval.
 - Distinguish what was verified from assumptions. Never claim tests or browser checks were run unless they were.
-- For CodePen or UIverse.io component extraction/reconstruction tasks, use `.agents/skills/frontend-codepen-extractor/SKILL.md` when available.
+- For CodePen or UIverse.io component extraction/reconstruction tasks, use `.agents/skills/frontend-codepen-extractor/SKILL.md` and its `references/multilanguage-engineering.md` guide for non-web tasks when available.
