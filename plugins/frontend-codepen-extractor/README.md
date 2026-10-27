@@ -1,6 +1,6 @@
 # Multilanguage Code & Component Extractor plugin
 
-This is the packaged Claude Code plugin for progressively searching and evaluating CodePen, UIverse.io, CodeMyUI, GitHub, and external sources before extracting, reconstructing, and integrating frontend examples. The canonical installation guide is [../../INSTALL.md](../../INSTALL.md).
+This is the packaged Claude Code plugin for repository-aware multilanguage and multiframework engineering. It detects the target stack, implements and verifies code using project-native conventions, and preserves progressive discovery and extraction/reconstruction for CodePen, UIverse.io, CodeMyUI, GitHub, and external web sources. The canonical installation guide is [../../INSTALL.md](../../INSTALL.md).
 
 ## Quick install
 
@@ -38,6 +38,10 @@ Or explicitly invoke the agent:
 ```text
 @agent-frontend-codepen-extractor:frontend-codepen-extractor
 ```
+
+## Multilanguage support
+
+The agent detects language, framework/runtime, versions and target package from project evidence. For non-web tasks, follow the [multilanguage engineering guide](skills/frontend-codepen-extractor/references/multilanguage-engineering.md) for authoritative research, language-native implementation, stack-specific verification, and honest reporting of unavailable toolchains. This does not imply that every compiler, SDK, database or service is installed.
 
 ## CodeMyUI examples
 
