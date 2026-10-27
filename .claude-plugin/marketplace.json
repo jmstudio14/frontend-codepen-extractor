@@ -9,7 +9,7 @@
       "name": "frontend-codepen-extractor",
       "source": "./plugins/frontend-codepen-extractor",
       "description": "Multilanguage, multiframework engineering with progressive CodePen/UIverse/CodeMyUI discovery, web-component extraction, and language-specific implementation and verification.",
-      "displayName": "Frontend CodePen Extractor",
+      "displayName": "Multilanguage Code & Component Extractor",
       "category": "development",
       "tags": [
         "frontend",
@@ -23,5 +23,5 @@
     }
   ],
   "description": "Private Claude Code plugin marketplace maintained by jmstudio14.",
-  "version": "2.7.0"
+  "version": "2.8.0"
 }
