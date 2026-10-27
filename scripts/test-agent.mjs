@@ -1,0 +1,46 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { classifyCommand } from './block-dangerous-commands.mjs';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+let passed = 0;
+function test(name, fn) {
+  try { fn(); passed += 1; console.log(`PASS  ${name}`); }
+  catch (error) { console.error(`FAIL  ${name}: ${error.message}`); process.exitCode = 1; }
+}
+
+for (const [command, expected] of [
+  ['git reset --hard HEAD', 'git-hard-reset'],
+  ['git clean -fd', 'git-clean-force'],
+  ['git push origin main --force', 'forced-git-push'],
+  ['rm -rf ./build', 'recursive-force-delete'],
+  ['Remove-Item -Recurse -Force ./dist', 'powershell-recursive-delete'],
+  ['npm publish', 'package-publish'],
+  ['rmdir /s /q C:\\temp\\fixture', 'windows-delete-tree'],
+]) {
+  test(`guard classifies destructive command: ${command}`, () => assert.equal(classifyCommand(command), expected));
+}
+
+for (const command of [
+  'git status --short', 'git diff --check', 'npm test', 'npm run build', 'npm install lucide-react',
+  'git push origin main', 'git clean -nfd', 'node scripts/validate-agent.mjs',
+]) {
+  test(`guard leaves ordinary command to normal permission flow: ${command}`, () => assert.equal(classifyCommand(command), null));
+}
+
+test('guard treats empty or non-string command as no match', () => {
+  assert.equal(classifyCommand(''), null);
+  assert.equal(classifyCommand(null), null);
+});
+
+test('no local absolute paths are embedded in project instructions', () => {
+  for (const rel of ['CLAUDE.md', '.claude/agents/frontend-codepen-extractor.md']) {
+    const content = fs.readFileSync(path.join(root, rel), 'utf8');
+    assert.doesNotMatch(content, /(?:C:\\\\Users\\\\|\/Users\/[^\s]+|\/home\/[^\s]+)/, `${rel} should not contain a machine-specific path`);
+  }
+});
+
+console.log(`\nSmoke tests finished: ${passed} passed.`);
