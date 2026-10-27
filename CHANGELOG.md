@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.11.0
+
+- Added a documented, weighted compatibility assessment for Claude Agent SDK, OpenAI Agents SDK, Google ADK JS, and LangGraph.js before runtime selection.
+- Added a credential-free environment probe that checks runtime/package availability without installing SDKs, reading credential values, or invoking a model.
+- Added GitHub Actions artifacts for compatibility reports and gated live evaluation behind an explicit runtime-selection repository variable.
+- Kept the runtime unselected until an exact-version smoke test and dedicated-fixture live run have been reviewed.
+
+
 ## 2.10.0
 
 - Connected the evaluation harness to an opt-in Claude Agent SDK adapter for the dedicated web-extraction fixture, capturing actual SDK tool events and command results in an isolated temporary Git repository.

@@ -42,7 +42,7 @@ The bridge measures answer relevance and task-completion/evidence honesty separa
 
 The live workflow compares with evaluation/baselines/current.json only if an explicitly approved measured baseline exists. It can alert on pass-rate drops and cost-per-case increases. Until a baseline is approved, comparison is NOT RUN; fixture results must never become a baseline.
 
-The live workflow is manually dispatchable and scheduled weekly, but invokes Claude only when ANTHROPIC_API_KEY is configured in Actions secrets. The optional DeepEval judge runs only when OPENAI_API_KEY is configured. Missing credentials produce explicit skip records, not fake runs.
+The live workflow is manually dispatchable and scheduled weekly, but invokes Claude only when the repository variable `AGENT_EVAL_SELECTED_RUNTIME` is explicitly set to `claude-agent-sdk` and `ANTHROPIC_API_KEY` is configured in Actions secrets. The runtime-selection variable remains unset until the compatibility assessment, exact-version smoke test, and dedicated-fixture live report have been reviewed. The optional DeepEval judge runs only when `OPENAI_API_KEY` is configured. Missing selection or credentials produce explicit `NOT RUN` records, not fake runs.
 
 ## Adapter contract and limitations
 

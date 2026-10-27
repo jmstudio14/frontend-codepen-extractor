@@ -53,6 +53,7 @@ const required = [
   '.agents/skills/frontend-codepen-extractor/references/agent-architecture.md',
   'tests/agent-evaluation-cases.json', 'scripts/evaluate-agent.mjs', 'docs/agent-evaluation.md', 'tests/fixtures/evaluation-adapter.mjs',
   'scripts/adapters/claude-agent-sdk.mjs', 'scripts/evaluation/run-repeated.mjs', 'scripts/evaluation/check-web-fixture.mjs', 'scripts/evaluation/compare-baseline.mjs', 'scripts/evaluation/run_deepeval.py', 'evaluation/requirements-deepeval.txt', 'evaluation/baselines/README.md',
+  'scripts/evaluation/assess-runtimes.mjs', 'evaluation/runtime-compatibility.json', 'docs/runtime-compatibility.md',
   '.github/agents/frontend-codepen-extractor.agent.md',
   '.github/copilot-instructions.md',
   '.github/prompts/extract-codepen.prompt.md',
@@ -78,7 +79,7 @@ for (const relativePath of required) {
 const marketplace = loadJson('.claude-plugin/marketplace.json');
 if (marketplace) {
   check(marketplace.name === 'jmstudio14-claude-plugins', 'Marketplace name is correct');
-  check(marketplace.version === '2.10.0', 'Marketplace version is 2.10.0');
+  check(marketplace.version === '2.11.0', 'Marketplace version is 2.11.0');
   check(typeof marketplace.description === 'string' && marketplace.description.length > 0, 'Marketplace description is present');
   check(typeof marketplace.owner?.name === 'string' && marketplace.owner.name.length > 0, 'Marketplace owner.name is present');
   const entry = Array.isArray(marketplace.plugins)
@@ -91,7 +92,7 @@ if (marketplace) {
 const manifest = loadJson(pluginRoot + '/.claude-plugin/plugin.json');
 if (manifest) {
   check(manifest.name === 'frontend-codepen-extractor', 'Plugin manifest name matches marketplace entry');
-  check(manifest.version === '2.10.0', 'Plugin version is 2.10.0');
+  check(manifest.version === '2.11.0', 'Plugin version is 2.11.0');
   check(typeof manifest.description === 'string' && manifest.description.length > 10, 'Plugin manifest description is present');
   check(typeof manifest.author?.name === 'string' && manifest.author.name.length > 0, 'Plugin manifest author.name is present');
   check(/^https:\/\//.test(manifest.homepage || ''), 'Plugin homepage is a valid HTTPS URL');

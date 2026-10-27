@@ -9,7 +9,7 @@ A repository-aware engineering agent that detects your project's language, frame
 [Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
 
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
-![Version](https://img.shields.io/badge/version-2.9.0-64748b)
+![Version](https://img.shields.io/badge/version-2.11.0-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/repository-private-8b5cf6)
 
@@ -47,7 +47,7 @@ Illustrative ecosystems include JavaScript/TypeScript and frontend frameworks; P
 
 For general programming tasks, it uses authoritative language/framework documentation, maintainer repositories and version-specific examples. It selects native checks where available (tests, lint, formatting, type checking, static analysis and build). It does not force web-specific rules onto non-web projects.
 
-See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md), [the agent architecture and extension contracts](.agents/skills/frontend-codepen-extractor/references/agent-architecture.md), the [regression scenario suite](tests/agent-evaluation-cases.json), and the [runtime evaluation harness guide](docs/agent-evaluation.md).
+See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md), [the agent architecture and extension contracts](.agents/skills/frontend-codepen-extractor/references/agent-architecture.md), the [regression scenario suite](tests/agent-evaluation-cases.json), the [runtime compatibility assessment](docs/runtime-compatibility.md), and the [runtime evaluation harness guide](docs/agent-evaluation.md).
 
 ### Designed to work with your stack
 
@@ -240,7 +240,7 @@ claude plugin validate .\plugins\frontend-codepen-extractor
 claude plugin validate .
 ```
 
-GitHub Actions runs structural validation, smoke tests, and a deterministic fixture run of the evaluation harness. The opt-in [Claude Agent SDK evaluation workflow](docs/agent-evaluation.md) captures real tool events, isolated-workspace changes, command results, token/cost usage when available, repeated runs, history, and optional DeepEval scores. It only runs the model when repository Actions secrets are configured; fixture CI is never counted as a live LLM evaluation. Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
+GitHub Actions runs structural validation, smoke tests, the deterministic evaluation fixture, and a documentation-based runtime compatibility assessment. The assessment does not select or invoke an SDK. Live evaluation is opt-in and remains disabled until `AGENT_EVAL_SELECTED_RUNTIME=claude-agent-sdk` is explicitly configured; fixture CI is never counted as a live LLM evaluation. Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
 
 ## Documentation
 
