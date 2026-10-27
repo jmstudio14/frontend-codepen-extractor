@@ -23,3 +23,5 @@ jobs:
         run: node scripts/validate-plugin.mjs
       - name: Run smoke tests
         run: node scripts/test-agent.mjs
+      - name: Run evaluation harness fixture
+        run: node scripts/evaluate-agent.mjs --adapter "node tests/fixtures/evaluation-adapter.mjs" --output "$RUNNER_TEMP/agent-evaluation-smoke.json"
