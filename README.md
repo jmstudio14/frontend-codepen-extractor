@@ -131,6 +131,19 @@ A URL or screenshot does not guarantee access to source panels, preprocessor set
 
 A screenshot can guide visual intent, but it cannot establish the original source or hidden behavior.
 
+## UIverse.io component support
+
+The agent can also work with [UIverse.io](https://uiverse.io/) components, including buttons, cards, inputs, toggles, loaders, tooltips, and other UI snippets.
+
+- Extract component source when it is actually available from the page or supplied by the user.
+- Adapt the component to the existing project's framework and styling conventions.
+- Preserve visual details, interaction states, responsive behavior, and accessibility.
+- Track source URL, creator attribution, licensing, assets, and external dependencies where available.
+- Combine a UIverse component with a CodePen demo to recover the component and its usage context.
+- Do not claim to recover hidden source from a screenshot or bypass site restrictions.
+
+See [the UIverse ingestion guide](.agents/skills/frontend-codepen-extractor/references/uiverse-ingestion.md).
+
 ## Advanced reconstruction workflow
 
 Beyond extracting panel code, the agent supports:
