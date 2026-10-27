@@ -21,6 +21,7 @@ function exists(rel) {
 }
 
 const required = [
+  '.claude/agents/frontend-performance-optimizer.md', 'docs/agents/frontend-performance-optimizer.md', 'tests/agent-cases/performance-optimizer.json',
   '.claude/agents/frontend-extractor-validation-agent.md', 'docs/agents/frontend-extractor-validation-agent.md', 'tests/agent-cases/extractor-validation.json',
   '.claude/agents/frontend-security-reviewer.md', 'docs/agents/frontend-security-reviewer.md', 'tests/agent-cases/security-reviewer.json',
   '.claude/agents/frontend-qa-test-engineer.md', 'docs/agents/frontend-qa-test-engineer.md', 'tests/agent-cases/qa-test-engineer.json',
