@@ -36,7 +36,7 @@ The ranking is calculated from `evaluation/runtime-compatibility.json`. Current 
 | LangGraph.js | 55.0 | Flexible orchestration and graph-level control | More custom tracing normalization and sandbox integration |
 | Google ADK JS | 52.0 | TypeScript agent development and evaluation toolkit | More unverified details for this repository's workspace, tracing and usage contract |
 
-Scores are a transparent starting assessment, not runtime measurements. Review the per-criterion evidence and official links in the JSON before changing weights. No SDK has been installed or live-invoked by this assessment.
+Scores are a transparent documentation-based assessment, not runtime measurements. Review the per-criterion evidence and official links in the JSON before changing weights. The separate CI import-smoke job has successfully installed and imported exact package versions without credentials; this does not establish full agent-loop compatibility, and no model has been invoked.
 
 ## Evidence links
 

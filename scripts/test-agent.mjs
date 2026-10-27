@@ -141,7 +141,7 @@ test('runtime compatibility assessment ranks documented candidates without selec
     assert.equal(report.environment_probe.credential_values_read, false);
     assert.equal(report.ranking.length, 4);
     assert.equal(report.ranking[0].weighted_score, 86);
-    assert.ok(report.ranking.every(item => item.status === 'CANDIDATE_NOT_RUNTIME_TESTED'));
+    assert.ok(report.ranking.every(item => item.status === 'DOCUMENTATION_SCORE_ONLY'));
   } finally { fs.rmSync(reportPath, { force: true }); }
 });
 

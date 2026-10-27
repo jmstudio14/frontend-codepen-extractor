@@ -38,7 +38,7 @@
         "weight_percent": 10
       }
     ],
-    "caveat": "Scores are a documented capability-fit review. No candidate SDK has been installed or live-invoked by this assessment."
+    "caveat": "Scores are a documentation-based capability-fit review, not runtime measurements. A separate CI job installs and imports candidate package versions without lifecycle scripts; no candidate has been live-invoked with a model."
   },
   "candidates": [
     {
@@ -67,7 +67,7 @@
         "offline_testing": "No project-specific offline SDK test has been run; deterministic harness fixture is separate from the SDK.",
         "node_ci_fit": "The project workflow uses Node.js 22; package import and live smoke compatibility remain unverified."
       },
-      "status": "CANDIDATE_NOT_RUNTIME_TESTED"
+      "status": "DOCUMENTATION_SCORE_ONLY"
     },
     {
       "id": "openai-agents-sdk",
@@ -95,7 +95,7 @@
         "offline_testing": "Official docs provide deterministic test doubles for agent workflows.",
         "node_ci_fit": "Official troubleshooting docs list Node.js 22+ as supported."
       },
-      "status": "CANDIDATE_NOT_RUNTIME_TESTED"
+      "status": "DOCUMENTATION_SCORE_ONLY"
     },
     {
       "id": "google-adk-js",
@@ -121,7 +121,7 @@
         "offline_testing": "The toolkit advertises evaluation/testing capabilities; compatibility with this repo's report contract is not tested.",
         "node_ci_fit": "A TypeScript toolkit exists; exact Node.js 22 package/runtime compatibility is not yet verified here."
       },
-      "status": "CANDIDATE_NOT_RUNTIME_TESTED"
+      "status": "DOCUMENTATION_SCORE_ONLY"
     },
     {
       "id": "langgraph-js",
@@ -147,7 +147,7 @@
         "offline_testing": "Graph logic can be tested independently, but this repo's live-adapter contract has not been integrated.",
         "node_ci_fit": "JavaScript/TypeScript library is in scope; exact Node.js 22 compatibility for a pinned dependency has not been tested."
       },
-      "status": "CANDIDATE_NOT_RUNTIME_TESTED"
+      "status": "DOCUMENTATION_SCORE_ONLY"
     }
   ],
   "decision_gate": [
