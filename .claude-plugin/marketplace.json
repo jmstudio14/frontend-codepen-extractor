@@ -4,15 +4,21 @@
     "name": "jmstudio14",
     "url": "https://github.com/jmstudio14"
   },
-  "metadata": {
-    "description": "Private marketplace for jmstudio14 Claude Code plugins"
-  },
   "plugins": [
     {
       "name": "frontend-codepen-extractor",
       "source": "./plugins/frontend-codepen-extractor",
       "description": "Extract, sanitize, refactor, and integrate CodePen prototypes into an existing frontend project.",
-      "version": "2.1.0"
+      "displayName": "Frontend CodePen Extractor",
+      "category": "development",
+      "tags": [
+        "frontend",
+        "codepen",
+        "refactoring",
+        "accessibility"
+      ]
     }
-  ]
+  ],
+  "description": "Private Claude Code plugin marketplace maintained by jmstudio14.",
+  "version": "2.1.0"
 }
