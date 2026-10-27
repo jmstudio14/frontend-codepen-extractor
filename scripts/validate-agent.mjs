@@ -30,6 +30,7 @@ const required = [
   '.claude/skills/frontend-codepen-extractor/references/quality-checklist.md',
   '.claude/skills/frontend-codepen-extractor/references/reconstruction-playbook.md',
   '.claude/skills/frontend-codepen-extractor/references/progressive-search.md',
+  '.claude/skills/frontend-codepen-extractor/references/codemyui-ingestion.md',
   '.claude/settings.example.json',
   'CLAUDE.md', 'README.md', 'CHANGELOG.md', 'package.json',
   'scripts/block-dangerous-commands.mjs', 'scripts/test-agent.mjs',
@@ -88,6 +89,11 @@ if (packageText) {
 const searchGuide = read('.claude/skills/frontend-codepen-extractor/references/progressive-search.md') ?? '';
 for (const term of ['predefined sources', 'external sources', 'Source quality', 'Observed', 'reconstructed']) {
   searchGuide.toLowerCase().includes(term.toLowerCase()) ? pass(`Progressive search guide includes ${term}`) : fail(`Progressive search guide includes ${term}`);
+}
+
+const codemyuiGuide = read('.claude/skills/frontend-codepen-extractor/references/codemyui-ingestion.md') ?? '';
+for (const term of ['Original source available', 'Preview only', 'reconstruction', 'license', 'canonical original-source URL']) {
+  codemyuiGuide.toLowerCase().includes(term.toLowerCase()) ? pass(`CodeMyUI ingestion guide includes ${term}`) : fail(`CodeMyUI ingestion guide includes ${term}`);
 }
 
 const frameworkGuide = read('.claude/skills/frontend-codepen-extractor/references/framework-patterns.md') ?? '';
