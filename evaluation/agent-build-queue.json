@@ -469,7 +469,7 @@
       "id": "dependency-license-reviewer",
       "name": "frontend-dependency-license-reviewer",
       "priority": "P2",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "security-reviewer-merged"
       ],
@@ -515,7 +515,14 @@
         "Registry access may be unavailable"
       ],
       "rollback": "Remove reviewer and its reports/tests.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "branch": "feat/frontend-dependency-license-reviewer",
+      "files": [
+        ".claude/agents/frontend-dependency-license-reviewer.md",
+        "docs/agents/frontend-dependency-license-reviewer.md",
+        "tests/agent-cases/dependency-license-reviewer.json"
+      ],
+      "pull_request": "pending"
     },
     {
       "sequence": 9,
