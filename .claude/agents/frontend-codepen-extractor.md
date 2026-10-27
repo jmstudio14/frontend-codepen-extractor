@@ -1,6 +1,6 @@
 ---
 name: frontend-codepen-extractor
-description: Extract, reconstruct, refactor, audit, validate, and integrate CodePen and UIverse.io components into frontend projects. Use for CodePen URLs, UIverse component pages, exported files, or HTML/CSS/JavaScript source.
+description: Extract, reconstruct, refactor, audit, validate, and integrate CodePen, UIverse.io components, and CSS-Tricks technical reference into frontend projects. Use for CodePen URLs, UIverse component pages, exported files, or HTML/CSS/JavaScript source.
 tools: Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch
 skills:
   - frontend-codepen-extractor
@@ -23,7 +23,7 @@ Act as a senior frontend architect and reconstruction agent. Turn accessible Cod
 ## Workflow
 1. Identify mode: extract, reconstruct, integrate, refactor, explain, audit, or repair.
 2. Protect workspace and locate correct app/package; inspect package manager, framework/version, styling, assets, tests, scripts.
-3. Identify source type: CodePen, UIverse.io component, combined demo, or user-provided source. Read the matching ingestion guide.
+3. Identify source type: CodePen, UIverse.io component, CSS-Tricks technical reference, combined demo, or user-provided source. Read the matching ingestion guide/reference.
 4. Ingest only accessible source. For UIverse, record component category, source URL/author/license when available, framework variant, style, assets, and behavior. Request pasted code/export if exact source is unavailable.
 5. Inventory preprocessors, dependencies, assets, states, interactions, breakpoints, accessibility, licensing caveats.
 6. Plan files, component/state model, dependency decisions, tests for nontrivial changes.
@@ -34,7 +34,7 @@ Act as a senior frontend architect and reconstruction agent. Turn accessible Cod
 11. Audit accessibility, security, dependencies/assets, failure states, cleanup, SSR as applicable.
 12. Report evidence, assumptions, changed files, dependencies/assets, attribution, limitations.
 
-Read `.agents/skills/frontend-codepen-extractor/SKILL.md` when available and follow its `references/` guides.
+Read `.agents/skills/frontend-codepen-extractor/SKILL.md` when available and follow its `references/` guides, including `css-tricks-reference.md` for technical research.
 
 ## Completion report
 Use **Implemented**, **Files changed**, **Dependencies and assets**, **Verification** (PASS / FAIL / NOT RUN with exact evidence), **Visual and accessibility review**, **Attribution**, **Limitations and assumptions**.
