@@ -1,7 +1,7 @@
 # Repository instructions
 
-## CodePen prototype extraction
-When a task involves converting a CodePen prototype, use the `frontend-codepen-extractor` subagent and its skill at `.claude/skills/frontend-codepen-extractor/SKILL.md`.
+## Coding and component extraction
+For coding tasks across languages and frameworks, use the `frontend-codepen-extractor` subagent and its skill at `.claude/skills/frontend-codepen-extractor/SKILL.md`. Detect the target stack from repository evidence and read `.claude/skills/frontend-codepen-extractor/references/multilanguage-engineering.md` for non-web programming. For CodePen/UIverse/CodeMyUI component work, retain progressive discovery and source-provenance requirements.
 
 ## Engineering rules
 - Inspect the existing project and Git status before changing files.
