@@ -27,6 +27,7 @@ const required = [
   '.claude/skills/frontend-codepen-extractor/references/dependency-policy.md',
   '.claude/skills/frontend-codepen-extractor/references/framework-patterns.md',
   '.claude/skills/frontend-codepen-extractor/references/quality-checklist.md',
+  '.claude/skills/frontend-codepen-extractor/references/reconstruction-playbook.md',
   '.claude/settings.example.json',
   'CLAUDE.md', 'README.md', 'CHANGELOG.md', 'package.json',
   'scripts/block-dangerous-commands.mjs', 'scripts/test-agent.mjs',
@@ -87,6 +88,10 @@ for (const name of ['React', 'Vue 3', 'Svelte', 'Vanilla TypeScript']) {
   frameworkGuide.includes(name) ? pass(`Framework guide covers ${name}`) : fail(`Framework guide covers ${name}`);
 }
 const checklist = read('.claude/skills/frontend-codepen-extractor/references/quality-checklist.md') ?? '';
+const playbook = read('.claude/skills/frontend-codepen-extractor/references/reconstruction-playbook.md') ?? '';
+for (const term of ['standalone', 'Visual QA', 'NOT RUN', 'repair']) {
+  playbook.toLowerCase().includes(term.toLowerCase()) ? pass(`Reconstruction playbook includes ${term}`) : fail(`Reconstruction playbook includes ${term}`);
+}
 for (const term of ['lifecycle', 'responsive', 'accessibility', 'Visual evidence', 'NOT RUN']) {
   checklist.toLowerCase().includes(term.toLowerCase()) ? pass(`Quality checklist includes ${term}`) : fail(`Quality checklist includes ${term}`);
 }
