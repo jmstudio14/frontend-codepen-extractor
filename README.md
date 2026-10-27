@@ -215,8 +215,12 @@ See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extrac
 ├── evaluation/                                # Agent build queue
 ├── plugins/frontend-codepen-extractor/        # Native Claude Code plugin
 ├── scripts/                                   # Validators, security gate, evaluation tools
-├── tests/fixtures/                            # Executable evaluation fixtures
-├── tests/fixture-solutions/                   # Reference solutions for the fixtures
+├── tests/
+│   ├── agent-cases/                           # Per-agent evaluation cases
+│   ├── agent-evaluation-cases.json            # Regression scenario suite
+│   ├── architect-planner-cases.json           # Planner scenarios
+│   ├── fixtures/                              # Executable evaluation fixtures
+│   └── fixture-solutions/                     # Reference solutions for the fixtures
 ├── CLAUDE.md
 ├── INSTALL.md
 ├── LICENSE
