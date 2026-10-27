@@ -1,15 +1,15 @@
 <div align="center">
 
-# Frontend CodePen Extractor
+# Multilanguage Code & Component Extractor
 
 **A multilanguage, multiframework coding agent with progressive source discovery and web-component extraction.**
 
-A repository-aware engineering agent that detects your project's language, framework, runtime and conventions; researches sources progressively; and implements, debugs, refactors and verifies code in the native stack. It retains its specialist workflow for extracting or reconstructing web components from CodePen, UIverse.io, CodeMyUI, GitHub and external sources.
+A repository-aware engineering agent that detects your project's language, framework, runtime and conventions; researches sources progressively; and implements, debugs, refactors and verifies code in the native stack. It retains its specialist workflow for extracting or reconstructing web components from CodePen, UIverse.io, CodeMyUI, GitHub and external sources. Shared workflow contracts and regression scenarios help keep its host integrations aligned.
 
 [Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
 
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
-![Version](https://img.shields.io/badge/version-2.7.0-64748b)
+![Version](https://img.shields.io/badge/version-2.8.0-64748b)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![License](https://img.shields.io/badge/repository-private-8b5cf6)
 
@@ -47,7 +47,7 @@ Illustrative ecosystems include JavaScript/TypeScript and frontend frameworks; P
 
 For general programming tasks, it uses authoritative language/framework documentation, maintainer repositories and version-specific examples. It selects native checks where available (tests, lint, formatting, type checking, static analysis and build). It does not force web-specific rules onto non-web projects.
 
-See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md).
+See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md), [the agent architecture and extension contracts](.agents/skills/frontend-codepen-extractor/references/agent-architecture.md), and the [regression scenario suite](tests/agent-evaluation-cases.json).
 
 ### Designed to work with your stack
 
