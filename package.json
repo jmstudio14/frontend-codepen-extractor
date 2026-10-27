@@ -1,8 +1,8 @@
 {
   "name": "frontend-codepen-extractor-agent",
-  "version": "2.6.2",
+  "version": "2.7.0",
   "private": true,
-  "description": "Portable Agent Skill and native Claude Code plugin for progressive search, source evaluation, extraction, reconstruction, and validation of frontend examples from CodePen, UIverse.io, CodeMyUI, GitHub, and external sources",
+  "description": "Multilanguage, multiframework Agent Skill and Claude Code plugin for progressive source discovery, web-component extraction, implementation, refactoring, and language-specific validation across software stacks",
   "type": "module",
   "scripts": {
     "validate": "node scripts/validate-agent.mjs && node scripts/validate-plugin.mjs",
