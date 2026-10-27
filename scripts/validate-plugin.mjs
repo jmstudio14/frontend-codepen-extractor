@@ -45,6 +45,7 @@ const required = [
   '.agents/skills/frontend-codepen-extractor/references/dependency-policy.md',
   '.agents/skills/frontend-codepen-extractor/references/framework-patterns.md',
   '.agents/skills/frontend-codepen-extractor/references/quality-checklist.md',
+  '.agents/skills/frontend-codepen-extractor/references/reconstruction-playbook.md',
   '.github/agents/frontend-codepen-extractor.agent.md',
   '.github/copilot-instructions.md',
   '.github/prompts/extract-codepen.prompt.md',
@@ -56,6 +57,7 @@ const required = [
   pluginRoot + '/skills/frontend-codepen-extractor/references/dependency-policy.md',
   pluginRoot + '/skills/frontend-codepen-extractor/references/framework-patterns.md',
   pluginRoot + '/skills/frontend-codepen-extractor/references/quality-checklist.md',
+  pluginRoot + '/skills/frontend-codepen-extractor/references/reconstruction-playbook.md',
 ];
 for (const relativePath of required) {
   check(readFile(relativePath) !== null, 'Required distribution file exists: ' + relativePath);
@@ -64,7 +66,7 @@ for (const relativePath of required) {
 const marketplace = loadJson('.claude-plugin/marketplace.json');
 if (marketplace) {
   check(marketplace.name === 'jmstudio14-claude-plugins', 'Marketplace name is correct');
-  check(marketplace.version === '2.2.0', 'Marketplace version is 2.2.0');
+  check(marketplace.version === '2.3.0', 'Marketplace version is 2.3.0');
   check(typeof marketplace.description === 'string' && marketplace.description.length > 0, 'Marketplace description is present');
   check(typeof marketplace.owner?.name === 'string' && marketplace.owner.name.length > 0, 'Marketplace owner.name is present');
   const entry = Array.isArray(marketplace.plugins)
@@ -77,7 +79,7 @@ if (marketplace) {
 const manifest = loadJson(pluginRoot + '/.claude-plugin/plugin.json');
 if (manifest) {
   check(manifest.name === 'frontend-codepen-extractor', 'Plugin manifest name matches marketplace entry');
-  check(manifest.version === '2.2.0', 'Plugin version is 2.2.0');
+  check(manifest.version === '2.3.0', 'Plugin version is 2.3.0');
   check(typeof manifest.description === 'string' && manifest.description.length > 10, 'Plugin manifest description is present');
   check(typeof manifest.author?.name === 'string' && manifest.author.name.length > 0, 'Plugin manifest author.name is present');
   check(/^https:\/\//.test(manifest.homepage || ''), 'Plugin homepage is a valid HTTPS URL');
@@ -106,6 +108,7 @@ const portableSkillPaths = [
   ['.agents/skills/frontend-codepen-extractor/references/dependency-policy.md', pluginRoot + '/skills/frontend-codepen-extractor/references/dependency-policy.md'],
   ['.agents/skills/frontend-codepen-extractor/references/framework-patterns.md', pluginRoot + '/skills/frontend-codepen-extractor/references/framework-patterns.md'],
   ['.agents/skills/frontend-codepen-extractor/references/quality-checklist.md', pluginRoot + '/skills/frontend-codepen-extractor/references/quality-checklist.md'],
+  ['.agents/skills/frontend-codepen-extractor/references/reconstruction-playbook.md', pluginRoot + '/skills/frontend-codepen-extractor/references/reconstruction-playbook.md'],
 ];
 for (const [portablePath, pluginPath] of portableSkillPaths) {
   const portableContent = readFile(portablePath);
