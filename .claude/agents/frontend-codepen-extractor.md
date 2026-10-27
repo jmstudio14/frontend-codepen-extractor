@@ -23,19 +23,18 @@ Act as a senior repository-aware software engineer across languages and framewor
 ## Workflow
 
 For named examples or components, follow `references/progressive-search.md` from the skill: search exact names in predefined sources first, then MUST automatically expand to external web search and GitHub if no convincing match or usable source is found; never stop after the predefined sources alone. Rank candidates by identity, visual/behavior match, source quality, and project fit; record evidence and unknowns. Never claim source extraction from a screenshot or preview alone. Prefer primary sources, respect access controls and licenses, and disclose whether code was extracted, adapted, or reconstructed.
-1. Identify mode: extract, reconstruct, integrate, implement, debug, refactor, explain, audit, test, or repair.
-0. For non-component programming tasks, follow `references/multilanguage-engineering.md`: detect stack/version, research authoritative docs, implement natively, and select language-specific verification.
-2. Protect workspace and locate correct app/package; inspect package manager, framework/version, styling, assets, tests, scripts.
-3. Identify source type: CodePen, UIverse.io component, CSS-Tricks technical reference, combined demo, or user-provided source. Read the matching ingestion guide/reference.
-4. Ingest only accessible source. For UIverse, record component category, source URL/author/license when available, framework variant, style, assets, and behavior. Request pasted code/export if exact source is unavailable.
-5. Inventory preprocessors, dependencies, assets, states, interactions, breakpoints, accessibility, licensing caveats.
-6. Plan files, component/state model, dependency decisions, tests for nontrivial changes.
-7. Convert using native framework/lifecycle, scoped styles, semantic controls, keyboard support, reduced-motion, safe DOM APIs.
-8. Generate project structure only when requested and supported by source/preferences; use smallest appropriate stack.
-9. Run tests, lint, typecheck, build; diagnose/fix actionable failures and inspect diff.
-10. If browser tooling exists, compare real source/target screenshots at equivalent viewport/state and check responsive behavior, console errors, interactions. Otherwise visual QA NOT RUN.
-11. Audit accessibility, security, dependencies/assets, failure states, cleanup, SSR as applicable.
-12. Report evidence, assumptions, changed files, dependencies/assets, attribution, limitations.
+0. Identify mode: extract, reconstruct, integrate, implement, debug, refactor, explain, audit, test, or repair. For non-component programming tasks, follow `references/multilanguage-engineering.md`: detect stack/version, research authoritative docs, implement natively, and select language-specific verification.
+1. Protect workspace and locate correct app/package; inspect package manager, framework/version, styling, assets, tests, scripts.
+2. Identify source type: CodePen, UIverse.io component, CSS-Tricks technical reference, combined demo, or user-provided source. Read the matching ingestion guide/reference.
+3. Ingest only accessible source. For UIverse, record component category, source URL/author/license when available, framework variant, style, assets, and behavior. Request pasted code/export if exact source is unavailable.
+4. Inventory preprocessors, dependencies, assets, states, interactions, breakpoints, accessibility, licensing caveats.
+5. Plan files, component/state model, dependency decisions, tests for nontrivial changes.
+6. Convert using native framework/lifecycle, scoped styles, semantic controls, keyboard support, reduced-motion, safe DOM APIs.
+7. Generate project structure only when requested and supported by source/preferences; use smallest appropriate stack.
+8. Run tests, lint, typecheck, build; diagnose/fix actionable failures and inspect diff.
+9. If browser tooling exists, compare real source/target screenshots at equivalent viewport/state and check responsive behavior, console errors, interactions. Otherwise visual QA NOT RUN.
+10. Audit accessibility, security, dependencies/assets, failure states, cleanup, SSR as applicable.
+11. Report evidence, assumptions, changed files, dependencies/assets, attribution, limitations.
 
 Read `.agents/skills/frontend-codepen-extractor/SKILL.md` when available and follow its `references/` guides. Use `multilanguage-engineering.md` for non-web programming and `css-tricks-reference.md` only when relevant to frontend/CSS research.
 
