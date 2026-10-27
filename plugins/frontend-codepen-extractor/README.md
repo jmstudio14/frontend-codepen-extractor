@@ -1,69 +1,52 @@
-# Frontend CodePen Extractor — Claude Code plugin
+# Frontend CodePen Extractor plugin
 
-This directory is the installable Claude Code plugin. The repository root also contains the marketplace catalog and a standalone .claude/ configuration for users who prefer manual integration.
+This is the packaged Claude Code plugin. The canonical installation guide is [../../INSTALL.md](../../INSTALL.md).
 
-## Install from the private GitHub marketplace
+## Quick install
 
-Prerequisites:
-- Claude Code installed and signed in.
-- Git installed.
-- Git credentials that can clone the private repository. HTTPS users can configure GitHub CLI with gh auth login and gh auth setup-git, or use an already working SSH key.
-
-On Claude Code v2.1.275 or newer, you can install from a new marketplace in one command inside the session:
+From a Claude Code session (v2.1.275+):
 
 ```text
 /plugin install frontend-codepen-extractor --marketplace jmstudio14/frontend-codepen-extractor
 ```
 
-Claude Code asks you to confirm the marketplace and then prompts for the install scope.
+From PowerShell / terminal (Claude Code CLI v2.1.292+):
 
-For broader compatibility, use the two-step flow:
+```powershell
+claude plugin install frontend-codepen-extractor --marketplace jmstudio14/frontend-codepen-extractor --scope user
+```
 
-\`\`\`text
+Two-step option, for compatibility:
+
+```text
 /plugin marketplace add jmstudio14/frontend-codepen-extractor
 /plugin install frontend-codepen-extractor@jmstudio14-claude-plugins
-\`\`\`
+```
 
-Choose **User scope** to enable it across all your local projects, or **Local scope** to use it only in the current project. The marketplace needs to be added only once per machine.
+The repository is private. The machine installing it must already have Git credentials that can access `jmstudio14/frontend-codepen-extractor`. See [INSTALL.md](../../INSTALL.md#before-you-start) for credential setup and [INSTALL.md](../../INSTALL.md#troubleshooting) for common errors.
 
-From PowerShell or another terminal with Claude Code CLI, use:
+## Use it
 
-\`\`\`powershell
-claude plugin marketplace add jmstudio14/frontend-codepen-extractor
-claude plugin install frontend-codepen-extractor@jmstudio14-claude-plugins --scope user
-\`\`\`
+After installation, use the namespaced skill command:
 
-For Claude Code CLI versions that support combined marketplace installation (v2.1.292+), the marketplace and plugin can also be added with:
+```text
+/frontend-codepen-extractor:frontend-codepen-extractor
+```
 
-\`\`\`powershell
-claude plugin install frontend-codepen-extractor --marketplace jmstudio14/frontend-codepen-extractor --scope user
-\`\`\`
+Or explicitly invoke the agent:
 
-## Use the installed plugin
+```text
+@agent-frontend-codepen-extractor:frontend-codepen-extractor
+```
 
-- Skill/command: \`/frontend-codepen-extractor:frontend-codepen-extractor\`
-- Explicit agent: \`@agent-frontend-codepen-extractor:frontend-codepen-extractor\`
+## Validate locally
 
-Example task:
+From the repository root, with Node.js 18+:
 
-> Use the Frontend CodePen Extractor plugin to convert this CodePen into my existing frontend project: [URL]. Inspect the repository and Git status first, preserve all current work, scope CSS, implement lifecycle cleanup, and run the available checks. Do not install dependencies or download assets without asking.
-
-If source panels cannot be accessed, provide the CodePen export ZIP or paste its HTML, CSS, JavaScript, preprocessor settings, and external resources. A screenshot is useful for visual intent but cannot reveal the implementation.
-
-## Validate before installing
-
-From the repository root:
-
-\`\`\`powershell
-claude plugin validate .\\plugins\\frontend-codepen-extractor
+```powershell
+claude plugin validate .\plugins\frontend-codepen-extractor
 claude plugin validate .
-\`\`\`
+node scripts\validate-plugin.mjs
+```
 
-The second command validates the marketplace catalog. The repository also runs structural checks and smoke tests through GitHub Actions.
-
-## Security notes
-
-- Review plugin code before installation; plugins run with your user privileges.
-- The plugin does not install npm packages, download prototype assets, or enable a destructive-command hook automatically.
-- The standalone command guard in the repository is optional and only best-effort; it is not a security boundary.
-- A private GitHub repository remains private. People installing the plugin need repository access and functioning local Git credentials.
+See the root [README](../../README.md) for the project overview and validation scripts.
