@@ -10,7 +10,17 @@ This repository provides **two installation options**:
 
 The repository is private. Your local Git credentials must have access to `jmstudio14/frontend-codepen-extractor`.
 
-### Option A — from a Claude Code session
+### Option A — one command in a recent Claude Code session
+
+With Claude Code v2.1.275 or newer, run this inside Claude Code:
+
+```text
+/plugin install frontend-codepen-extractor --marketplace jmstudio14/frontend-codepen-extractor
+```
+
+Claude Code will ask you to confirm the marketplace source, then opens the plugin details so you can choose the installation scope.
+
+### Option B — compatible two-step install in a session
 
 Run these commands inside Claude Code:
 
