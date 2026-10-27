@@ -407,7 +407,7 @@
       "id": "model-evaluator",
       "name": "agent-model-evaluator",
       "priority": "P1",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "architect-planner-merged",
         "qa-test-engineer-merged"
@@ -455,7 +455,14 @@
         "Non-deterministic output and cost"
       ],
       "rollback": "Revert evaluator additions without changing the selected production runtime.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "branch": "feat/agent-model-evaluator",
+      "files": [
+        ".claude/agents/agent-model-evaluator.md",
+        "docs/agents/agent-model-evaluator.md",
+        "tests/agent-cases/model-evaluator.json"
+      ],
+      "pull_request": "pending"
     },
     {
       "sequence": 8,
