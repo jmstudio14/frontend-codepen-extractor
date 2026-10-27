@@ -135,7 +135,7 @@ You can also manage, update, disable, or uninstall it from the `/plugin` panel.
 
 ### Validate the repository when developing changes
 
-From a local clone, with Node.js 18+ installed:
+From a local clone, with Node.js 22+ installed:
 
 ```powershell
 claude plugin validate .\plugins\frontend-codepen-extractor
@@ -176,7 +176,7 @@ npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-ex
 npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --global --agent gemini-cli
 ```
 
-The repository is public, so the installer does not need authenticated Git access. Never paste tokens into command arguments or commit them. If the command cannot read the repository, first verify that you can clone it with Git from the same terminal.
+The repository is public, so the installer needs no GitHub credentials. Never paste tokens into command arguments or commit them. If the command cannot read the repository, first verify that you can clone it with Git from the same terminal.
 
 ### Codex
 

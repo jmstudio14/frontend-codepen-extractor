@@ -352,7 +352,7 @@ test('no evaluation path requires a paid API key', () => {
   }
   const run = spawnSync('git', ['grep', '-l', '-E', 'ANTHROPIC_API_KEY|OPENAI_API_KEY|claude-agent-sdk', '--', ':!CHANGELOG.md', ':!scripts/test-agent.mjs'], { cwd: root, encoding: 'utf8' });
   assert.equal(run.stdout.trim(), '', 'files still reference a paid API key: ' + run.stdout);
-  const stale = spawnSync('git', ['grep', '-l', '-i', '-E', 'credentials (are|is) (explicitly )?configured|runtime and credentials|agent-model-evaluator', '--', ':!CHANGELOG.md', ':!scripts/test-agent.mjs'], { cwd: root, encoding: 'utf8' });
+  const stale = spawnSync('git', ['grep', '-l', '-i', '-E', 'credentials (are|is) (explicitly )?configured|runtime and credentials|agent-model-evaluator|authenticated Git access|explicitly selected runtime', '--', ':!CHANGELOG.md', ':!scripts/test-agent.mjs'], { cwd: root, encoding: 'utf8' });
   assert.equal(stale.stdout.trim(), '', 'files still say live evaluation needs credentials: ' + stale.stdout);
 });
 
@@ -410,6 +410,15 @@ test('repository is MIT licensed consistently', () => {
   assert.match(license, /Copyright \(c\) 2026 jmstudio14/);
   assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).license, 'MIT');
   assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'plugins/frontend-codepen-extractor/.claude-plugin/plugin.json'), 'utf8')).license, 'MIT');
+});
+
+test('package, marketplace and plugin versions stay identical', () => {
+  const read = (rel) => JSON.parse(fs.readFileSync(path.join(root, rel), 'utf8')).version;
+  const version = read('package.json');
+  assert.equal(read('.claude-plugin/marketplace.json'), version);
+  assert.equal(read('plugins/frontend-codepen-extractor/.claude-plugin/plugin.json'), version);
+  assert.match(fs.readFileSync(path.join(root, 'README.md'), 'utf8'), new RegExp(`badge/version-${version.replace(/\./g, '\\.')}-`));
+  assert.match(fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8'), new RegExp(`^## ${version.replace(/\./g, '\\.')}$`, 'm'));
 });
 
 console.log(`\nSmoke tests finished: ${passed} passed${process.exitCode ? ', with failures' : ''}.`);

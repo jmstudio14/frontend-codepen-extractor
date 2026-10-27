@@ -9,8 +9,8 @@ A repository-aware engineering agent that detects your project's language, frame
 [Install](#quick-install) · [Capabilities](#what-it-does) · [Supported agents](#supported-ai-agents) · [Documentation](#documentation)
 
 [![Validate agent and plugin package](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml/badge.svg)](https://github.com/jmstudio14/frontend-codepen-extractor/actions/workflows/validate-agent.yml)
-![Version](https://img.shields.io/badge/version-2.13.0-64748b)
-![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
+![Version](https://img.shields.io/badge/version-2.14.0-64748b)
+![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)
 ![Repository](https://img.shields.io/badge/repository-public-22c55e)
 ![License: MIT](https://img.shields.io/badge/license-MIT-0ea5e9)
 
@@ -104,7 +104,7 @@ For older supported flows:
 
 ### Codex, Copilot, Cursor, Gemini CLI, Windsurf and more
 
-With Node.js 22.20+ and authenticated Git access, install the portable skill for compatible agents detected on your machine:
+With Node.js 22.20+ and Git, install the portable skill for compatible agents detected on your machine:
 
 ```powershell
 npx skills add jmstudio14/frontend-codepen-extractor --skill frontend-codepen-extractor --global --agent '*'
@@ -208,19 +208,24 @@ See [the multilanguage engineering guide](.agents/skills/frontend-codepen-extrac
 ├── .claude-plugin/marketplace.json            # Claude Code marketplace
 ├── .github/
 │   ├── agents/                                # Copilot custom agent
-│   ├── prompts/                                # Reusable Copilot prompt
-│   └── workflows/                               # CI validation
-├── plugins/frontend-codepen-extractor/          # Native Claude Code plugin
-├── scripts/                                    # Validators and smoke tests
-├── tests/fixtures/                              # Test prototype fixture
+│   ├── ISSUE_TEMPLATE/                        # Test report form
+│   ├── prompts/                               # Reusable Copilot prompt
+│   └── workflows/                             # CI validation
+├── docs/                                      # Evaluation, testing and agent guides
+├── evaluation/                                # Agent build queue
+├── plugins/frontend-codepen-extractor/        # Native Claude Code plugin
+├── scripts/                                   # Validators, security gate, evaluation tools
+├── tests/fixtures/                            # Executable evaluation fixtures
+├── tests/fixture-solutions/                   # Reference solutions for the fixtures
 ├── CLAUDE.md
 ├── INSTALL.md
+├── LICENSE
 └── CHANGELOG.md
 ```
 
 ## Validate locally
 
-Requirements: Node.js 18+.
+Requirements: Node.js 22+.
 
 From the repository root:
 
