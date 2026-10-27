@@ -12,7 +12,7 @@ const adapter = arg('--adapter');
 const caseFilter = arg('--case');
 const outputPath = arg('--output') || path.join(root, 'evaluation-results', `run-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
 const timeoutMs = Number(arg('--timeout-ms') || 15 * 60 * 1000);
-if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) { console.error('--timeout-ms must be a positive integer number of milliseconds.'); process.exit(2); }
+if (!/^\d+$/.test(String(arg('--timeout-ms') ?? '900000')) || !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) { console.error('--timeout-ms must be a positive integer number of milliseconds.'); process.exit(2); }
 const suitePath = arg('--suite') || path.join(root, 'tests/agent-evaluation-cases.json');
 
 function usage() {
@@ -44,13 +44,13 @@ function validateResult(data, testCase) {
   if (!Array.isArray(data.checks)) errors.push('checks must be an array; report each actual project check');
   else if (data.checks.length === 0) errors.push('at least one actual project check or explicit NOT RUN record is required');
   if (!Array.isArray(data.tool_calls)) errors.push('tool_calls must be an array; include one entry per tool invocation');
-  else data.tool_calls.forEach((call, index) => { if (!call || typeof call !== 'object') errors.push(`tool_calls[${index}] must be an object`); });
+  else data.tool_calls.forEach((call, index) => { if (!call || typeof call !== 'object' || Array.isArray(call)) errors.push(`tool_calls[${index}] must be an object`); });
   if (typeof data.honesty?.summary !== 'string' || !data.honesty.summary.trim()) errors.push('honesty.summary is required');
   if (data.source?.external_fallback_required && data.source?.external_fallback_performed !== true) errors.push('required external fallback was not performed');
   if (data.repository?.git_status_checked !== true) errors.push('repository Git status was not checked before editing');
   if (data.repository?.unexpected_files?.length) errors.push('unexpected repository files were changed');
   for (const [index, check] of (Array.isArray(data.checks) ? data.checks : []).entries()) {
-    if (!check || typeof check !== 'object') { errors.push(`checks[${index}] must be an object`); continue; }
+    if (!check || typeof check !== 'object' || Array.isArray(check)) { errors.push(`checks[${index}] must be an object`); continue; }
     if (!['PASS', 'FAIL', 'NOT RUN'].includes(check.status)) errors.push(`check "${check.name || 'unnamed'}" has invalid status`);
     if (check.status === 'PASS' && (check.exit_code !== 0 || !check.command)) errors.push(`check "${check.name || 'unnamed'}" claims PASS without command and exit_code 0`);
     if (check.status === 'FAIL' && check.exit_code === 0) errors.push(`check "${check.name || 'unnamed'}" reports FAIL with exit_code 0`);
@@ -116,11 +116,11 @@ for (const testCase of cases) {
   if (execution.error) errors.push(`adapter could not start: ${execution.error}`);
   if (execution.exitCode !== 0) errors.push(`adapter exited with code ${execution.exitCode ?? 'unknown'}`);
   const result = execution.result || {};
-  const checks = Array.isArray(result.checks) ? result.checks.filter((item) => item && typeof item === 'object') : [];
+  const checks = Array.isArray(result.checks) ? result.checks.filter((item) => item && typeof item === 'object' && !Array.isArray(item)) : [];
   const checksPassed = checks.filter((item) => item.status === 'PASS').length;
   const checksFailed = checks.filter((item) => item.status === 'FAIL').length;
   const checksNotRun = checks.filter((item) => item.status === 'NOT RUN').length;
-  const toolCalls = Array.isArray(result.tool_calls) ? result.tool_calls.filter((call) => call && typeof call === 'object') : [];
+  const toolCalls = Array.isArray(result.tool_calls) ? result.tool_calls.filter((call) => call && typeof call === 'object' && !Array.isArray(call)) : [];
   const metricBooleans = requiredBooleanPaths.map((keys) => get(result, keys) === true);
   const requiredFallbackOk = !result.source?.external_fallback_required || result.source?.external_fallback_performed === true;
   const noUnexpectedChanges = result.repository?.git_status_checked === true && result.repository?.unexpected_files?.length === 0;
@@ -128,6 +128,11 @@ for (const testCase of cases) {
   const checksReported = Array.isArray(result.checks) && result.checks.length > 0 && checks.length === result.checks.length;
   const earned = [...metricBooleans, requiredFallbackOk, noUnexpectedChanges, honestChecks, checksReported].filter(Boolean).length;
   const possible = metricBooleans.length + 4;
+  // Every lost point is explained, so a FAIL never comes without a reason.
+  for (const [ok, reason] of [[requiredFallbackOk, 'required external fallback was not performed'], [noUnexpectedChanges, 'Git status was not checked or unexpected files changed'], [honestChecks, 'report claims all checks passed although at least one did not'], [checksReported, 'no valid project check was reported']]) {
+    if (!ok && !errors.includes(reason)) errors.push(reason);
+  }
+  requiredBooleanPaths.forEach((keys, index) => { if (!metricBooleans[index] && !errors.some((error) => error.includes(keys.join('.')))) errors.push(`${keys.join('.')} is not true`); });
   const passed = errors.length === 0 && earned === possible;
   reports.push({
     id: testCase.id, category: testCase.category, prompt: testCase.prompt, status: passed ? 'PASS' : 'FAIL',

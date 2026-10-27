@@ -115,13 +115,15 @@ function shellExecIndex(text, code) {
 }
 // Any shell option other than a literal false (quoted key or not), and spawning a shell binary directly,
 // by bare name or by path, also run a shell.
-const SHELL_OPTION = /['"`]?\bshell['"`]?\s*:(?!\s*false\b)/;
+const SHELL_OPTION = /['"`]?\bshell['"`]?\s*:(?!\s*false\b)|[{,]\s*shell\s*[,}]/;
 const SHELL_BINARY = /\b(?:spawn|spawnSync|execFile|execFileSync|fork)\s*\(\s*['"`](?:[^'"`]*[\\/])?(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?['"`]/i;
 // eval, the Function constructor (with or without new) and string callbacks to timers run code from text.
 const DYNAMIC_CODE = /(?<![\w$.])eval\s*\(|(?<![\w$.])(?:new\s+)?Function\s*\(/;
 const STRING_TIMER = /\bset(?:Timeout|Interval|Immediate)\s*\(\s*['"`]/;
+// node:vm compiles and runs code from strings, like eval.
+const LOADS_VM = /(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)['"`](?:node:)?vm['"`]/;
 // Node code anywhere, except browser .js files in the fixtures and their solutions (seeded defects).
-const isNodeCode = (rel) => /\.(?:mjs|cjs)$/.test(rel) || (/\.js$/.test(rel) && !/^tests\/(?:fixtures|fixture-solutions)\//.test(rel));
+const isNodeCode = (rel) => /\.(?:mjs|cjs|mts|cts)$/.test(rel) || (/\.(?:js|ts)$/.test(rel) && !/^tests\/(?:fixtures|fixture-solutions)\//.test(rel));
 
 for (const { rel, full } of files) {
   const text = read(full);
@@ -136,7 +138,7 @@ for (const { rel, full } of files) {
   }
   if (isNodeCode(rel)) {
     const code = maskLiterals(text);
-    const dynamic = DYNAMIC_CODE.exec(code) ?? STRING_TIMER.exec(text);
+    const dynamic = DYNAMIC_CODE.exec(code) ?? STRING_TIMER.exec(text) ?? LOADS_VM.exec(text);
     if (dynamic) finding('dynamic-code-execution', rel, `line ${lineOf(text, dynamic.index)}`);
     if (!SHELL_ALLOWLIST.has(rel)) {
       const shell = SHELL_OPTION.exec(code) ?? /['"`]shell['"`]\s*:(?!\s*false\b)/.exec(text);

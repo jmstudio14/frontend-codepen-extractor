@@ -358,11 +358,15 @@ test('security gate catches quoted shell keys, shell paths, exec aliases, Functi
     [`import * as cp from ${cp};\nconst f = cp.ex` + `ecSync;\nf('ls');\n`, /unapproved-shell-exec/],
     ['const run = Func' + 'tion("return 1");\n', /dynamic-code-execution/],
     ["setTim" + "eout('alert(1)', 10);\n", /dynamic-code-execution/],
+    [`import { spawn } from ${cp};\nconst sh` + `ell = true;\nspawn('ls', [], { sh` + `ell });\n`, /unapproved-shell-true/],
+    [`import vm from 'node:v` + `m';\nvm.runInThisContext(process.argv[2]);\n`, /dynamic-code-execution/],
   ]) {
     const run = runGate({ 'scripts/a.mjs': source });
     assert.equal(run.status, 1, source);
     assert.match(run.stderr, rule, source);
   }
+  const ts = runGate({ 'src/run.ts': `import { ex` + `ecSync } from ${cp};\nex` + `ecSync('ls');\n` });
+  assert.match(ts.stderr, /unapproved-shell-exec: src\/run\.ts/, 'TypeScript files are Node code too');
   // Words in strings, comments and regex literals are not code.
   assert.equal(runGate({ 'scripts/a.mjs': `import { spawnSync } from ${cp};\n// we never ex` + `ec here\nconst label = 'no ex` + `ecSync';\nconst re = /ex` + `ec/;\nspawnSync('git', ['status']);\n` }).status, 0);
   assert.equal(runGate({ 'scripts/a.mjs': 'const id = setTim' + 'eout(() => {}, 10);\n' }).status, 0);
@@ -703,6 +707,8 @@ fs.writeFileSync(process.env.AGENT_EVAL_RESULT_PATH, JSON.stringify({
     for (const [checks, toolCalls, expected] of [
       [[null, goodCheck], [{ name: 'Read' }], 'checks[0] must be an object'],
       [[goodCheck], [null, 5, { name: 'Read' }], 'tool_calls[0] must be an object'],
+      [[goodCheck], [[]], 'tool_calls[0] must be an object'],
+      [[{ name: 'browser', status: 'NOT RUN' }], [{ name: 'Read' }], 'report claims all checks passed although at least one did not'],
     ]) {
       const reportPath = path.join(dir, 'report.json');
       const env = { ...process.env, CHECKS: JSON.stringify(checks), TOOL_CALLS: JSON.stringify(toolCalls) };
@@ -712,7 +718,7 @@ fs.writeFileSync(process.env.AGENT_EVAL_RESULT_PATH, JSON.stringify({
       assert.equal(report.cases[0].status, 'FAIL');
       assert.ok(report.cases[0].errors.includes(expected), JSON.stringify(report.cases[0].errors));
     }
-    for (const value of ['abc', '0', '-5']) {
+    for (const value of ['abc', '0', '-5', '1e3', '0x10', ' 100', '1.5']) {
       const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', 'node -e 0', '--timeout-ms', value], { cwd: root, encoding: 'utf8' });
       assert.equal(run.status, 2, `--timeout-ms ${value} must be rejected`);
     }
@@ -769,13 +775,17 @@ test('manual evaluation refuses a workspace inside the repository', () => {
 test('manual evaluation refuses tricky paths into the repository but accepts sibling names', () => {
   const refused = (dir) => spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8' });
   const dotted = path.join(root, '..cache', `x-${process.pid}`);
-  assert.equal(refused(dotted).status, 2, 'a folder named "..cache" inside the clone is still inside');
-  assert.equal(fs.existsSync(path.join(root, '..cache')), false);
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-link-'));
   try {
+    assert.equal(refused(dotted).status, 2, 'a folder named "..cache" inside the clone is still inside');
+    assert.equal(fs.existsSync(path.join(root, '..cache')), false);
     try { fs.symlinkSync(root, path.join(base, 'link'), 'junction'); } catch (error) { throw new NotRun(`cannot create a link here (${error.code})`); }
     assert.equal(refused(path.join(base, 'link', 'new', 'deeper')).status, 2, 'a symlinked ancestor pointing into the clone is refused');
-  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+  } finally {
+    // If the guard ever regresses, do not leave its output inside the clone.
+    for (const leftover of [path.join(root, '..cache'), path.join(root, 'new')]) fs.rmSync(leftover, { recursive: true, force: true });
+    fs.rmSync(base, { recursive: true, force: true });
+  }
 });
 
 test('manual evaluation never deletes an existing --dir when Git fails', () => {
@@ -888,7 +898,7 @@ test('manual evaluation still scores changes the agent committed', () => {
 });
 
 for (const fixture of listFixtures(root)) {
-  test(`manual evaluation prepares ${fixture.manifest?.case_id ?? fixture.name} without host files and scores fixture FAIL / solution PASS`, () => {
+  test(`manual evaluation prepares ${fixture.manifest?.case_id ?? fixture.name} without host files and scores fixture FAIL / solution PASS (INCOMPLETE without a browser)`, () => {
     const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-'));
     try {
       const dir = path.join(base, 'run');

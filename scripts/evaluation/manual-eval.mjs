@@ -57,7 +57,9 @@ function prepare(caseId) {
   if (fs.existsSync(workspace)) { console.error(`Workspace already exists: ${workspace}`); process.exit(2); }
   const hidden = hostOnlyFiles(fixture.manifest);
   // On failure, remove only what this run created: the first new folder, or else just the workspace.
-  const createdRoot = fs.mkdirSync(base, { recursive: true });
+  let createdRoot;
+  try { createdRoot = fs.mkdirSync(base, { recursive: true }); }
+  catch (error) { console.error(`Cannot create ${base}: ${error.code || error.message}. Choose another --dir.`); process.exit(2); }
   fs.cpSync(fixture.dir, workspace, { recursive: true, filter: (src) => !['.git', 'node_modules', ...hidden].includes(path.basename(src)) });
   // Signing and hooks from the user's global Git config must not break or alter the initial commit.
   const steps = [['init', '-q'], ['config', 'user.name', 'Manual Evaluation'], ['config', 'user.email', 'manual-evaluation@localhost'], ['add', '.'], ['-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'Initial fixture'], ['rev-parse', 'HEAD']];
