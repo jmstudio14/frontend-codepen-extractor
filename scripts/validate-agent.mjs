@@ -47,17 +47,22 @@ for (const rel of required) exists(rel) ? pass(`Required file exists: ${rel}`) :
 
 const agent = read('.claude/agents/frontend-codepen-extractor.md') ?? '';
 const skill = read('.claude/skills/frontend-codepen-extractor/SKILL.md') ?? '';
-const frontmatter = agent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+const frontmatter = agent.match(/^---\r?
+([\s\S]*?)\r?
+---/);
 if (!frontmatter) {
   fail('Agent frontmatter delimiters are present');
 } else {
   const fm = frontmatter[1];
   /\bname:\s*frontend-codepen-extractor\b/.test(fm) ? pass('Agent name frontmatter is correct') : fail('Agent name frontmatter is correct');
   /\bdescription:\s*\S/.test(fm) ? pass('Agent description frontmatter is present') : fail('Agent description frontmatter is present');
-  /\bskills:\s*\r?\n\s*-\s*frontend-codepen-extractor\b/.test(fm) ? pass('Agent preloads the matching skill') : fail('Agent preloads the matching skill');
+  /\bskills:\s*\r?
+\s*-\s*frontend-codepen-extractor\b/.test(fm) ? pass('Agent preloads the matching skill') : fail('Agent preloads the matching skill');
   /\btools:\s*.+/.test(fm) ? pass('Agent tools frontmatter is present') : fail('Agent tools frontmatter is present');
 }
-const skillFm = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+const skillFm = skill.match(/^---\r?
+([\s\S]*?)\r?
+---/);
 if (skillFm && /\bname:\s*frontend-codepen-extractor\b/.test(skillFm[1]) && /\bdescription:\s*\S/.test(skillFm[1])) {
   pass('Skill frontmatter contains name and description');
 } else {
@@ -141,7 +146,15 @@ for (const term of ['lifecycle', 'responsive', 'accessibility', 'Visual evidence
 }
 
 const agentText = agent + skill;
-const evaluationRunner = read('scripts/evaluate-agent.mjs') ?? '';\nfor (const term of ['language_detected_correctly', 'version_detected_correctly', 'external_fallback_performed', 'changed_files', 'checks', 'tool_calls', 'elapsed_ms']) {\n  evaluationRunner.includes(term) ? pass('Runtime evaluator records ' + term) : fail('Runtime evaluator records ' + term);\n}\nconst evaluationGuide = read('docs/agent-evaluation.md') ?? '';\nfor (const term of ['AGENT_EVAL_RESULT_PATH', 'wall-clock duration', 'real agent run has occurred', 'NOT RUN']) {\n  evaluationGuide.toLowerCase().includes(term.toLowerCase()) ? pass('Evaluation guide explains ' + term) : fail('Evaluation guide explains ' + term);\n}\nfor (const term of ['multilanguage', 'multiframework', 'multilanguage-engineering.md']) {
+const evaluationRunner = read('scripts/evaluate-agent.mjs') ?? '';
+for (const term of ['language_detected_correctly', 'version_detected_correctly', 'external_fallback_performed', 'changed_files', 'checks', 'tool_calls', 'elapsed_ms']) {
+  evaluationRunner.includes(term) ? pass('Runtime evaluator records ' + term) : fail('Runtime evaluator records ' + term);
+}
+const evaluationGuide = read('docs/agent-evaluation.md') ?? '';
+for (const term of ['AGENT_EVAL_RESULT_PATH', 'wall-clock duration', 'real agent run has occurred', 'NOT RUN']) {
+  evaluationGuide.toLowerCase().includes(term.toLowerCase()) ? pass('Evaluation guide explains ' + term) : fail('Evaluation guide explains ' + term);
+}
+for (const term of ['multilanguage', 'multiframework', 'multilanguage-engineering.md']) {
   agentText.toLowerCase().includes(term.toLowerCase()) ? pass(`Agent instructions include ${term}`) : fail(`Agent instructions include ${term}`);
 }
 for (const term of ['git status', 'untrusted', 'Do not install', 'NOT RUN']) {
@@ -155,5 +168,6 @@ else fail('Fixture contains lifecycle issues for evaluation');
 if (/\bbody\b|\*\s*\{/.test(fixtureCSS)) pass('Fixture contains global CSS that should be scoped');
 else fail('Fixture contains global CSS that should be scoped');
 
-console.log(`\nValidation finished: ${checks - failures}/${checks} checks passed.`);
+console.log(`
+Validation finished: ${checks - failures}/${checks} checks passed.`);
 if (failures) process.exitCode = 1;
