@@ -1,6 +1,6 @@
 ---
 name: frontend-codepen-extractor
-description: Extract, reconstruct, refactor, validate, and integrate CodePen, UIverse.io components, and CSS-Tricks technical reference into existing frontend projects. Use for CodePen URLs, UIverse component pages, exported prototypes, or HTML/CSS/JavaScript source.
+description: Progressively search and evaluate CodePen, UIverse.io, CodeMyUI, external web sources, and GitHub; extract, reconstruct, validate, and integrate frontend examples. Use for CodePen URLs, UIverse component pages, exported prototypes, or HTML/CSS/JavaScript source.
 ---
 
 # Frontend CodePen + UIverse Extractor
@@ -11,6 +11,7 @@ Read relevant guides in `references/`:
 - `codepen-ingestion.md` — CodePen source acquisition and diagnostics
 - `uiverse-ingestion.md` — UIverse component discovery, extraction, attribution, and conversion
 - `css-tricks-reference.md` — CSS-Tricks technical research, cross-checking, and application
+- `progressive-search.md` — staged source discovery, candidate scoring, evidence tracking, and external fallback
 - `dependency-policy.md` — packages, assets, licenses, install approval
 - `framework-patterns.md` — framework-specific conversion
 - `quality-checklist.md` — acceptance and verification
@@ -26,6 +27,9 @@ Read relevant guides in `references/`:
 
 ### 0. Protect the workspace
 Inspect Git status, repository structure, and intended target app/package before edits. Preserve pre-existing changes. Do not reset, clean, stash, commit, push, publish, overwrite unrelated files, or run destructive operations.
+
+### 1. Search progressively and evaluate candidates
+Read `references/progressive-search.md` whenever a component or example must be discovered. Search exact names first across relevant predefined sources (CodePen, UIverse.io, CodeMyUI, and CSS-Tricks for technical patterns). If no convincing match or accessible source is found, expand to external web search, GitHub, author pages, and other reputable galleries. Evaluate candidates for identity, visual and behavior match, source quality, project fit, provenance, and licensing. Track observed, inferred, and unknown facts; never present a screenshot or search snippet as proof of source code. Continue searching when the best candidate is weak or materially incomplete, then report uncertainty honestly.
 
 ### 1. Acquire and diagnose source
 Use the applicable ingestion guide. For CodePen, inspect accessible panels, preprocessors/settings, external resources, globals, assets, interactions, states, keyboard behavior, motion, and breakpoints.
