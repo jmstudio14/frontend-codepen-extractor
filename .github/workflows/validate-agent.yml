@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       case_id:
-        description: Live Claude Agent SDK scenario (web-extraction-regression is configured)
+        description: Scenario for the selected runtime; live execution is gated by AGENT_EVAL_SELECTED_RUNTIME
         required: true
         default: web-extraction-regression
         type: string
