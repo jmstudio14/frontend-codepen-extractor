@@ -131,6 +131,21 @@ A URL or screenshot does not guarantee access to source panels, preprocessor set
 
 A screenshot can guide visual intent, but it cannot establish the original source or hidden behavior.
 
+## Advanced reconstruction workflow
+
+Beyond extracting panel code, the agent supports:
+
+- **Output modes:** extract-only, standalone reconstruction, existing-project integration, refactor, explain, audit, and repair.
+- **Framework-aware structure:** detect actual framework/version and package manager; adapt to React, Vue, Svelte, Angular, Solid, Lit, or vanilla JS/TS when supported by source/destination.
+- **Dependency and asset recovery:** inventory imports, globals, CDNs, fonts, icons, images, URLs, availability, and licensing. Recommend installs; do not install or download without approval.
+- **Behavior-preserving refactoring:** componentization, state/lifecycle cleanup, CSS isolation, preprocessor conversion, and TypeScript adaptation when appropriate.
+- **Automated quality loop:** run existing tests, lint, typecheck, build; diagnose and repair actionable errors; report evidence.
+- **Visual QA:** compare real screenshots at matching viewport/state when browser tooling is available; otherwise visual parity remains unverified.
+- **Accessibility/security audits:** semantics, keyboard/focus, labels, ARIA, reduced motion, unsafe HTML/dynamic execution, external resources, and lifecycle resilience.
+- **Honest verification:** PASS / FAIL / NOT RUN; no invented source, assets, results, or pixel-perfect claims.
+
+See [the reconstruction playbook](.agents/skills/frontend-codepen-extractor/references/reconstruction-playbook.md) for detailed procedures.
+
 ## How it works
 
 1. **Protect the workspace** — inspect repository structure and Git status before editing.
