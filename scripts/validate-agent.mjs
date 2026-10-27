@@ -24,6 +24,7 @@ const required = [
   '.claude/agents/frontend-codepen-extractor.md',
   '.claude/skills/frontend-codepen-extractor/SKILL.md',
   '.claude/skills/frontend-codepen-extractor/references/codepen-ingestion.md',
+  '.claude/skills/frontend-codepen-extractor/references/uiverse-ingestion.md',
   '.claude/skills/frontend-codepen-extractor/references/dependency-policy.md',
   '.claude/skills/frontend-codepen-extractor/references/framework-patterns.md',
   '.claude/skills/frontend-codepen-extractor/references/quality-checklist.md',
