@@ -286,7 +286,7 @@
       "id": "performance-optimizer",
       "name": "frontend-performance-optimizer",
       "priority": "P1",
-      "status": "planned",
+      "status": "in_pr",
       "depends_on": [
         "qa-test-engineer-merged",
         "extractor-validation-merged"
@@ -332,7 +332,14 @@
         "Hardware-dependent thresholds"
       ],
       "rollback": "Revert the optimizer profile and benchmark additions.",
-      "plan_approval_required": true
+      "plan_approval_required": true,
+      "branch": "feat/frontend-performance-optimizer",
+      "files": [
+        ".claude/agents/frontend-performance-optimizer.md",
+        "docs/agents/frontend-performance-optimizer.md",
+        "tests/agent-cases/performance-optimizer.json"
+      ],
+      "pull_request": "pending"
     },
     {
       "sequence": 6,
