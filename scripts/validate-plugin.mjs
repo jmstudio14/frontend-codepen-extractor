@@ -49,6 +49,7 @@ const required = [
   '.agents/skills/frontend-codepen-extractor/references/reconstruction-playbook.md',
   '.agents/skills/frontend-codepen-extractor/references/progressive-search.md',
   '.agents/skills/frontend-codepen-extractor/references/codemyui-ingestion.md',
+  '.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
   '.github/agents/frontend-codepen-extractor.agent.md',
   '.github/copilot-instructions.md',
   '.github/prompts/extract-codepen.prompt.md',
@@ -64,6 +65,7 @@ const required = [
   pluginRoot + '/skills/frontend-codepen-extractor/references/reconstruction-playbook.md',
   pluginRoot + '/skills/frontend-codepen-extractor/references/progressive-search.md',
   pluginRoot + '/skills/frontend-codepen-extractor/references/codemyui-ingestion.md',
+  pluginRoot + '/skills/frontend-codepen-extractor/references/multilanguage-engineering.md',
 ];
 for (const relativePath of required) {
   check(readFile(relativePath) !== null, 'Required distribution file exists: ' + relativePath);
@@ -118,6 +120,7 @@ const portableSkillPaths = [
   ['.agents/skills/frontend-codepen-extractor/references/reconstruction-playbook.md', pluginRoot + '/skills/frontend-codepen-extractor/references/reconstruction-playbook.md'],
   ['.agents/skills/frontend-codepen-extractor/references/progressive-search.md', pluginRoot + '/skills/frontend-codepen-extractor/references/progressive-search.md'],
   ['.agents/skills/frontend-codepen-extractor/references/codemyui-ingestion.md', pluginRoot + '/skills/frontend-codepen-extractor/references/codemyui-ingestion.md'],
+  ['.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md', pluginRoot + '/skills/frontend-codepen-extractor/references/multilanguage-engineering.md'],
 ];
 for (const [portablePath, pluginPath] of portableSkillPaths) {
   const portableContent = readFile(portablePath);
@@ -126,6 +129,11 @@ for (const [portablePath, pluginPath] of portableSkillPaths) {
   if (portableContent !== null && pluginContent !== null) {
     check(portableContent === pluginContent, 'Portable skill stays in sync: ' + portablePath);
   }
+}
+
+const multiGuide = readFile('.agents/skills/frontend-codepen-extractor/references/multilanguage-engineering.md') || '';
+for (const term of ['Detect the actual task and stack first', 'authoritative documentation', 'language-specific', 'PASS / FAIL / NOT RUN']) {
+  check(multiGuide.toLowerCase().includes(term.toLowerCase()), 'Multilanguage guide includes ' + term);
 }
 
 const searchGuide = readFile('.agents/skills/frontend-codepen-extractor/references/progressive-search.md') || '';
