@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.9.0
+
+- Added an adapter-driven runtime evaluation harness that executes one real host-adapter run per scenario and writes a JSON report.
+- Records stack/version detection, source provenance and required external fallback, repository change scope, actual project check statuses, honesty assertions, wall-clock time, and tool-call counts.
+- Rejects unsupported PASS claims, missing evidence fields, skipped required external search, unchecked Git status, unexpected file changes, and incomplete reports.
+- Added a documented adapter contract, deterministic fixture adapter for harness testing, and a CI fixture run; explicitly distinguishes harness tests from live LLM evaluations.
+- Updated package documentation and bumped metadata to 2.9.0.
+
+
 ## 2.8.0
 
 - Added a shared architecture contract inspired by LangChain's separation of stable core abstractions, orchestration, and replaceable integrations—documented as a logical design, not a claim that an autonomous runtime already exists.
