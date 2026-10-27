@@ -22,7 +22,7 @@ The `schema_version: 1` YAML contract includes repository evidence, traceable re
 
 ## Verification and evaluation
 
-Static validation checks the profile's frontmatter, contract fields, and evaluation case definitions. Deterministic evaluation cases cover missing requirements, unsupported assumptions, dependency approval, and the mandatory human gate. These checks validate the contract and scenarios, not the reasoning quality of a live model.
+Static validation uses the pinned `yaml` parser to parse actual YAML, rejects duplicate keys and malformed documents, and checks required fields and the mandatory approval state. Contract tests cover valid and invalid plan documents, profile frontmatter, and scenario definitions. Deterministic evaluation cases cover missing requirements, unsupported assumptions, dependency approval, and the mandatory human gate. These checks validate the contract and scenarios, not the reasoning quality of a live model.
 
 Run:
 
