@@ -29,8 +29,10 @@ It can work from accessible source URLs, exported files, supplied code, or the e
 
 | Capability | What it means |
 | --- | --- |
-| **Progressive discovery** | Searches predefined sources first, then expands to external web sources and GitHub when no strong match is found. |\n| **Candidate evaluation** | Ranks examples by identity, visual/behavior match, source quality, project fit, provenance, and licensing; tracks unknowns instead of guessing. |\n| **Source analysis** | Identifies markup, CSS and JavaScript dialects, preprocessors, dependencies, assets, states, and interactions. |
-| **Repository-aware conversion** | Adapts the prototype to the framework, component conventions, styling system, and package manager already in use. |
+| **Progressive discovery** | Searches predefined sources first, then automatically expands to external web sources and GitHub when no strong match is found. |
+| **Candidate evaluation** | Ranks examples by identity, visual/behavior match, source quality, project fit, provenance, and licensing; tracks unknowns instead of guessing. |
+| **Stack and source analysis** | Detects project language/framework/version and analyzes component source, dependencies, assets, states, and interactions. |
+| **Repository-aware engineering** | Implements changes using the project's native architecture, conventions, dependency manager, and verification tools. |
 | **Style isolation** | Scopes styles to avoid leaking prototype CSS into the host application. |
 | **Accessible markup** | Promotes semantic HTML, keyboard behavior, labels, focus handling, and appropriate ARIA. |
 | **Lifecycle safety** | Accounts for cleanup of listeners, timers, observers, subscriptions, async work, and animation loops. |
