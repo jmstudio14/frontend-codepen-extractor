@@ -1,5 +1,3 @@
-(The UIverse.io ingestion guide is maintained in sync with the portable skill.)
-
 # UIverse.io ingestion and component conversion
 
 Use this guide when a user provides a UIverse.io component URL, asks to use a UIverse component, or supplies UIverse code. UIverse is a source of UI component snippets/demos; the coding agent must still verify what the actual page/source exposes.
