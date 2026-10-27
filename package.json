@@ -2,7 +2,7 @@
   "name": "frontend-codepen-extractor-agent",
   "version": "2.4.0",
   "private": true,
-  "description": "Portable Agent Skill and native Claude Code plugin for safely extracting, reconstructing, refactoring, and validating CodePen and UIverse.io components in existing frontend projects.",
+  "description": "Portable Agent Skill and native Claude Code plugin for safely extracting, reconstructing, refactoring, and validating CodePen prototypes and UIverse.io components.",
   "type": "module",
   "scripts": {
     "validate": "node scripts/validate-agent.mjs && node scripts/validate-plugin.mjs",
