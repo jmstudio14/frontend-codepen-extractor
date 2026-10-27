@@ -1,11 +1,11 @@
 ---
 name: frontend-codepen-extractor
-description: Progressively search and evaluate CodePen, UIverse.io, CodeMyUI, external web sources, and GitHub; extract, reconstruct, validate, and integrate frontend examples. Use for CodePen URLs, UIverse component pages, exported prototypes, or HTML/CSS/JavaScript source.
+description: Multilanguage, multiframework repository-aware engineering agent. Progressively search CodePen, UIverse.io, CodeMyUI, external web sources, and GitHub; extract web components or implement, debug, refactor, test, and validate code across languages and frameworks.
 ---
 
-# Frontend CodePen + UIverse Extractor
+# Multilanguage Code & Component Extractor
 
-Act as a repository-aware frontend reconstruction agent. Convert accessible CodePen prototypes and UIverse.io components into maintainable frontend code while preserving intended UI and behavior. The destination repository is the architectural source of truth.
+Act as a repository-aware, multilanguage and multiframework software engineering agent. Preserve all existing web-component discovery/extraction features, but do not assume every task is frontend work. Detect the target language, framework, runtime, versions, and package/service from repository evidence; adapt implementation and verification to that stack. The destination repository is the architectural source of truth.
 
 Read relevant guides in `references/`:
 - `codepen-ingestion.md` — CodePen source acquisition and diagnostics
@@ -13,10 +13,18 @@ Read relevant guides in `references/`:
 - `codemyui-ingestion.md` — CodeMyUI example discovery, source-link tracing, extraction limits, reconstruction, licensing, and validation
 - `css-tricks-reference.md` — CSS-Tricks technical research, cross-checking, and application
 - `progressive-search.md` — staged source discovery, candidate scoring, evidence tracking, and external fallback
+- `multilanguage-engineering.md` — stack detection, language/framework-specific workflows, technical research, verification, and safety
 - `dependency-policy.md` — packages, assets, licenses, install approval
 - `framework-patterns.md` — framework-specific conversion
 - `quality-checklist.md` — acceptance and verification
 - `reconstruction-playbook.md` — project generation, tests, visual QA, audits, repair
+
+## Supported task types
+- Web component discovery, extraction, reconstruction, and integration using the existing CodePen/UIverse/CodeMyUI workflow
+- General implementation, debugging, refactoring, explanation, audits, tests, and documentation across the project's native languages and frameworks
+- Cross-stack work spanning frontend, backend, APIs, data, mobile, systems, and infrastructure where the repository and available toolchain support it
+
+For any task beyond web-component discovery, read `references/multilanguage-engineering.md` first. Do not force HTML/CSS rules onto backend, systems, data, mobile, or infrastructure tasks.
 
 ## Supported source types
 - CodePen demos and panel exports
@@ -47,6 +55,8 @@ Create an inventory separating observed, inferred, and unknown. Map behavior as 
 ### 2. Audit destination and plan
 Inspect package manifests/lockfile, framework/runtime versions, entry points, routing, design system, styling, asset handling, scripts, tests, and nearby components.
 
+- Detect the target language, framework/runtime, version, package or service boundary from manifests, lockfiles, configuration, source layout, tests, and CI; use multiple signals, not file extension alone.
+- For non-web programming tasks, follow `references/multilanguage-engineering.md` for language-native implementation, progressive technical research, and stack-specific verification.
 - Detect React, Vue, Svelte, Angular, Solid, Lit, or vanilla JS/TS only where evidenced.
 - Follow installed versions and local conventions; do not impose a framework or CSS system.
 - For nontrivial work, outline target files, components, state, dependencies, assets, behavior, tests, and assumptions.
@@ -76,7 +86,7 @@ Read `references/dependency-policy.md`, `references/uiverse-ingestion.md`, and `
 - Never bypass authentication, paywalls, access controls, or site restrictions. Cross-check current browser support and syntax against up-to-date authoritative documentation when CSS-Tricks material may be dated.
 
 ### 5. Verify and repair
-Use `references/quality-checklist.md` and `references/reconstruction-playbook.md`.
+Use `references/quality-checklist.md` and `references/reconstruction-playbook.md` for web-component work. For general code, use `references/multilanguage-engineering.md` and the repository's own verification commands.
 - Run applicable targeted tests, lint, typecheck, full tests, and production build.
 - Inspect imports, routes, asset paths, console/runtime errors, and final diff.
 - If browser tools exist, test behavior and compare actual source/target screenshots at comparable viewport/state. Check narrow/mobile and wide/desktop.
