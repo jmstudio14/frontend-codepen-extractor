@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { BUNDLED_SPECIALISTS, COORDINATOR, PLUGIN_NAME, expectedPluginAgents } from './sync-plugin-agents.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pluginRoot = 'plugins/frontend-codepen-extractor';
@@ -79,7 +80,7 @@ for (const relativePath of required) {
 const marketplace = loadJson('.claude-plugin/marketplace.json');
 if (marketplace) {
   check(marketplace.name === 'jmstudio14-claude-plugins', 'Marketplace name is correct');
-  check(marketplace.version === '2.12.0', 'Marketplace version is 2.12.0');
+  check(marketplace.version === '2.13.0', 'Marketplace version is 2.13.0');
   check(typeof marketplace.description === 'string' && marketplace.description.length > 0, 'Marketplace description is present');
   check(typeof marketplace.owner?.name === 'string' && marketplace.owner.name.length > 0, 'Marketplace owner.name is present');
   const entry = Array.isArray(marketplace.plugins)
@@ -92,7 +93,7 @@ if (marketplace) {
 const manifest = loadJson(pluginRoot + '/.claude-plugin/plugin.json');
 if (manifest) {
   check(manifest.name === 'frontend-codepen-extractor', 'Plugin manifest name matches marketplace entry');
-  check(manifest.version === '2.12.0', 'Plugin version is 2.12.0');
+  check(manifest.version === '2.13.0', 'Plugin version is 2.13.0');
   check(typeof manifest.description === 'string' && manifest.description.length > 10, 'Plugin manifest description is present');
   check(typeof manifest.author?.name === 'string' && manifest.author.name.length > 0, 'Plugin manifest author.name is present');
   check(/^https:\/\//.test(manifest.homepage || ''), 'Plugin homepage is a valid HTTPS URL');
@@ -106,6 +107,19 @@ if (agentMeta) {
   check(/^description:\s*\S/m.test(agentMeta[1]), 'Plugin agent description is present');
   check(/^skills:\s*\r?\n\s*-\s*frontend-codepen-extractor\s*$/m.test(agentMeta[1]), 'Plugin agent declares its matching skill');
 }
+
+const expectedAgents = expectedPluginAgents(root);
+for (const name of [...BUNDLED_SPECIALISTS, COORDINATOR]) {
+  const rel = pluginRoot + '/agents/' + name + '.md';
+  const content = readFile(rel);
+  const meta = content?.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '';
+  check(content !== null, 'Bundled plugin agent exists: ' + rel);
+  check(new RegExp('^name:\\s*' + name + '\\s*$', 'm').test(meta) && /^description:\s*\S/m.test(meta) && /^tools:\s*\S/m.test(meta), 'Bundled plugin agent declares name, description and tools: ' + name);
+  check(content === expectedAgents[name], 'Bundled plugin agent matches .claude/agents source (run node scripts/sync-plugin-agents.mjs): ' + name);
+}
+const pluginCoordinatorTools = readFile(pluginRoot + '/agents/' + COORDINATOR + '.md')?.match(/^tools:\s*(.+)$/m)?.[1] ?? '';
+const delegates = pluginCoordinatorTools.match(/\bAgent\(([^)]*)\)/)?.[1]?.split(',').map((item) => item.trim()) ?? [];
+check(delegates.length === BUNDLED_SPECIALISTS.length && delegates.every((id) => BUNDLED_SPECIALISTS.includes(id.replace(PLUGIN_NAME + ':', '')) && id.startsWith(PLUGIN_NAME + ':')), 'Plugin coordinator delegates only to bundled, plugin-scoped specialists');
 
 const skill = readFile(pluginRoot + '/skills/frontend-codepen-extractor/SKILL.md') || '';
 const skillMeta = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);

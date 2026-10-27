@@ -31,7 +31,7 @@ Coordinate a bounded review workflow among the read-only specialist agents while
 5. **Validate** each result: it must be a JSON object with `agent`, `status` (PASS/FAIL/BLOCKED), `findings` and `checks`. Anything else is a run failure, not a verdict.
 6. **Retries:** retry a specialist at most 2 times, and only for run failures (crash, timeout, invalid or missing output). Record the cause of each retry. If it still fails, launch `agent-run-diagnostics` once and record the specialist as BLOCKED. A FAIL or BLOCKED verdict is never retried to obtain a PASS.
 7. **Corrections:** a FAIL/BLOCKED goes back to the human or developer. After a correction, re-run every specialist whose scope the new diff touches. Allow at most 2 correction rounds when explicitly authorized; then stop.
-8. **Delivery gate:** run `npm run validate:all` and `npm run security` yourself and record the exit codes.
+8. **Delivery gate:** run the project's own validation and security checks yourself (scripts in `package.json`, the CI workflow, or native equivalents; in this repository, `npm run validate:all` and `npm run security`) and record the exact commands and exit codes. If the project defines none, record the gate as NOT RUN.
 9. **Report** using the output contract. Do not merge or deploy.
 
 ## Routing
@@ -53,7 +53,7 @@ DELIVER only if all of these hold. Otherwise DO NOT DELIVER.
 - `frontend-qa-test-engineer` status PASS;
 - `frontend-code-auditor` status PASS;
 - every other routed specialist is PASS, or its FAIL/BLOCKED has been explicitly accepted by a human (record who);
-- `npm run validate:all` and `npm run security` exited 0 in your own run.
+- the project's validation and security checks exited 0 in your own run (a NOT RUN gate means DO NOT DELIVER until a human accepts it).
 
 Claims by the developer ("tests pass", "secure", "verified") are not evidence. Only specialist outputs and commands you ran count.
 
