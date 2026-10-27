@@ -61,7 +61,7 @@ test('architect planner is read-only and requires pending human approval', () =>
   const guide = fs.readFileSync(path.join(root, 'docs/frontend-architect-planner.md'), 'utf8');
   assert.match(profile, /name: frontend-architect-planner/);
   assert.match(profile, /tools: Read, Grep, Glob, Bash/);
-  assert.doesNotMatch(profile.match(/^---[\\s\\S]*?---/m)?.[0] || '', /\b(Edit|Write)\b/);
+  assert.doesNotMatch(profile.match(/^---[\s\S]*?---/m)?.[0] || '', /\b(Edit|Write)\b/);
   for (const key of ['schema_version', 'repository_evidence', 'requirements', 'approach', 'tasks', 'dependencies', 'risks', 'verification', 'rollback', 'human_approval']) assert.ok(profile.includes(key), 'missing YAML contract key ' + key);
   assert.match(profile, /status: PENDING/);
   assert.match(profile, /required_before_implementation: true/);
