@@ -87,14 +87,21 @@ function read(full) {
 }
 // The first decoding is the file as its byte-order mark declares it; used where one reading is needed.
 const primary = (full) => read(full)?.[0] ?? null;
-// Block comments removed, keeping line breaks, as an extra reading for the code rules: a comment between
-// an option key and its colon would otherwise separate them. It only adds matches, never removes the raw-text ones.
-const withoutBlockComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ''));
-// Unicode and hex escapes decoded, as one more reading: a name or string written with escapes is the
-// same name or string to Node, so it must be the same to the rules too.
-const withoutEscapes = (text) => text.replace(/\\u\{([0-9a-fA-F]{1,6})\}|\\u([0-9a-fA-F]{4})|\\x([0-9a-fA-F]{2})/g, (escape, braced, four, two) => {
-  const code = parseInt(braced ?? four ?? two, 16);
-  return code <= 0x10ffff ? String.fromCodePoint(code) : escape;
+// Comments removed, keeping line breaks, as an extra reading for the code rules: a comment between an
+// option key and its colon, or a `// }` inside import braces, would otherwise separate what belongs
+// together. Like every extra reading, it only adds matches, never removes the raw-text ones.
+const withoutComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, '')).replace(/\/\/[^\n]*/g, '');
+// Escapes decoded, as one more reading: a name or string written with escapes is the same name or string
+// to Node, so it must be the same to the rules too. Covers \u and \x escapes, legacy octal escapes, line
+// continuations and single-character escapes (\c is c); \n, \t and similar become a space.
+const withoutEscapes = (text) => text.replace(/\\u\{([0-9a-fA-F]{1,6})\}|\\u([0-9a-fA-F]{4})|\\x([0-9a-fA-F]{2})|\\\r?\n|\\([0-7]{1,3})|\\([^\n])/g, (escape, braced, four, two, octal, single) => {
+  if (braced ?? four ?? two) {
+    const code = parseInt(braced ?? four ?? two, 16);
+    return code <= 0x10ffff ? String.fromCodePoint(code) : escape;
+  }
+  if (octal) return String.fromCharCode(parseInt(octal, 8) & 0xff);
+  if (single) return 'nrtbfv'.includes(single) ? ' ' : single;
+  return '';
 });
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 
@@ -125,12 +132,12 @@ const shellExecIndex = (text) => (LOADS_CHILD_PROCESS.test(text) ? firstIndex(te
 // A shell option other than a literal false: quoted or unquoted key, shorthand, a property assignment, or
 // the quoted name anywhere else (Reflect.set, Object.assign with a computed key).
 const SHELL_OPTION_FORMS = [
-  /['"`]shell['"`](?!\s*\]?\s*[:=]\s*false\b)/,
-  /['"`]?\bshell['"`]?\s*:(?!\s*false\b)/,
+  /['"`]shell['"`](?!\s*\]?\s*[:=]\s*false\s*(?:[,;)}\]\n]|$))/,
+  /['"`]?\bshell['"`]?\s*:(?!\s*false\s*(?:[,;)}\]\n]|$))/,
   /[{,]\s*shell\s*[,}]/,
-  /\.\s*shell\s*=(?!=)(?!\s*false\b)/,
-  /\[\s*['"`]shell['"`]\s*\]\s*=(?!=)(?!\s*false\b)/,
-  /\[\s*['"`]shell['"`]\s*\]\s*:(?!\s*false\b)/,
+  /\.\s*shell\s*=(?!=)(?!\s*false\s*(?:[,;)}\]\n]|$))/,
+  /\[\s*['"`]shell['"`]\s*\]\s*=(?!=)(?!\s*false\s*(?:[,;)}\]\n]|$))/,
+  /\[\s*['"`]shell['"`]\s*\]\s*:(?!\s*false\s*(?:[,;)}\]\n]|$))/,
   // The main-branch rule, kept verbatim so this gate is never weaker than it.
   /\bshell\s*:\s*true\b/,
 ];
@@ -146,21 +153,22 @@ const SHELL_NAME_LITERAL = /['"`](?:sh|ash|bash|zsh|dash|ksh|mksh|oksh|csh|tcsh|
 const SHELL_BINARY = /\b(?:spawn|spawnSync|execFile|execFileSync|fork)\s*\(\s*(?:['"`](?:[^'"`]*[\\/])?(?:sh|ash|bash|zsh|dash|ksh|mksh|oksh|csh|tcsh|fish|yash|busybox|nu|elvish|xonsh|cmd|powershell|pwsh)(?:\.exe)?['"`]|process\.env\.(?:SHELL|ComSpec|COMSPEC)\b)/i;
 // Code built from text: the global code evaluator and the code-from-string constructor named anywhere
 // (called, aliased, in an array, as a quoted key or property, through globalThis or Reflect), string timer
-// callbacks, any quoted node:vm specifier, Worker code strings and data: URL imports. `eval: false` (a
-// Worker option) and longer names such as manual-eval or evaluate are not matches. The first entry is
+// callbacks, any quoted node:vm specifier, Worker code strings and data: URL imports. That key set to a
+// plain false (a Worker option) and longer names such as manual-eval or evaluate are not matches. The first entry is
 // the main-branch rule; `[F]` is the same as `F` and only stops this file, which is scanned like any
 // other, from matching its own definitions, as do the other bracketed letters.
 const DYNAMIC_CODE_FORMS = [
   /\beval\s*\(|\bnew\s+[F]unction\s*\(/,
-  /(?<![\w$-])ev[a]l(?![\w$-])(?!['"`]?\s*:\s*false\b)/,
+  /(?<![\w$-])ev[a]l(?![\w$-])(?!['"`]?\s*:\s*false\s*(?:[,;)}\]\n]|$))/,
   /(?<![\w$])[F]unction(?![\w$])/,
   /\bset(?:Timeout|Interval|Immediate)\s*\(\s*['"`]/,
   /['"`](?:node:)?v[m]['"`]/,
   /\bimport\s*\(?\s*['"`]data:/i,
 ];
-// Node code anywhere, except browser .js files in the fixtures and their solutions (seeded defects).
+// Node code anywhere (JSX and TSX included), except browser .js files in the fixtures and their solutions
+// (seeded defects).
 // A script without an extension counts when its first line runs node.
-const isNodeCode = (rel, text) => /\.(?:mjs|cjs|mts|cts)$/.test(rel) || (/\.(?:js|ts)$/.test(rel) && !/^tests\/(?:fixtures|fixture-solutions)\//.test(rel)) || /^#![^\n]*\bnode\b/.test(text);
+const isNodeCode = (rel, text) => /\.(?:mjs|cjs|mts|cts)$/.test(rel) || (/\.(?:js|ts|jsx|tsx)$/.test(rel) && !/^tests\/(?:fixtures|fixture-solutions)\//.test(rel)) || /^#![^\n]*\bnode\b/.test(text);
 
 for (const { rel, full } of files) {
   const texts = read(full);
@@ -180,7 +188,7 @@ for (const { rel, full } of files) {
     for (const [rule, re] of SECRET_RULES) report(rule, text, re.exec(text)?.index ?? -1, ' (value not printed)');
   }
   if (!isNodeCode(rel, texts[0])) continue;
-  for (const text of texts.flatMap((raw) => [raw, withoutBlockComments(raw), withoutEscapes(raw), withoutEscapes(withoutBlockComments(raw))])) {
+  for (const text of texts.flatMap((raw) => [raw, withoutComments(raw), withoutEscapes(raw), withoutEscapes(withoutComments(raw))])) {
     report('dynamic-code-execution', text, firstIndex(text, DYNAMIC_CODE_FORMS));
     if (SHELL_ALLOWLIST.has(rel)) continue;
     report('unapproved-shell-true', text, firstIndex(text, SHELL_OPTION_FORMS), ' (shell option other than false)');

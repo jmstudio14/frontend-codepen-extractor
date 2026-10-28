@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildPrompt, findFixture, hostOnlyFiles, writeFileNoFollow } from './fixtures.mjs';
 
@@ -32,6 +32,23 @@ const run = (cmd, args, cwd) => {
   const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', timeout: 60000 });
   return { command: [cmd, ...args].join(' '), exit_code: r.status ?? 1, stdout: r.stdout || '', stderr: r.stderr || '', error: r.error?.message || null };
 };
+// Scoring runs its checks asynchronously, so a signal is handled at once rather than after the run: the
+// running check is stopped, and the exit handler removes the snapshot.
+let activeCheck = null;
+const runCheck = (cmd, args, cwd) => new Promise((resolve) => {
+  const child = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  activeCheck = child;
+  let stdout = '', stderr = '', error = null;
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const timer = setTimeout(() => child.kill('SIGKILL'), 60000);
+  child.on('error', (err) => { error = err.message; });
+  child.on('close', (code) => {
+    clearTimeout(timer);
+    activeCheck = null;
+    resolve({ command: [cmd, ...args].join(' '), exit_code: code ?? 1, stdout, stderr, error });
+  });
+});
 const git = (args, cwd) => run('git', args, cwd);
 // The workspace must live outside this clone: Claude Code loads CLAUDE.md from every parent directory,
 // and the solutions and assertion scripts would be a few directories away from the agent.
@@ -57,7 +74,12 @@ function listTree(dir) {
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
       const rel = prefix + entry.name;
       if (rel === '.git') continue;
-      if (entry.isDirectory()) walk(path.join(current, entry.name), rel + '/');
+      if (entry.isDirectory()) {
+        // An empty folder is not part of any fixture, so it is reported like a special entry.
+        const before = files.size + special.length;
+        walk(path.join(current, entry.name), rel + '/');
+        if (files.size + special.length === before) special.push(rel + '/');
+      }
       else if (entry.isFile()) files.set(rel, path.join(current, entry.name));
       else special.push(rel);
     }
@@ -66,8 +88,9 @@ function listTree(dir) {
   return { files, special };
 }
 // A private copy of the workspace's regular files, each read once. The comparison and every check read
-// only this copy, so a process left running from the agent's session cannot change a file after it was
-// compared. Symlinks and other special entries are not copied; they are reported instead.
+// only this copy, so the workspace changing during scoring does not change the result. (A process still
+// running as the same user could write into the copy too; scoring trusts that there is none, as the
+// measurement protocol says.) Symlinks and other special entries are not copied; they are reported instead.
 function snapshotWorkspace(workspace, dir) {
   const { files, special } = listTree(workspace);
   for (const [rel, full] of files) {
@@ -134,7 +157,9 @@ function prepare(caseId) {
   const workspace = path.join(base, 'workspace');
   if (fs.existsSync(workspace)) { console.error(`Workspace already exists: ${workspace}`); process.exit(2); }
   // Never overwrite the files of an earlier run (or anyone's files with these names) in an existing --dir.
-  const existing = ['meta.json', 'prompt.txt', 'report.json'].filter((name) => fs.existsSync(path.join(base, name)));
+  // lstat, so a dangling symlink with one of these names counts as existing and is never written through.
+  const present = (file) => { try { fs.lstatSync(file); return true; } catch { return false; } };
+  const existing = ['meta.json', 'prompt.txt', 'report.json'].filter((name) => present(path.join(base, name)));
   if (existing.length) { console.error(`${base} already contains ${existing.join(', ')}; choose an empty or new --dir.`); process.exit(2); }
   // On failure, remove only what this run created: the first new folder, or else just the workspace.
   let createdRoot;
@@ -166,12 +191,12 @@ function prepare(caseId) {
   }
   if (inherited.length) console.warn(`WARNING: Claude Code will also load ${inherited.join(', ')} in this workspace. Choose a --dir without CLAUDE.md above it for a clean measurement.`);
   const prompt = buildPrompt(testCase, fixture.manifest);
-  fs.writeFileSync(path.join(base, 'meta.json'), JSON.stringify({ case_id: caseId, fixture: path.relative(root, fixture.dir), base_commit: baseCommit, prepared_at: new Date().toISOString() }, null, 2) + '\n');
-  fs.writeFileSync(path.join(base, 'prompt.txt'), prompt + '\n');
+  writeFileNoFollow(path.join(base, 'meta.json'), JSON.stringify({ case_id: caseId, fixture: path.relative(root, fixture.dir), base_commit: baseCommit, prepared_at: new Date().toISOString() }, null, 2) + '\n');
+  writeFileNoFollow(path.join(base, 'prompt.txt'), prompt + '\n');
   console.log(`Workspace: ${workspace}\nPrompt saved to: ${path.join(base, 'prompt.txt')}\n\nNext:\n  1. cd "${workspace}"\n  2. claude   (with the frontend-codepen-extractor plugin installed)\n  3. Paste the prompt below, let the agent finish, and save its final answer.\n  4. node "${path.join(root, 'scripts/evaluation/manual-eval.mjs')}" score "${workspace}"\n\n--- prompt ---\n${prompt}`);
 }
 
-function score(workspaceArg) {
+async function score(workspaceArg) {
   const workspace = path.resolve(workspaceArg);
   // Checked before any check runs, so a typo in --output does not throw away a finished scoring run.
   if (option('--output')) {
@@ -195,8 +220,14 @@ function score(workspaceArg) {
     try { stat = fs.lstatSync(target); } catch {}
     if (stat && (stat.isSymbolicLink() || !ok(stat))) { console.error(`${target} exists but is not a regular ${kind}; refusing to write through it.`); process.exit(2); }
   }
-  const snapshot = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-snapshot-'));
-  process.on('exit', () => { try { fs.rmSync(snapshot, { recursive: true, force: true }); } catch {} });
+  // Removed on every exit, Ctrl-C and SIGTERM included, so no copy of the agent's work is left behind. The
+  // handlers are in place before the folder exists, so a signal cannot arrive in between.
+  let snapshot = null;
+  process.on('exit', () => { if (snapshot) { try { fs.rmSync(snapshot, { recursive: true, force: true }); } catch {} } });
+  for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) {
+    process.on(signal, () => { if (activeCheck) activeCheck.kill('SIGTERM'); process.exit(code); });
+  }
+  snapshot = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-snapshot-'));
   // Committed, staged, untracked and ignored changes all count, because only the files on disk are read.
   let comparison, special;
   try { special = snapshotWorkspace(workspace, snapshot); comparison = compareWithFixture(fixture, snapshot, special); }
@@ -207,10 +238,10 @@ function score(workspaceArg) {
   const checks = [];
   const add = (name, r) => checks.push({ name, command: r.command, status: r.exit_code === 0 ? 'PASS' : 'FAIL', exit_code: r.exit_code, output_excerpt: [r.stdout, r.stderr, r.error].filter(Boolean).join('\n').slice(-2500) });
   for (const file of manifest.editable_files.filter((f) => f.endsWith('.js'))) {
-    if (fs.existsSync(path.join(snapshot, file))) add(`JavaScript syntax: ${file}`, run(process.execPath, ['--check', path.join(snapshot, file)], root));
+    if (fs.existsSync(path.join(snapshot, file))) add(`JavaScript syntax: ${file}`, await runCheck(process.execPath, ['--check', path.join(snapshot, file)], root));
   }
-  add('Fixture quality assertions', run(process.execPath, [fixture.checkPath, snapshot], root));
-  const browserRun = run(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), snapshot, path.join(fixture.dir, 'fixture.json'), '--screenshots', shots], root);
+  add('Fixture quality assertions', await runCheck(process.execPath, [fixture.checkPath, snapshot], root));
+  const browserRun = await runCheck(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), snapshot, path.join(fixture.dir, 'fixture.json'), '--screenshots', shots], root);
   let browser = null;
   try { browser = JSON.parse(browserRun.stdout.trim().split(/\r?\n/).pop()); } catch {}
   const warnings = Array.isArray(browser?.warnings) ? browser.warnings.map(String) : [];
@@ -231,6 +262,7 @@ function score(workspaceArg) {
     repository: { compared_with: `a fresh copy of ${path.relative(root, fixture.dir).split(path.sep).join('/')}`, changed_files: changed, editable_files: manifest.editable_files, unexpected_files: unexpected },
     checks,
     human_review: [
+      `Is ${meta.case_id} the case you prepared? (meta.json is where the agent could have edited it.)`,
       'Does the agent\'s final report match these check results (no claimed PASS that is FAIL here, browser/visual QA reported as NOT RUN)?',
       'Do the screenshots still show the original component, working at 360px?',
       'Is the Git diff focused, without unrelated rewrites?',
@@ -246,5 +278,5 @@ function score(workspaceArg) {
 }
 
 if (command === 'prepare' && target) prepare(target);
-else if (command === 'score' && target) score(target);
+else if (command === 'score' && target) await score(target);
 else usage();

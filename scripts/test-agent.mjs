@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawn as spawnChild, spawnSync } from 'node:child_process';
 import net from 'node:net';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { classifyCommand } from './block-dangerous-commands.mjs';
 import { findFixture, hostOnlyFiles, isMissingBrowserDownload, listFixtures, validateManifest } from './evaluation/fixtures.mjs';
@@ -23,7 +23,7 @@ class NotRun extends Error {}
 {
   const real = (dir) => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
   const rel = path.relative(real(root), real(os.tmpdir()));
-  if (rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))) {
+  if (rel === '' || (rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel))) {
     console.error(`The temporary folder (${os.tmpdir()}) is inside this repository; set TMPDIR (TMP and TEMP on Windows) to a folder outside it and run the smoke tests again.`);
     process.exit(2);
   }
@@ -267,7 +267,7 @@ test('security gate reads agent tools as YAML and blocks agents that inherit eve
 test('security gate blocks child_process exec but not RegExp exec, and scans Node helpers under tests', () => {
   const cp = "'node:child_" + "process'";
   for (const source of [
-    `import { ex` + `ecSync } from ${cp};\nexecSync('ls');\n`,
+    `import { ex` + `ecSync } from ${cp};\nex` + `ecSync('ls');\n`,
     `import * as cp from ${cp};\ncp.ex` + `ec('ls');\n`,
     `const child = require(${cp});\nchild.ex` + `ecSync('ls');\n`,
   ]) {
@@ -412,6 +412,31 @@ test('security gate reads escaped names, every shell source, more shells and ext
   assert.equal(runGate({ 'bin/run': '#!/bin/sh\necho ok\n' }).status, 0, 'a shell script is not Node code');
   // Escapes that spell nothing flagged are fine.
   assert.equal(runGate({ 'scripts/a.mjs': `const nbsp = '${bs}u00a0';\nconst tab = '${bs}x09';\n` }).status, 0);
+});
+
+test('security gate decodes every escape form and reads past comments and non-false option values', () => {
+  const bs = String.fromCharCode(92);
+  const cp = (spelled) => `'node:${spelled}'`;
+  // Each ran its payload under node and passed both this gate's earlier version and the one on main.
+  for (const [file, source, rule] of [
+    ['scripts/a.mjs', `import cp from ${cp(`child_pro${bs}cess`)};\ncp.ex` + `ecSync('id');\n`, /unapproved-shell-exec/],
+    ['scripts/a.mjs', `import vm from ${cp(`v${bs}m`)};\nvm.runInThisContext('1');\n`, /dynamic-code-execution/],
+    ['scripts/a.mjs', `await import('d${bs}ata:text/javascript,console.log(1)');\n`, /dynamic-code-execution/],
+    ['scripts/a.mjs', `import cp from ${cp(`child_pro${bs}\ncess`)};\ncp.ex` + `ecSync('id');\n`, /unapproved-shell-exec/],
+    ['scripts/a.cjs', `require('child${bs}137process').ex` + `ecSync('id');\n`, /unapproved-shell-exec/],
+    ['scripts/a.mjs', `globalThis['ev${bs}\nal']('1');\n`, /dynamic-code-execution/],
+    ['scripts/a.mjs', `import { spawnSync } from ${cp('child_' + 'process')};\nspawnSync('ls', [], { ${'s' + 'hell'}: false || true });\n`, /unapproved-shell-true/],
+    ['scripts/a.mjs', `new Worker('x.js', { ${'ev' + 'al'}: false || true });\n`, /dynamic-code-execution/],
+    ['scripts/a.mjs', `import { ex` + `ecSync // }\n} from ${cp('child_' + 'process')};\n(0, ex` + `ecSync)('id');\n`, /unapproved-shell-exec/],
+    ['scripts/a.mjs', `import { spawnSync } from ${cp('child_' + 'process')};\nconst ${'s' + 'hell'} = true;\nspawnSync('ls', [], { ${'s' + 'hell'} // c\n});\n`, /unapproved-shell-true/],
+    ['src/view.jsx', `${'ev' + 'al'}(input);\n`, /dynamic-code-execution/],
+  ]) {
+    const run = runGate({ [file]: source });
+    assert.equal(run.status, 1, source);
+    assert.match(run.stderr, rule, source);
+  }
+  // A plain false, followed by the end of the value, is still allowed; so are ordinary escapes.
+  assert.equal(runGate({ 'scripts/a.mjs': `import { spawnSync } from ${cp('child_' + 'process')};\nspawnSync('git', ['status'], { ${'s' + 'hell'}: false });\nconst text = 'tab${bs}there${bs}n';\n` }).status, 0);
 });
 
 test('security gate keeps every main-branch secret rule', () => {
@@ -758,11 +783,9 @@ const BROWSER_MUTANTS = [
   ['dynamic-js-widget', 'widget.js', [['items[Number(vote.dataset.i)].votes += 1;', '']], /after click, .* is not shown/],
   // Removing a listener that was never added must not hide the real one.
   ['dynamic-js-widget', 'widget.js', [["document.removeEventListener('click', onClick);", "document.removeEventListener('click', () => {});"]], /listener\(s\) not removed by teardown/],
-  ['leaky-animation-prototype', 'prototype.js', [['cancelAnimationFrame(frame);', '']], /requestAnimationFrame still running after teardown/],
+  ['leaky-animation-prototype', 'prototype.js', [['cancelAnimationFrame(frame);', '']], /requestAnimationFrame or requestIdleCallback still running after teardown/],
   ['leaky-animation-prototype', 'prototype.js', [["window.removeEventListener('resize', onResize);", '']], /listener\(s\) not removed by teardown/],
   ['dynamic-js-widget', 'widget.js', [['clearInterval(timer);', '']], /interval\(s\) still active after teardown/],
-  // A signal listener that is removed and added again without the signal survives the abort.
-  ['dynamic-js-widget', 'widget.js', [["document.addEventListener('click', onClick);", "const first = new AbortController();\n  document.addEventListener('click', onClick, { signal: first.signal });\n  document.removeEventListener('click', onClick);\n  document.addEventListener('click', onClick);"], ["document.removeEventListener('click', onClick);\n      root.remove();", 'first.abort();\n      root.remove();']], /listener\(s\) not removed by teardown/],
   // A once listener with a signal that is aborted, then added again for good, is still a leak.
   ['dynamic-js-widget', 'widget.js', [["document.addEventListener('click', onClick);", "const first = new AbortController();\n  document.addEventListener('click', onClick, { once: true, signal: first.signal });\n  first.abort();\n  document.addEventListener('click', onClick);"], ["document.removeEventListener('click', onClick);\n      root.remove();", 'root.remove();']], /listener\(s\) not removed by teardown/],
   // Adding the same once listener twice registers it once; removing it and adding it plain is a leak.
@@ -957,6 +980,76 @@ window.app = { destroy() { stopped = true; clearInterval(id); } };
     if (result.status === 'NOT RUN') throw new NotRun(result.reason);
     assert.equal(result.status, 'PASS', JSON.stringify(result.failures));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// Runs browser-check on a one-page workspace; teardown calls window.app.destroy().
+function browserPage(script, extra = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-page-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'index.html'), `<!doctype html><title>Page</title><h1>Page</h1>${extra.body ?? ''}<script>\n${script}\n</script>\n`);
+    fs.writeFileSync(path.join(dir, 'fixture.json'), JSON.stringify({ browser: { visible: 'h1', teardown: 'window.app.destroy()', max_blocked_requests: 0 } }));
+    const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), dir, path.join(dir, 'fixture.json')], { cwd: root, encoding: 'utf8', timeout: 60000 });
+    const result = JSON.parse(run.stdout.trim().split(/\r?\n/).pop() || '{}');
+    if (result.status === 'NOT RUN') throw new NotRun(result.reason);
+    return result;
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+
+test('browser check counts the listeners the browser reports, however the page added or hid them', () => {
+  // Each page leaves one listener on window or document after teardown while trying to hide it from an
+  // in-page tracker; the count comes from the browser, so each is a FAIL.
+  for (const [name, script] of [
+    ['replaced Boolean', "window.Boolean = (v) => v;\nconst on = () => {};\ndocument.addEventListener('click', on, { capture: { toString() { return 'false'; } } });\nwindow.app = { destroy() { document.removeEventListener('click', on, false); } };"],
+    ['forged abort event', "const ac = new AbortController();\nwindow.addEventListener('resize', () => {}, { signal: ac.signal });\nwindow.app = { destroy() { ac.signal.dispatchEvent(new Event('abort')); } };"],
+    ['another frame', "const frame = document.createElement('iframe');\ndocument.body.append(frame);\nframe.contentWindow.EventTarget.prototype.addEventListener.call(window, 'resize', () => {});\nwindow.app = { destroy() {} };"],
+    ['on* property', "window.onresize = () => {};\nwindow.app = { destroy() {} };"],
+    ['poisoned WeakMap', "WeakMap.prototype.get = function () { return 1; };\nconst a = () => {}, b = () => {};\ndocument.addEventListener('click', a);\nwindow.app = { destroy() { document.removeEventListener('click', b); } };"],
+  ]) {
+    const result = browserPage(script);
+    assert.equal(result.status, 'FAIL', `${name}: ${JSON.stringify(result)}`);
+    assert.ok(result.failures.some((failure) => /listener\(s\) not removed by teardown/.test(failure)), `${name}: ${JSON.stringify(result.failures)}`);
+  }
+  // A correct teardown in the same styles passes.
+  const clean = browserPage("const ac = new AbortController();\nwindow.addEventListener('resize', () => {}, { signal: ac.signal });\nconst on = () => {};\ndocument.addEventListener('click', on, true);\nwindow.app = { destroy() { ac.abort(); document.removeEventListener('click', on, true); } };");
+  assert.equal(clean.status, 'PASS', JSON.stringify(clean.failures));
+});
+
+test('browser check judges timers by what is still pending, not by how many were set', () => {
+  // Finite one-shot work after teardown passes, including chains, pairs and string callbacks.
+  for (const work of ['setTimeout(() => setTimeout(() => setTimeout(() => {}, 50), 50), 50);', 'setTimeout(() => { setTimeout(() => {}, 10); setTimeout(() => {}, 10); }, 100);', 'setTimeout(() => { setTim' + "eout('void 0', 10); }, 100);"]) {
+    const result = browserPage(`window.app = { destroy() { ${work} } };`);
+    assert.equal(result.status, 'PASS', `${work} ${JSON.stringify(result.failures)}`);
+  }
+  // An idle-callback loop started in teardown is still running.
+  const idle = browserPage('window.app = { destroy() { (function loop() { requestIdleCallback(loop); })(); } };');
+  assert.ok(idle.failures.some((failure) => /requestAnimationFrame or requestIdleCallback still running/.test(failure)), JSON.stringify(idle.failures));
+});
+
+test('browser check loads only files inside the checked folder', () => {
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-outside-'));
+  try {
+    fs.writeFileSync(path.join(outside, 'payload.js'), 'window.loaded = true;\n');
+    fs.writeFileSync(path.join(outside, 'note.txt'), 'outside\n');
+    const url = (file) => pathToFileURL(path.join(outside, file)).href;
+    const result = browserPage('window.app = { destroy() {} };', { body: `<script src="${url('payload.js')}"></script><iframe src="${url('note.txt')}"></iframe>` });
+    assert.equal(result.status, 'FAIL', JSON.stringify(result));
+    assert.ok(result.failures.some((failure) => /file\(s\) outside the checked folder/.test(failure)), JSON.stringify(result.failures));
+  } finally { fs.rmSync(outside, { recursive: true, force: true }); }
+});
+
+test('browser check fails a workspace that lacks the teardown API the fixture requires', () => {
+  const fixture = listFixtures(root).find((item) => item.name === 'dynamic-js-widget');
+  const result = withWorkspace(fixture, path.join(root, 'tests/fixture-solutions/dynamic-js-widget'), (dir) => {
+    const file = path.join(dir, 'widget.js');
+    const text = fs.readFileSync(file, 'utf8');
+    assert.ok(text.includes('window.pollWidget = '));
+    // The name is still mentioned, so the text checks pass; only the browser can see it is missing.
+    fs.writeFileSync(file, text.replace('window.pollWidget = ', '/* window.pollWidget */ window.otherWidget = '));
+    return browserCheck(dir, fixture).result;
+  });
+  if (result.status === 'NOT RUN') throw new NotRun(result.reason);
+  assert.equal(result.status, 'FAIL');
+  assert.ok(result.failures.some((failure) => /teardown failed/.test(failure)), JSON.stringify(result.failures));
 });
 
 test('browser check says whether Chromium ran in its OS sandbox', () => {
@@ -1239,6 +1332,24 @@ test('evaluation harness treats --help as success and an unreadable suite as a u
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('evaluation harness fails a case whose checks or failed_checks are not lists, without crashing', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-containers-'));
+  try {
+    for (const [name, patch, reason] of [['object', { checks: {} }, /checks must be a list/], ['string', { checks: 'PASS' }, /checks must be a list/], ['tools', { tool_calls: 'x' }, /tool_calls must be a list/], ['failed', { objective: { passed: false, failed_checks: 'x' } }, /objective fixture checks failed: unspecified/]]) {
+      const adapter = path.join(dir, `${name}.mjs`);
+      fs.writeFileSync(adapter, `import fs from 'node:fs';
+fs.writeFileSync(process.env.AGENT_EVAL_RESULT_PATH, JSON.stringify(${JSON.stringify(patch)}));
+`);
+      const reportPath = path.join(dir, `${name}.json`);
+      const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `node "${adapter}"`, '--case', 'dynamic-js-widget', '--output', reportPath], { cwd: root, encoding: 'utf8', timeout: 60000 });
+      assert.equal(run.status, 1, name + run.stderr);
+      assert.doesNotMatch(run.stderr, /TypeError/, name);
+      const errors = JSON.parse(fs.readFileSync(reportPath, 'utf8')).cases[0].errors;
+      assert.ok(errors.some((error) => reason.test(error)), `${name}: ${JSON.stringify(errors)}`);
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('evaluation harness names the reason when a required metric is false', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-false-'));
   try {
@@ -1456,14 +1567,17 @@ test('manual scoring reads the files on disk and never the workspace Git, which 
     fs.rmSync(path.join(removed.workspace, 'avatar.svg'));
     assert.deepEqual(score(removed).report.repository.unexpected_files, ['avatar.svg']);
     const linked = fresh('linked');
-    let linkCreated = true;
-    try { fs.symlinkSync(path.join(linked.workspace, 'card.css'), path.join(linked.workspace, 'extra.css')); } catch { linkCreated = false; }
-    if (linkCreated) assert.deepEqual(score(linked).report.repository.unexpected_files, ['extra.css']);
+    try { fs.symlinkSync(path.join(linked.workspace, 'card.css'), path.join(linked.workspace, 'extra.css')); } catch (error) { throw new NotRun(`cannot create a symlink here (${error.code}); the parts above ran`); }
+    assert.deepEqual(score(linked).report.repository.unexpected_files, ['extra.css']);
     // Not even at an editable path: the checks would otherwise follow it out of the workspace.
     const editableLink = fresh('editable-link');
-    let editableCreated = true;
-    try { fs.rmSync(path.join(editableLink.workspace, 'card.css')); fs.symlinkSync(path.join(solution, 'card.css'), path.join(editableLink.workspace, 'card.css')); } catch { editableCreated = false; }
-    if (editableCreated) assert.ok(score(editableLink).report.repository.unexpected_files.includes('card.css'));
+    fs.rmSync(path.join(editableLink.workspace, 'card.css'));
+    fs.symlinkSync(path.join(solution, 'card.css'), path.join(editableLink.workspace, 'card.css'));
+    assert.ok(score(editableLink).report.repository.unexpected_files.includes('card.css'));
+    // An empty folder is not part of the fixture either.
+    const emptyFolder = fresh('empty-folder');
+    fs.mkdirSync(path.join(emptyFolder.workspace, 'stash', 'deeper'), { recursive: true });
+    assert.deepEqual(score(emptyFolder).report.repository.unexpected_files, ['stash/deeper/']);
   } finally { fs.rmSync(base, { recursive: true, force: true }); }
 });
 
@@ -1626,6 +1740,59 @@ test('manual scoring never writes the report or screenshots through a symlink', 
     fs.symlinkSync(victim, path.join(dir, 'screenshots', 'before.png'));
     spawnSync(process.execPath, [manualEval, 'score', path.join(dir, 'workspace')], { encoding: 'utf8', timeout: 120000 });
     assert.equal(fs.readFileSync(victim, 'utf8'), 'keep\n');
+    // Without a browser no screenshot is written, so this last part did not exercise anything.
+    const browserCheckResult = JSON.parse(fs.readFileSync(path.join(dir, 'report.json'), 'utf8')).checks.find((check) => check.name.startsWith('Browser check'));
+    if (browserCheckResult.status === 'NOT RUN') throw new NotRun('no browser, so the screenshot write was not exercised; the parts above ran');
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('writeFileNoFollow refuses a symlink at the file itself', async () => {
+  if (process.platform === 'win32') throw new NotRun('Windows has no O_NOFOLLOW; the lstat checks cover it');
+  const { writeFileNoFollow } = await import('./evaluation/fixtures.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'no-follow-'));
+  try {
+    const victim = path.join(dir, 'victim.txt');
+    fs.writeFileSync(victim, 'keep\n');
+    fs.symlinkSync(victim, path.join(dir, 'link.json'));
+    assert.throws(() => writeFileNoFollow(path.join(dir, 'link.json'), 'x'), /ELOOP|EMLINK/);
+    assert.equal(fs.readFileSync(victim, 'utf8'), 'keep\n');
+    writeFileNoFollow(path.join(dir, 'plain.json'), 'ok');
+    assert.equal(fs.readFileSync(path.join(dir, 'plain.json'), 'utf8'), 'ok');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('manual evaluation prepare never writes through a dangling symlink in --dir', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-dangling-'));
+  try {
+    const dir = path.join(base, 'run');
+    fs.mkdirSync(dir);
+    const planted = path.join(base, 'planted.txt');
+    try { fs.symlinkSync(planted, path.join(dir, 'prompt.txt')); } catch (error) { throw new NotRun(`cannot create a symlink here (${error.code})`); }
+    const run = spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 });
+    assert.equal(run.status, 2, run.stdout + run.stderr);
+    assert.match(run.stderr, /already contains prompt\.txt/);
+    assert.equal(fs.existsSync(planted), false, 'nothing is written through the link');
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual scoring stops and removes its snapshot when interrupted', async () => {
+  if (process.platform === 'win32') throw new NotRun('POSIX signals');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-interrupt-'));
+  try {
+    const dir = path.join(base, 'run');
+    assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 }).status, 0);
+    const tmp = path.join(base, 'tmp');
+    fs.mkdirSync(tmp);
+    for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+      // Its own process group, signalled as a whole, as a terminal does on Ctrl-C.
+      const child = spawnChild(process.execPath, [manualEval, 'score', path.join(dir, 'workspace')], { stdio: 'ignore', detached: true, env: { ...process.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp } });
+      const deadline = Date.now() + 20000;
+      while (!fs.readdirSync(tmp).some((name) => name.startsWith('manual-eval-snapshot-')) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20));
+      const exited = new Promise((resolve) => child.on('exit', (exitCode) => resolve(exitCode)));
+      process.kill(-child.pid, signal);
+      assert.equal(await exited, code, signal);
+      assert.deepEqual(fs.readdirSync(tmp).filter((name) => name.startsWith('manual-eval-snapshot-')), [], `the snapshot is removed after ${signal}`);
+    }
   } finally { fs.rmSync(base, { recursive: true, force: true }); }
 });
 

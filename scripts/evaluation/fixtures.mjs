@@ -10,8 +10,6 @@ export function hostOnlyFiles(manifest) {
   return new Set([...HOST_ONLY_FILES, ...(Array.isArray(manifest?.host_only_files) ? manifest.host_only_files : [])]);
 }
 
-// Only a missing browser download means the check could not run. Playwright's missing-system-library
-// error suggests `npx playwright install-deps`; that, a crash or a sandbox error is a real failure.
 // Writes a file without following a symlink placed at its path (O_NOFOLLOW; Windows lacks the flag, so
 // callers also check the path with lstat first).
 export function writeFileNoFollow(file, data) {
@@ -20,6 +18,8 @@ export function writeFileNoFollow(file, data) {
   try { fs.writeFileSync(fd, data); } finally { fs.closeSync(fd); }
 }
 
+// Only a missing browser download means the check could not run. Playwright's missing-system-library
+// error suggests `npx playwright install-deps`; that, a crash or a sandbox error is a real failure.
 export function isMissingBrowserDownload(message) {
   return /Executable doesn't exist/i.test(message) || /npx playwright install(?!-deps)\b/i.test(message);
 }

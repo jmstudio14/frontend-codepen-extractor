@@ -42,104 +42,74 @@ try {
   process.exit(0);
 }
 
-// Tracks timers and window/document listeners so teardown can be verified. A listener counts once per
-// (target, type, callback, capture), as in the DOM, and removing one that was never added changes nothing.
-// The page under test is untrusted, so the tracker relies on nothing it can redefine: every built-in it
-// uses is captured before any page code runs and called through the captured Reflect.apply; its counts are
-// plain numbers in objects without a prototype; listeners are tracked on EventTarget.prototype, so calling
-// it directly is counted too; options are read once and passed on as read; and the page sees only a frozen
-// read-out that returns a string. Not covered: timers taken from another frame's window
-// (iframe.contentWindow), on* handler properties (window.onresize = ...) and listeners on elements below
-// document.
+// Tracks timers and animation callbacks so teardown can be verified. Listeners are not tracked here: the
+// browser itself reports them (see listenerCount below), so page code cannot hide one. Timers have no such
+// report, so they are counted by wrappers installed before any page code runs. The page under test is
+// untrusted, so the wrappers rely on nothing it can redefine: every built-in they use is captured first
+// and called through the captured Reflect.apply, counts are plain numbers in objects without a prototype,
+// and the page sees only a frozen read-out that returns a string. Not covered: timers taken from another
+// frame's window (iframe.contentWindow), and a single timeout set before teardown that fires later.
 const trackerScript = () => {
   const apply = Reflect.apply, create = Object.create, freeze = Object.freeze, define = Object.defineProperty;
-  const describe = Object.getOwnPropertyDescriptor;
-  const WeakMapCtor = WeakMap, wmGet = WeakMap.prototype.get, wmSet = WeakMap.prototype.set;
-  const Controller = AbortController, abort = AbortController.prototype.abort;
-  const controllerSignal = describe(AbortController.prototype, 'signal').get, signalAborted = describe(AbortSignal.prototype, 'aborted').get;
-  const nativeAdd = EventTarget.prototype.addEventListener, nativeRemove = EventTarget.prototype.removeEventListener;
   const setI = window.setInterval, clearI = window.clearInterval, raf = window.requestAnimationFrame;
-  const setT = window.setTimeout, clearT = window.clearTimeout;
-  const intervals = create(null), pending = create(null), listeners = create(null), cleanups = create(null);
-  let intervalCount = 0, listenerCount = 0, rafCalls = 0, timeoutCalls = 0, nextId = 0;
+  const setT = window.setTimeout, clearT = window.clearTimeout, idle = window.requestIdleCallback;
+  const intervals = create(null), pending = create(null);
+  let intervalCount = 0, frameCalls = 0, timeoutCalls = 0;
   const dropInterval = (id) => { if (intervals[id]) { intervals[id] = false; intervalCount -= 1; } };
   // Browsers share one id pool: clearTimeout also clears an interval, and clearInterval a timeout.
   const clearAny = (id) => { dropInterval(id); pending[id] = 0; };
   // Timeouts still pending, by the order they were set in, so that one set after teardown began and still
-  // pending at the end (a self-rescheduling loop with any period shorter than the wait) is caught.
+  // pending at the end (a self-rescheduling loop with any period shorter than the wait) is caught, while
+  // one-shot timeouts that fire, however many, are not.
   const pendingTimeoutsSetAfter = (mark) => { let count = 0; for (const id in pending) if (pending[id] > mark) count += 1; return count; };
-  const snapshot = () => intervalCount + ',' + rafCalls + ',' + timeoutCalls + ',' + listenerCount;
+  const snapshot = () => intervalCount + ',' + frameCalls + ',' + timeoutCalls;
   define(window, '__lifecycle', { value: freeze({ snapshot, pendingTimeoutsSetAfter }), writable: false, configurable: false, enumerable: false });
-  window.setInterval = function (...a) { const id = apply(setI, window, a); if (!intervals[id]) { intervals[id] = true; intervalCount += 1; } return id; };
-  window.clearInterval = function (id) { clearAny(id); return apply(clearI, window, [id]); };
-  window.clearTimeout = function (id) { clearAny(id); return apply(clearT, window, [id]); };
-  // Counted and tracked until it fires or is cleared, so a timeout loop that survives teardown is detected.
-  window.setTimeout = function (callback, ...rest) {
-    const order = ++timeoutCalls;
-    let id;
-    const run = typeof callback === 'function' ? function (...a) { pending[id] = 0; return apply(callback, this, a); } : callback;
-    id = apply(setT, window, [run, ...rest]);
-    pending[id] = order;
+  window.setInterval = function (handler, delay, ...rest) {
+    const args = [handler, delay];
+    for (let i = 0; i < rest.length; i += 1) args[args.length] = rest[i];
+    const id = apply(setI, window, args);
+    if (!intervals[id]) { intervals[id] = true; intervalCount += 1; }
     return id;
   };
-  window.requestAnimationFrame = function (callback) { rafCalls += 1; return apply(raf, window, [callback]); };
-  const callbackIds = new WeakMapCtor();
-  const keyOf = (targetName, type, callback, capture) => {
-    let id = apply(wmGet, callbackIds, [callback]);
-    if (id === undefined) { id = ++nextId; apply(wmSet, callbackIds, [callback, id]); }
-    return targetName + '|' + type + '|' + id + '|' + capture;
+  window.clearInterval = function (id) { clearAny(id); return apply(clearI, window, [id]); };
+  window.clearTimeout = function (id) { clearAny(id); return apply(clearT, window, [id]); };
+  // Tracked until it fires or is cleared, so a timeout loop that survives teardown is detected. A string
+  // callback cannot be wrapped, so a companion timeout with the same delay marks it as fired.
+  window.setTimeout = function (handler, delay, ...rest) {
+    const order = ++timeoutCalls;
+    let id;
+    const run = typeof handler === 'function' ? function (...a) { pending[id] = 0; return apply(handler, this, a); } : handler;
+    const args = [run, delay];
+    for (let i = 0; i < rest.length; i += 1) args[args.length] = rest[i];
+    id = apply(setT, window, args);
+    pending[id] = order;
+    if (typeof handler !== 'function') apply(setT, window, [() => { pending[id] = 0; }, delay]);
+    return id;
   };
-  const forget = (key) => {
-    if (listeners[key]) { listeners[key] = false; listenerCount -= 1; }
-    const cleanup = cleanups[key];
-    cleanups[key] = null;
-    if (cleanup) cleanup();
-  };
-  const tracked = (target) => (target === window ? 'window' : target === document ? 'document' : null);
-  const isCallback = (callback) => callback !== null && (typeof callback === 'function' || typeof callback === 'object');
-  // Options are read once; the browser receives exactly what the tracker saw, so a getter cannot answer
-  // the two differently.
-  const readOptions = (options) => {
-    if (typeof options !== 'object' || options === null) return { capture: Boolean(options), once: false, passive: undefined, signal: undefined };
-    return { capture: Boolean(options.capture), once: Boolean(options.once), passive: options.passive === undefined ? undefined : Boolean(options.passive), signal: options.signal };
-  };
-  const isAborted = (signal) => { try { return apply(signalAborted, signal, []); } catch { return false; } };
-  EventTarget.prototype.addEventListener = function (type, callback, options) {
-    const targetName = tracked(this);
-    if (!targetName || !isCallback(callback)) return apply(nativeAdd, this, [type, callback, options]);
-    const read = readOptions(options), name = '' + type;
-    const passOn = { capture: read.capture, once: read.once };
-    if (read.passive !== undefined) passOn.passive = read.passive;
-    if (read.signal !== undefined) passOn.signal = read.signal;
-    // Follows the DOM: an add with an already aborted signal does nothing, a `once` listener is gone after
-    // it fires, and a `signal` listener is gone when its signal aborts. Each counted listener keeps a cleanup
-    // that detaches its helpers, so removing it, firing it or aborting it never leaves a helper behind
-    // that could later un-count a different registration of the same listener.
-    if (read.signal === undefined || !isAborted(read.signal)) {
-      const key = keyOf(targetName, name, callback, read.capture);
-      if (!listeners[key]) {
-        listeners[key] = true;
-        listenerCount += 1;
-        const helpers = new Controller(), helperSignal = apply(controllerSignal, helpers, []);
-        if (read.once) apply(nativeAdd, this, [name, () => forget(key), { once: true, capture: read.capture, signal: helperSignal }]);
-        if (read.signal !== undefined) { try { apply(nativeAdd, read.signal, ['abort', () => forget(key), { once: true, signal: helperSignal }]); } catch {} }
-        cleanups[key] = () => apply(abort, helpers, []);
-      }
-    }
-    return apply(nativeAdd, this, [name, callback, passOn]);
-  };
-  EventTarget.prototype.removeEventListener = function (type, callback, options) {
-    const targetName = tracked(this);
-    if (!targetName || !isCallback(callback)) return apply(nativeRemove, this, [type, callback, options]);
-    const capture = readOptions(options).capture, name = '' + type;
-    forget(keyOf(targetName, name, callback, capture));
-    return apply(nativeRemove, this, [name, callback, { capture }]);
-  };
+  window.requestAnimationFrame = function (callback) { frameCalls += 1; return apply(raf, window, [callback]); };
+  if (typeof idle === 'function') window.requestIdleCallback = function (callback, options) { frameCalls += 1; return apply(idle, window, [callback, options]); };
 };
+
+// Listeners on window and document as the browser itself reports them (DevTools protocol), whoever added
+// them: page code, another frame's EventTarget.prototype, or a listener whose signal never really aborted.
+// window and document cannot be redefined by the page. A page without scripts has none.
+async function listenerCount(page) {
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    let total = 0;
+    for (const expression of ['window', 'document']) {
+      const { result } = await cdp.send('Runtime.evaluate', { expression, objectGroup: 'lifecycle' });
+      total += (await cdp.send('DOMDebugger.getEventListeners', { objectId: result.objectId })).listeners.length;
+    }
+    await cdp.send('Runtime.releaseObjectGroup', { objectGroup: 'lifecycle' });
+    return total;
+  } finally { await cdp.detach(); }
+}
 
 const failures = [];
 const errors = [];
 const blocked = [];
+const outside = [];
 const screenshots = [];
 const warnings = [];
 // The pages are untrusted, so Chromium runs in its OS sandbox. Chromium cannot sandbox itself as root,
@@ -168,9 +138,24 @@ if (!sandbox) warnings.push('Chromium ran without its OS sandbox (running as roo
 try {
   const viewport = { width: config.viewport_width ?? 360, height: 800 };
   const context = await browser.newContext({ viewport, serviceWorkers: 'block' });
-  // On the context, so popups and workers are covered too. WebSockets are not HTTP routes; they are closed
-  // and counted separately. A Playwright too old to intercept them cannot keep the page offline.
-  await context.route('**/*', (route) => (route.request().url().startsWith('file:') ? route.continue() : (blocked.push(route.request().url()), route.abort())));
+  // On the context, so popups, frames and workers are covered too. Only files inside the checked folder
+  // load: anything else (a script kept in .git, a file elsewhere on disk) would run or show content that
+  // was never compared. WebSockets are not HTTP routes; they are closed and counted separately. A
+  // Playwright too old to intercept them cannot keep the page offline.
+  const workspaceReal = fs.realpathSync(workspace);
+  const insideWorkspace = (url) => {
+    let target;
+    try { target = fileURLToPath(url); } catch { return false; }
+    try { target = fs.realpathSync(target); } catch { target = path.resolve(target); }
+    const rel = path.relative(workspaceReal, target);
+    return rel === '' || (rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel));
+  };
+  await context.route('**/*', (route) => {
+    const url = route.request().url();
+    if (url.startsWith('file:') && insideWorkspace(url)) return route.continue();
+    if (url.startsWith('file:')) outside.push(url); else blocked.push(url);
+    return route.abort();
+  });
   if (typeof context.routeWebSocket !== 'function') throw new Error('this Playwright version cannot block WebSockets; use Playwright 1.48 or later');
   await context.routeWebSocket(/.*/, (socket) => { blocked.push(socket.url()); socket.close(); });
   const page = await context.newPage();
@@ -182,7 +167,12 @@ try {
 
   const shot = async (name) => {
     if (!shotsArg) return;
-    fs.mkdirSync(path.resolve(shotsArg), { recursive: true });
+    // Checked again right before writing, so a folder swapped for a link after earlier checks is refused.
+    const dir = path.resolve(shotsArg);
+    let stat = null;
+    try { stat = fs.lstatSync(dir); } catch {}
+    if (stat && (stat.isSymbolicLink() || !stat.isDirectory())) throw new Error(`${dir} is not a real folder; refusing to write screenshots through it`);
+    if (!stat) fs.mkdirSync(dir, { recursive: true });
     const file = path.join(path.resolve(shotsArg), name + '.png');
     // Written by this script rather than by Playwright, so a symlink placed at the file is not followed.
     writeFileNoFollow(file, await page.screenshot({ fullPage: true }));
@@ -220,20 +210,22 @@ try {
     if (tornDown) {
       // The read-out is a string of numbers, so no object the page could tamper with is serialised.
       const read = async () => {
-        const [intervals, raf, timeouts, listeners] = (await page.evaluate(() => window.__lifecycle.snapshot())).split(',').map(Number);
-        return { intervals, raf, timeouts, listeners };
+        const [intervals, frames, timeouts] = (await page.evaluate(() => window.__lifecycle.snapshot())).split(',').map(Number);
+        return { intervals, frames, timeouts };
       };
       const before = await read();
       // More than twice the fixtures' one-second clock, so a loop with that period reschedules in the window.
       await page.waitForTimeout(2200);
       const state = await read();
       const rescheduled = await page.evaluate((mark) => window.__lifecycle.pendingTimeoutsSetAfter(mark), before.timeouts);
+      const listeners = await listenerCount(page);
       if (state.intervals) failures.push(`${state.intervals} interval(s) still active after teardown`);
-      if (state.raf > before.raf + 1) failures.push('requestAnimationFrame still running after teardown');
-      if (state.timeouts > before.timeouts + 1 || rescheduled) failures.push('setTimeout still rescheduling after teardown');
-      if (state.listeners > 0) failures.push(`${state.listeners} window/document listener(s) not removed by teardown`);
+      if (state.frames > before.frames + 1) failures.push('requestAnimationFrame or requestIdleCallback still running after teardown');
+      if (rescheduled) failures.push('setTimeout still rescheduling after teardown');
+      if (listeners > 0) failures.push(`${listeners} window/document listener(s) not removed by teardown`);
     }
   }
+  if (outside.length) failures.push(`page tried to load ${outside.length} file(s) outside the checked folder: ${outside.slice(0, 3).join(', ')}`);
   if (typeof config.max_blocked_requests === 'number' && blocked.length > config.max_blocked_requests) failures.push(`${blocked.length} network request(s) attempted; page must work offline`);
   for (const error of errors) failures.push('page error: ' + error.slice(0, 200));
 } catch (error) {

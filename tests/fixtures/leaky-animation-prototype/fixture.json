@@ -9,6 +9,6 @@
   "browser": {
     "visible": "canvas",
     "roles": [{ "role": "button", "name": "." }],
-    "teardown": "window.orbitDemo && window.orbitDemo.destroy()"
+    "teardown": "window.orbitDemo.destroy()"
   }
 }
