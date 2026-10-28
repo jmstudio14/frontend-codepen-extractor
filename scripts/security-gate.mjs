@@ -42,7 +42,9 @@ const relOf = (full) => path.relative(root, full).split(path.sep).join('/');
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
-    if (SKIP_DIRS.has(entry.name) && dir === root) continue;
+    // Only real directories are skipped: a symlink or file named like one (a committed node_modules link)
+    // is still reported below.
+    if (SKIP_DIRS.has(entry.name) && dir === root && entry.isDirectory()) continue;
     if (entry.isSymbolicLink()) finding('unscanned-symlink', relOf(full), 'symlinks are not followed; commit the real file instead');
     else if (entry.isDirectory()) walk(full, out);
     else if (entry.isFile()) {

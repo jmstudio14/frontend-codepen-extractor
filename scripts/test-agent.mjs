@@ -402,6 +402,24 @@ test('security gate cannot be steered into hiding code by templates, division or
   assert.equal(runGate({ 'scripts/a.mjs': `const options = { ${sh}: false };\noptions.${sh} = false;\n` }).status, 0);
 });
 
+test('no symlink or ignored folder is ever committed', () => {
+  const run = spawnSync('git', ['ls-files', '-s'], { cwd: root, encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stderr);
+  const entries = run.stdout.split('\n').filter(Boolean).map((line) => ({ mode: line.split(/\s+/)[0], file: line.split('\t')[1] }));
+  assert.deepEqual(entries.filter((entry) => entry.mode === '120000').map((entry) => entry.file), [], 'symlinks are machine-specific and break checkouts');
+  assert.deepEqual(entries.filter((entry) => /^(?:node_modules|evaluation-results|__pycache__)(?:\/|$)/.test(entry.file)).map((entry) => entry.file), []);
+});
+
+test('security gate reports a root symlink named like a skipped folder', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'security-gate-skiplink-'));
+  try {
+    try { fs.symlinkSync(os.tmpdir(), path.join(dir, 'node_modules'), 'junction'); } catch (error) { throw new NotRun(`cannot create a link here (${error.code})`); }
+    const run = spawnSync(process.execPath, [path.join(root, 'scripts/security-gate.mjs'), '--root', dir], { encoding: 'utf8', timeout: 30000 });
+    assert.equal(run.status, 1, run.stdout);
+    assert.match(run.stderr, /unscanned-symlink: node_modules/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('security gate scans folders named like skipped ones below the root, and more key formats', () => {
   for (const folder of ['node_modules', 'evaluation-results', '.git']) {
     const run = runGate({ [`.claude/agents/${folder}/frontend-security-reviewer.md`]: '---\nname: frontend-security-reviewer\ntools: Read, Edit\n---\n' });
