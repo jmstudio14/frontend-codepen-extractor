@@ -938,6 +938,27 @@ test('browser check blocks WebSockets and counts them as network requests', asyn
   }
 });
 
+test('browser check calls the browser itself, not built-ins the page has replaced', () => {
+  // The page replaces Reflect.apply so that clearInterval silently does nothing. A tracker that called
+  // through the page's Reflect.apply would believe the interval was cleared while it kept running; here the
+  // interval throws if it ever runs after teardown, so that mistake shows up as a page error.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-builtins-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'index.html'), `<!doctype html><title>Builtins</title><h1>Builtins page</h1><script>
+const real = Reflect.apply;
+Reflect.apply = (fn, self, args) => (fn && fn.name === 'clearInterval' ? undefined : real(fn, self, args));
+let stopped = false;
+const id = setInterval(() => { if (stopped) throw new Error('interval still running after teardown'); }, 50);
+window.app = { destroy() { stopped = true; clearInterval(id); } };
+</script>\n`);
+    fs.writeFileSync(path.join(dir, 'fixture.json'), JSON.stringify({ browser: { visible: 'h1', teardown: 'window.app.destroy()', max_blocked_requests: 0 } }));
+    const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), dir, path.join(dir, 'fixture.json')], { cwd: root, encoding: 'utf8', timeout: 60000 });
+    const result = JSON.parse(run.stdout.trim().split(/\r?\n/).pop() || '{}');
+    if (result.status === 'NOT RUN') throw new NotRun(result.reason);
+    assert.equal(result.status, 'PASS', JSON.stringify(result.failures));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('browser check says whether Chromium ran in its OS sandbox', () => {
   const fixture = listFixtures(root).find((item) => item.name === 'broken-html-card');
   const result = withWorkspace(fixture, path.join(root, 'tests/fixture-solutions/broken-html-card'), (dir) => browserCheck(dir, fixture).result);
