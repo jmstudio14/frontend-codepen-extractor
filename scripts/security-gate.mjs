@@ -57,35 +57,48 @@ function walk(dir, out = []) {
 }
 const files = walk(root).map((full) => ({ rel: relOf(full), full }));
 const textCache = new Map();
-// UTF-16 files (with a byte-order mark) are decoded and scanned; other files with NUL bytes are binary.
+// Returns the decodings to scan, or null for a binary file. A UTF-16 byte-order mark is a claim, not proof:
+// the bytes after it are scanned as UTF-16 and also as UTF-8, so two leading bytes cannot hide plain text.
+// If they are not valid UTF-16 text (odd length, or a NUL code unit), only the UTF-8 reading counts.
+// Without a mark, a file with NUL bytes is binary.
 function read(full) {
   if (textCache.has(full)) return textCache.get(full);
   const bytes = fs.readFileSync(full);
-  let text;
-  if (bytes[0] === 0xff && bytes[1] === 0xfe) text = bytes.subarray(2).toString('utf16le');
-  else if (bytes[0] === 0xfe && bytes[1] === 0xff) text = Buffer.from(bytes.subarray(2)).swap16().toString('utf16le');
-  else text = bytes.toString('utf8').replace(/^\uFEFF/, '');
-  if (text.includes('\u0000')) text = null;
-  textCache.set(full, text);
-  return text;
+  const utf8 = bytes.toString('utf8').replace(/^\uFEFF/, '');
+  const le = bytes[0] === 0xff && bytes[1] === 0xfe, be = bytes[0] === 0xfe && bytes[1] === 0xff;
+  let texts = utf8.includes('\u0000') ? null : [utf8];
+  if ((le || be) && bytes.length % 2 === 0) {
+    const body = Buffer.from(bytes.subarray(2));
+    const utf16 = (be ? body.swap16() : body).toString('utf16le');
+    if (!utf16.includes('\u0000')) texts = [utf16, utf8];
+  }
+  textCache.set(full, texts);
+  return texts;
 }
+// The first decoding is the file as its byte-order mark declares it; used where one reading is needed.
+const primary = (full) => read(full)?.[0] ?? null;
+// Block comments removed, keeping line breaks, as an extra reading for the code rules: a comment between
+// an option key and its colon would otherwise separate them. It only adds matches, never removes the raw-text ones.
+const withoutBlockComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ''));
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 
 // Code rules read the raw text. An earlier version masked comments and literals first, but a heuristic
 // tokenizer can be steered by ordinary syntax (a regex after `)`, `i++ / 2`, `${...}` in a template) into
-// hiding real code, so the gate stays fail-closed and the patterns themselves are kept precise instead.
-// They are heuristics, not a parser: names computed at runtime from strings are not detected.
+// hiding real code, so the gate stays fail-closed: the rules flag the names themselves, wherever they
+// appear in Node code, rather than trying to recognise every way of calling them. They are heuristics,
+// not a parser. Not detected: names computed at runtime from strings (such as 'ev' + 'al'), reaching the
+// constructor through `.constructor`, and running another program (node -e, env, a script file) whose
+// arguments carry code; only shells are recognised by name.
 //
-// child_process exec/execSync always run through a shell. In a file that loads child_process, calls,
-// member calls, bracket access, destructuring and aliases of exec/execSync are flagged.
+// child_process exec/execSync always run through a shell. In a file that loads child_process, any call,
+// member access, bracket access, destructuring or alias of exec/execSync is flagged.
 // Any quoted child_process specifier counts as loading it, which also covers createRequire.
 const LOADS_CHILD_PROCESS = /['"`](?:node:)?child_process['"`]/;
 const SHELL_EXEC_FORMS = [
   /(?<![\w$.])(?:exec|execSync)\s*\(/,
-  /\.\s*(?:exec|execSync)\s*\(/,
+  /\.\s*(?:exec|execSync)\b/,
   /\[\s*['"`](?:exec|execSync)['"`]\s*\]/,
   /\{[^{}]*\b(?:exec|execSync)\b[^{}]*\}\s*(?:=|from)/,
-  /[=:(,]\s*[\w$.]*\.\s*(?:exec|execSync)\b(?!\s*\()/,
   /=\s*(?:exec|execSync)\b/,
 ];
 function firstIndex(text, patterns) {
@@ -93,8 +106,10 @@ function firstIndex(text, patterns) {
   return indexes.length ? Math.min(...indexes) : -1;
 }
 const shellExecIndex = (text) => (LOADS_CHILD_PROCESS.test(text) ? firstIndex(text, SHELL_EXEC_FORMS) : -1);
-// A shell option other than a literal false: quoted or unquoted key, shorthand, or a property assignment.
+// A shell option other than a literal false: quoted or unquoted key, shorthand, a property assignment, or
+// the quoted name anywhere else (Reflect.set, Object.assign with a computed key).
 const SHELL_OPTION_FORMS = [
+  /['"`]shell['"`](?!\s*\]?\s*[:=]\s*false\b)/,
   /['"`]?\bshell['"`]?\s*:(?!\s*false\b)/,
   /[{,]\s*shell\s*[,}]/,
   /\.\s*shell\s*=(?!=)(?!\s*false\b)/,
@@ -104,57 +119,59 @@ const SHELL_OPTION_FORMS = [
   /\bshell\s*:\s*true\b/,
 ];
 // Spawning a shell binary directly, by bare name or by path; in a file that loads child_process, any string
-// that is a path to a shell also counts, because it may reach spawn through a variable.
-const SHELL_PATH_LITERAL = /['"`](?:[^'"`\s]*[\\/])(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?['"`]/i;
+// that names a shell also counts, because it may reach spawn through a variable or as an argument of
+// another program (env sh -c ...). Paths and .exe names match in any letter case; bare names only in lower
+// case, because 'Bash' and 'PowerShell' are also Claude Code tool names.
+const SHELL_PATH_LITERAL = /['"`](?:[^'"`\s]*[\\/](?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?|(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)\.exe)['"`]/i;
+const SHELL_NAME_LITERAL = /['"`](?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)['"`]/;
 const SHELL_BINARY = /\b(?:spawn|spawnSync|execFile|execFileSync|fork)\s*\(\s*(?:['"`](?:[^'"`]*[\\/])?(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?['"`]|process\.env\.(?:SHELL|ComSpec|COMSPEC)\b)/i;
-// Code built from text: the global code evaluator in direct, optional, indirect, aliased, method or
-// globalThis form; the code-from-string constructor (with or without new, or parenthesised); string timer
-// callbacks; node:vm; Worker code strings; and data: URL imports. The first entry is the main-branch rule,
-// kept verbatim so this gate is never weaker than it. These patterns are written so that this file, which
-// is scanned like any other, does not match its own definitions.
+// Code built from text: the global code evaluator and the code-from-string constructor named anywhere
+// (called, aliased, in an array, as a quoted key or property, through globalThis or Reflect), string timer
+// callbacks, any quoted node:vm specifier, Worker code strings and data: URL imports. `eval: false` (a
+// Worker option) and longer names such as manual-eval or evaluate are not matches. The first entry is
+// the main-branch rule; `[F]` is the same as `F` and only stops this file, which is scanned like any
+// other, from matching its own definitions, as do the other bracketed letters.
 const DYNAMIC_CODE_FORMS = [
-  /\beval\s*\(|\bnew\s+Function\s*\(/,
-  /(?<![\w$])eval\s*(?:\?\.\s*)?\(/,
-  /\(\s*0\s*,\s*eval\s*\)/,
-  /[=:(,]\s*eval\s*[;,)\n]/,
-  /[=:(,]\s*(?:globalThis|window|self|global)\s*\.\s*eval\b(?!\s*\()/,
-  /\beval\s*\.\s*(?:call|apply|bind)\b/,
-  /(?<![\w$])(?:new\s+)?\(?\s*Function\s*\)?\s*\(/,
+  /\beval\s*\(|\bnew\s+[F]unction\s*\(/,
+  /(?<![\w$-])ev[a]l(?![\w$-])(?!['"`]?\s*:\s*false\b)/,
+  /(?<![\w$])[F]unction(?![\w$])/,
   /\bset(?:Timeout|Interval|Immediate)\s*\(\s*['"`]/,
-  /(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)['"`](?:node:)?vm['"`]/,
-  /['"`]?\beval['"`]?\s*:(?!\s*false\b)/,
+  /['"`](?:node:)?v[m]['"`]/,
   /\bimport\s*\(?\s*['"`]data:/i,
 ];
 // Node code anywhere, except browser .js files in the fixtures and their solutions (seeded defects).
 const isNodeCode = (rel) => /\.(?:mjs|cjs|mts|cts)$/.test(rel) || (/\.(?:js|ts)$/.test(rel) && !/^tests\/(?:fixtures|fixture-solutions)\//.test(rel));
 
 for (const { rel, full } of files) {
-  const text = read(full);
-  if (text === null) {
+  const texts = read(full);
+  if (texts === null) {
     if (BINARY_EXTENSIONS.test(rel)) skipped.push(`${rel} (binary)`);
     else finding('unscanned-binary', rel, 'contains NUL bytes but does not have a binary file extension');
     continue;
   }
-  for (const [rule, re] of SECRET_RULES) {
-    const match = re.exec(text);
-    if (match) finding(rule, rel, `line ${lineOf(text, match.index)} (value not printed)`);
+  // Each rule is reported once per file, at its first match in any reading.
+  const reported = new Set();
+  const report = (rule, text, index, detail = '') => {
+    if (index < 0 || reported.has(rule)) return;
+    reported.add(rule);
+    finding(rule, rel, `line ${lineOf(text, index)}${detail}`);
+  };
+  for (const text of texts) {
+    for (const [rule, re] of SECRET_RULES) report(rule, text, re.exec(text)?.index ?? -1, ' (value not printed)');
   }
-  if (isNodeCode(rel)) {
-    const dynamic = firstIndex(text, DYNAMIC_CODE_FORMS);
-    if (dynamic >= 0) finding('dynamic-code-execution', rel, `line ${lineOf(text, dynamic)}`);
-    if (!SHELL_ALLOWLIST.has(rel)) {
-      const shell = firstIndex(text, SHELL_OPTION_FORMS);
-      if (shell >= 0) finding('unapproved-shell-true', rel, `line ${lineOf(text, shell)} (shell option other than false)`);
-      const exec = shellExecIndex(text);
-      if (exec >= 0) finding('unapproved-shell-exec', rel, `line ${lineOf(text, exec)} (child_process exec/execSync always uses a shell)`);
-      const binary = SHELL_BINARY.exec(text) ?? (LOADS_CHILD_PROCESS.test(text) ? SHELL_PATH_LITERAL.exec(text) : null);
-      if (binary) finding('unapproved-shell-spawn', rel, `line ${lineOf(text, binary.index)} (spawns a shell directly)`);
-    }
+  if (!isNodeCode(rel)) continue;
+  for (const text of texts.flatMap((raw) => [raw, withoutBlockComments(raw)])) {
+    report('dynamic-code-execution', text, firstIndex(text, DYNAMIC_CODE_FORMS));
+    if (SHELL_ALLOWLIST.has(rel)) continue;
+    report('unapproved-shell-true', text, firstIndex(text, SHELL_OPTION_FORMS), ' (shell option other than false)');
+    report('unapproved-shell-exec', text, shellExecIndex(text), ' (child_process exec/execSync always uses a shell)');
+    const binary = SHELL_BINARY.exec(text) ?? (LOADS_CHILD_PROCESS.test(text) ? SHELL_PATH_LITERAL.exec(text) ?? SHELL_NAME_LITERAL.exec(text) : null);
+    report('unapproved-shell-spawn', text, binary?.index ?? -1, ' (spawns a shell directly)');
   }
 }
 
 for (const { rel, full } of files.filter((item) => /^\.github\/workflows\/.*\.ya?ml$/.test(item.rel))) {
-  const text = read(full) ?? '';
+  const text = primary(full) ?? '';
   if (/permissions\s*:\s*write-all/.test(text)) finding('workflow-write-all', rel, 'permissions: write-all');
   if (!/^permissions\s*:\s*\r?\n\s+contents\s*:\s*read\b/m.test(text)) finding('workflow-default-permissions', rel, 'top-level permissions must set contents: read');
 }
@@ -173,18 +190,30 @@ const { parse: parseYaml } = await import('yaml').catch(() => {
   process.exit(2);
 });
 const toolList = (value) => {
-  const items = Array.isArray(value) ? value.map(String) : typeof value === 'string' ? [value] : [];
+  const items = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
   return items.flatMap((item) => item.match(/[A-Za-z][\w-]*(?:\([^)]*\))?|\*/g) ?? []);
 };
+// A tools value that is not a string or a list of strings has no defined meaning, so it is not guessed at.
+const validToolsValue = (value) => value === undefined || value === null || typeof value === 'string' || (Array.isArray(value) && value.every((item) => typeof item === 'string'));
 // `Edit(src/**)` still grants Edit, so permission rules are compared by their base tool name.
 const baseTool = (tool) => tool.replace(/\(.*$/, '');
 function frontmatterOf(rel, full) {
-  const match = (read(full) ?? '').match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const match = (primary(full) ?? '').match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) { finding('agent-frontmatter-missing', rel, 'agent file has no YAML frontmatter'); return null; }
-  try { return parseYaml(match[1]) ?? {}; }
+  let meta;
+  try { meta = parseYaml(match[1]) ?? {}; }
   catch (error) { finding('agent-frontmatter-invalid', rel, error.message.split('\n')[0]); return null; }
+  for (const key of ['tools', 'disallowedTools']) {
+    if (!validToolsValue(meta[key])) { finding('agent-frontmatter-invalid', rel, `${key} must be a string or a list of strings`); return null; }
+  }
+  return meta;
 }
 for (const item of agentFiles) item.meta = frontmatterOf(item.rel, item.full);
+// Claude Code knows a subagent by its frontmatter name. The rules here identify agents by file name, so a
+// file whose name differs (an extractor file declaring a reviewer, or the reverse) is not accepted.
+for (const item of agentFiles) {
+  if (item.meta && item.meta.name !== undefined && item.meta.name !== item.name) finding('agent-name-mismatch', item.rel, `frontmatter name ${JSON.stringify(item.meta.name)} differs from the file name ${item.name}`);
+}
 const toolsOf = (item) => toolList(item.meta?.tools).join(', ');
 
 for (const item of agentFiles) {

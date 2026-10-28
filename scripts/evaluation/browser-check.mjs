@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * Optional browser check for an evaluation workspace. Runs only when Playwright
- * is resolvable; otherwise prints NOT RUN. Network is blocked except file: URLs.
+ * is resolvable; otherwise prints NOT RUN. Network is blocked except file: URLs: HTTP(S) requests from
+ * every page and worker, WebSockets and service workers. Not covered: WebRTC peer connections.
  * Usage: node scripts/evaluation/browser-check.mjs <workspace> <fixture.json> [--screenshots <dir>]
- * Prints one JSON line {status, failures, blocked_requests, screenshots} and exits 1 on FAIL.
+ * Prints one JSON line {status, failures, blocked_requests, screenshots, sandbox, warnings} and exits 1 on FAIL.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -35,9 +36,12 @@ try {
 
 // Tracks timers and window/document listeners so teardown can be verified. A listener counts once per
 // (target, type, callback, capture), as in the DOM, and removing one that was never added changes nothing.
+// The counts live in this closure; the page sees only a frozen, non-writable read-out, so its own code
+// cannot reset them. Not covered: timers taken from another frame's window (iframe.contentWindow).
 const trackerScript = () => {
   const state = { intervals: new Set(), rafCalls: 0, timeoutCalls: 0, listeners: new Set() };
-  window.__lifecycle = state;
+  const snapshot = () => ({ intervals: state.intervals.size, raf: state.rafCalls, timeouts: state.timeoutCalls, listeners: state.listeners.size });
+  Object.defineProperty(window, '__lifecycle', { value: Object.freeze({ snapshot }), writable: false, configurable: false, enumerable: false });
   const setI = window.setInterval.bind(window), clearI = window.clearInterval.bind(window), raf = window.requestAnimationFrame.bind(window);
   const setT = window.setTimeout.bind(window), clearT = window.clearTimeout.bind(window);
   window.setInterval = (...a) => { const id = setI(...a); state.intervals.add(id); return id; };
@@ -87,24 +91,39 @@ const failures = [];
 const errors = [];
 const blocked = [];
 const screenshots = [];
+const warnings = [];
+// The pages are untrusted, so Chromium runs in its OS sandbox. Chromium cannot sandbox itself as root,
+// and some systems forbid the sandbox; then it runs without one and the result says so.
+let sandbox = process.getuid?.() !== 0;
 let browser;
-try {
-  browser = await chromium.launch();
-} catch (error) {
+const launchError = (error) => {
   // The playwright package can be installed without its browser download; that is NOT RUN, not FAIL.
-  // Only a missing browser download is NOT RUN. Any other launch error (crash, sandbox, missing system
-  // library) means the check could not verify the page, so it fails.
+  // Only a missing browser download is NOT RUN. Any other launch error (crash, missing system library)
+  // means the check could not verify the page, so it fails.
   if (isMissingBrowserDownload(error.message)) {
     report({ status: 'NOT RUN', reason: 'Chromium for Playwright is not installed (run npx playwright install chromium); browser check skipped', failures: [] });
     process.exit(0);
   }
   report({ status: 'FAIL', failures: ['browser could not start: ' + error.message.split('\n')[0].slice(0, 300)] });
   process.exit(1);
+};
+try {
+  browser = await chromium.launch({ chromiumSandbox: sandbox });
+} catch (error) {
+  if (!sandbox || !/sandbox/i.test(error.message)) launchError(error);
+  sandbox = false;
+  try { browser = await chromium.launch({ chromiumSandbox: false }); } catch (retryError) { launchError(retryError); }
 }
+if (!sandbox) warnings.push('Chromium ran without its OS sandbox (running as root, or the sandbox is unavailable here); run the check as a normal user where possible.');
 try {
   const viewport = { width: config.viewport_width ?? 360, height: 800 };
-  const page = await browser.newPage({ viewport });
-  await page.route('**/*', (route) => (route.request().url().startsWith('file:') ? route.continue() : (blocked.push(route.request().url()), route.abort())));
+  const context = await browser.newContext({ viewport, serviceWorkers: 'block' });
+  // On the context, so popups and workers are covered too. WebSockets are not HTTP routes; they are closed
+  // and counted separately. A Playwright too old to intercept them cannot keep the page offline.
+  await context.route('**/*', (route) => (route.request().url().startsWith('file:') ? route.continue() : (blocked.push(route.request().url()), route.abort())));
+  if (typeof context.routeWebSocket !== 'function') throw new Error('this Playwright version cannot block WebSockets; use Playwright 1.48 or later');
+  await context.routeWebSocket(/.*/, (socket) => { blocked.push(socket.url()); socket.close(); });
+  const page = await context.newPage();
   page.on('console', (msg) => { if (msg.type() === 'error' && !/Failed to load resource|net::ERR_/.test(msg.text())) errors.push(msg.text()); });
   page.on('pageerror', (error) => errors.push(error.message));
   await page.addInitScript(trackerScript);
@@ -146,9 +165,9 @@ try {
 
   if (config.teardown) {
     await page.evaluate(config.teardown);
-    const before = await page.evaluate(() => ({ raf: window.__lifecycle.rafCalls, timeouts: window.__lifecycle.timeoutCalls }));
+    const before = await page.evaluate(() => window.__lifecycle.snapshot());
     await page.waitForTimeout(1200);
-    const state = await page.evaluate(() => ({ intervals: window.__lifecycle.intervals.size, raf: window.__lifecycle.rafCalls, timeouts: window.__lifecycle.timeoutCalls, listeners: window.__lifecycle.listeners.size }));
+    const state = await page.evaluate(() => window.__lifecycle.snapshot());
     if (state.intervals) failures.push(`${state.intervals} interval(s) still active after teardown`);
     if (state.raf > before.raf + 1) failures.push('requestAnimationFrame still running after teardown');
     if (state.timeouts > before.timeouts + 1) failures.push('setTimeout still rescheduling after teardown');
@@ -156,7 +175,9 @@ try {
   }
   if (typeof config.max_blocked_requests === 'number' && blocked.length > config.max_blocked_requests) failures.push(`${blocked.length} network request(s) attempted; page must work offline`);
   for (const error of errors) failures.push('page error: ' + error.slice(0, 200));
+} catch (error) {
+  failures.push('browser check could not complete: ' + error.message.split('\n')[0].slice(0, 300));
 } finally {
   await browser.close();
 }
-report({ status: failures.length ? 'FAIL' : 'PASS', failures, blocked_requests: blocked, screenshots });
+report({ status: failures.length ? 'FAIL' : 'PASS', failures, blocked_requests: blocked, screenshots, sandbox, warnings });

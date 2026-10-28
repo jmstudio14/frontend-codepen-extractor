@@ -47,19 +47,57 @@ function resolveThroughExisting(target) {
   while (!fs.existsSync(existing) && path.dirname(existing) !== existing) { rest.unshift(path.basename(existing)); existing = path.dirname(existing); }
   try { return path.join(fs.realpathSync(existing), ...rest); } catch { return path.resolve(target); }
 }
-const COMMIT_ID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 // The fixture's source files as the agent receives them: host-only files, .git and node_modules excluded.
 const copyFixture = (fixture, destination) => fs.cpSync(fixture.dir, destination, { recursive: true, filter: (src) => !['.git', 'node_modules', ...hostOnlyFiles(fixture.manifest)].includes(path.basename(src)) });
-// The Git tree of a fresh copy of the fixture. The prepared commit must have exactly this tree, which the
-// agent cannot change, so a rewritten history or an edited meta.json cannot move the scoring base.
-function fixtureTree(fixture) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-tree-'));
+// Regular files under dir by relative path ('/' separators), skipping the top-level .git. Symlinks and other
+// special entries are listed apart: no fixture has them, and following one could read outside the workspace.
+function listTree(dir) {
+  const files = new Map(), special = [];
+  const walk = (current, prefix) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const rel = prefix + entry.name;
+      if (rel === '.git') continue;
+      if (entry.isDirectory()) walk(path.join(current, entry.name), rel + '/');
+      else if (entry.isFile()) files.set(rel, path.join(current, entry.name));
+      else special.push(rel);
+    }
+  };
+  walk(dir, '');
+  return { files, special };
+}
+// The workspace's files compared byte for byte with a fresh copy of the fixture. The workspace's own Git
+// repository is never read while scoring: the agent controls it (index flags such as skip-worktree, a
+// rewritten history, core.fsmonitor and other config that Git would execute), so it is not evidence.
+function compareWithFixture(fixture, workspace) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-fixture-'));
   try {
-    copyFixture(fixture, path.join(dir, 'tree'));
-    for (const args of [['init', '-q'], ['add', '.']]) if (git(args, path.join(dir, 'tree')).exit_code) return null;
-    const tree = git(['write-tree'], path.join(dir, 'tree'));
-    return tree.exit_code ? null : tree.stdout.trim();
+    copyFixture(fixture, path.join(dir, 'fixture'));
+    const original = listTree(path.join(dir, 'fixture')).files, current = listTree(workspace);
+    const changed = new Set(current.special);
+    const contents = new Map();
+    for (const rel of new Set([...original.keys(), ...current.files.keys()])) {
+      const before = original.has(rel) ? fs.readFileSync(original.get(rel)) : null;
+      const after = current.files.has(rel) ? fs.readFileSync(current.files.get(rel)) : null;
+      if (before && after && before.equals(after)) continue;
+      changed.add(rel);
+      contents.set(rel, { before, after });
+    }
+    return { changed: [...changed].sort(), contents };
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+// Trailing spaces or tabs on lines the agent added; a CRLF line ending (common on Windows) is not one.
+function trailingWhitespace(contents) {
+  const problems = [];
+  for (const [rel, { before, after }] of contents) {
+    if (!after || after.includes(0)) continue;
+    const old = new Map();
+    for (const line of (before?.toString('utf8') ?? '').split('\n')) old.set(line, (old.get(line) ?? 0) + 1);
+    after.toString('utf8').split('\n').forEach((line, index) => {
+      if (old.get(line)) { old.set(line, old.get(line) - 1); return; }
+      if (/[ \t]$/.test(line.replace(/\r$/, ''))) problems.push(`${rel}:${index + 1}: trailing whitespace`);
+    });
+  }
+  return problems;
 }
 
 function prepare(caseId) {
@@ -125,24 +163,18 @@ function score(workspaceArg) {
   const workspace = path.resolve(workspaceArg);
   const metaPath = path.join(path.dirname(workspace), 'meta.json');
   if (!fs.existsSync(metaPath)) { console.error(`No meta.json next to ${workspace}; prepare the workspace with manual-eval.mjs prepare.`); process.exit(2); }
-  const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+  let meta;
+  try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')); } catch { meta = null; }
+  if (!meta || typeof meta !== 'object' || typeof meta.case_id !== 'string') { console.error(`${metaPath} is not a valid meta.json; prepare the workspace again.`); process.exit(2); }
   const fixture = findFixture(root, meta.case_id);
   if (!fixture) { console.error(`Fixture for case "${meta.case_id}" no longer exists.`); process.exit(2); }
   const { manifest } = fixture;
-  // Diff against the prepared commit, not HEAD, so commits made by the agent are still scored. It is
-  // required: without it, an agent that edits meta.json could hide its committed changes.
-  if (!COMMIT_ID.test(String(meta.base_commit ?? ''))) { console.error('meta.json has no valid base_commit; prepare the workspace again with this version.'); process.exit(2); }
-  const baseCommit = meta.base_commit;
-  const diff = git(['diff', '--name-only', baseCommit, '--'], workspace), untracked = git(['ls-files', '--others'], workspace);
-  // Untracked files are listed without the exclude rules, so .gitignore or .git/info/exclude cannot hide them.
-  if (diff.exit_code || untracked.exit_code) { console.error('Could not read the workspace Git state; it cannot be scored.'); process.exit(2); }
-  // The history must still start at the prepared commit; a rewritten or replaced history is not scored.
-  const roots = git(['rev-list', '--max-parents=0', 'HEAD'], workspace);
-  const historyIntact = roots.stdout.split(/\r?\n/).includes(baseCommit);
-  const expectedTree = fixtureTree(fixture);
-  const baseTree = git(['rev-parse', `${baseCommit}^{tree}`], workspace).stdout.trim();
-  const baseMatchesFixture = Boolean(expectedTree) && baseTree === expectedTree;
-  const changed = [...new Set([...diff.stdout.split(/\r?\n/), ...untracked.stdout.split(/\r?\n/)].filter(Boolean))].sort();
+  if (!fs.existsSync(workspace) || !fs.statSync(workspace).isDirectory()) { console.error(`${workspace} is not a workspace folder.`); process.exit(2); }
+  // Committed, staged, untracked and ignored changes all count, because only the files on disk are read.
+  let comparison;
+  try { comparison = compareWithFixture(fixture, workspace); }
+  catch (error) { console.error(`Could not read the workspace files (${error.code || error.message}); it cannot be scored.`); process.exit(2); }
+  const { changed } = comparison;
   const unexpected = changed.filter((file) => !manifest.editable_files.includes(file));
   const checks = [];
   const add = (name, r) => checks.push({ name, command: r.command, status: r.exit_code === 0 ? 'PASS' : 'FAIL', exit_code: r.exit_code, output_excerpt: [r.stdout, r.stderr, r.error].filter(Boolean).join('\n').slice(-2500) });
@@ -154,12 +186,11 @@ function score(workspaceArg) {
   const browserRun = run(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), workspace, path.join(fixture.dir, 'fixture.json'), '--screenshots', shots], root);
   let browser = null;
   try { browser = JSON.parse(browserRun.stdout.trim().split(/\r?\n/).pop()); } catch {}
+  const warnings = Array.isArray(browser?.warnings) ? browser.warnings.map(String) : [];
   checks.push({ name: 'Browser check (Playwright, network blocked)', command: browserRun.command, status: browser?.status || 'FAIL', exit_code: browserRun.exit_code, output_excerpt: browser ? JSON.stringify(browser) : [browserRun.stdout, browserRun.stderr].join('\n').slice(-2500) });
-  // CRLF line endings (common on Windows) are not trailing whitespace; real trailing spaces still fail.
-  add('Git diff whitespace', git(['-c', 'core.whitespace=cr-at-eol', 'diff', '--check', baseCommit, '--'], workspace));
-  if (!baseMatchesFixture) checks.push({ name: 'Prepared commit matches the fixture', command: `git rev-parse ${baseCommit}^{tree}`, status: 'FAIL', exit_code: 1, output_excerpt: `expected tree ${expectedTree ?? '(could not be computed)'}, found ${baseTree || '(none)'}` });
-  if (!historyIntact) checks.push({ name: 'Workspace history starts at the prepared commit', command: 'git rev-list --max-parents=0 HEAD', status: 'FAIL', exit_code: 1, output_excerpt: roots.stdout.trim() });
-  if (unexpected.length) checks.push({ name: 'Only editable files changed', command: `git diff --name-only ${baseCommit}`, status: 'FAIL', exit_code: 1, output_excerpt: unexpected.join('\n') });
+  const whitespace = trailingWhitespace(comparison.contents);
+  checks.push({ name: 'No trailing whitespace on changed lines', command: 'compare with a fresh copy of the fixture', status: whitespace.length ? 'FAIL' : 'PASS', exit_code: whitespace.length ? 1 : 0, output_excerpt: whitespace.join('\n').slice(-2500) });
+  if (unexpected.length) checks.push({ name: 'Only editable files changed', command: 'compare with a fresh copy of the fixture', status: 'FAIL', exit_code: 1, output_excerpt: unexpected.join('\n').slice(-2500) });
 
   // A check that did not run never counts as passed: no FAIL plus any NOT RUN is INCOMPLETE, not PASS.
   const failed = checks.filter((check) => check.status === 'FAIL').map((check) => check.name);
@@ -169,7 +200,8 @@ function score(workspaceArg) {
     schema_version: 1, mode: 'manual', case_id: meta.case_id, scored_at: new Date().toISOString(), workspace,
     status,
     objective: { passed: status === 'PASS', failed_checks: failed, not_run_checks: notRun, screenshots_dir: browser?.screenshots?.length ? shots : null },
-    repository: { changed_files: changed, editable_files: manifest.editable_files, unexpected_files: unexpected },
+    warnings,
+    repository: { compared_with: `a fresh copy of ${path.relative(root, fixture.dir).split(path.sep).join('/')}`, changed_files: changed, editable_files: manifest.editable_files, unexpected_files: unexpected },
     checks,
     human_review: [
       'Does the agent\'s final report match these check results (no claimed PASS that is FAIL here, browser/visual QA reported as NOT RUN)?',
@@ -181,6 +213,7 @@ function score(workspaceArg) {
   const output = path.resolve(option('--output') || path.join(path.dirname(workspace), 'report.json'));
   fs.writeFileSync(output, JSON.stringify(report, null, 2) + '\n');
   for (const check of checks) console.log(`${check.status.padEnd(7)} ${check.name}`);
+  for (const warning of warnings) console.warn(`WARNING: ${warning}`);
   console.log(`\n${report.status}: ${meta.case_id}.${notRun.length ? ` NOT RUN: ${notRun.join(', ')}.` : ''} Report: ${output}`);
   // Exit codes: 0 PASS, 1 FAIL, 3 INCOMPLETE (no failure, but at least one check did not run).
   process.exitCode = status === 'FAIL' ? 1 : status === 'INCOMPLETE' ? 3 : 0;

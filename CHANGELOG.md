@@ -12,21 +12,25 @@ Fixes from a full review of the repository: three independent read-only reviews 
   - Manual scoring treats a CRLF line ending as a line ending, not trailing whitespace, so Windows edits are not failed for it; real trailing spaces still fail.
 - **Manual measurement integrity.**
   - `manual-eval prepare` creates the workspace in a new private folder (`mkdtemp`) in the system temporary folder and refuses one inside the clone. Inside the clone, Claude Code loaded this repository's `CLAUDE.md` and the reference solutions were a few folders away. It warns when a `CLAUDE.md` sits in any folder above the workspace, refuses a temporary folder inside the clone before creating anything, and reports a `--dir` it cannot create without a stack trace.
-  - Scoring compares against the prepared commit, so changes the agent commits are still scored and checked for unexpected files. Untracked files are listed without exclude rules, so `.gitignore` or `.git/info/exclude` cannot hide them.
+  - Scoring compares the files on disk, byte for byte, with a fresh copy of the fixture. It never reads the workspace's Git repository, which the agent controls, so neither index flags such as `skip-worktree`, nor a rewritten history, nor an edited `meta.json` can hide a change. Config that Git would execute, such as `core.fsmonitor`, never runs on the host. Committed, staged, untracked and ignored changes, deleted files and symlinks all count. A workspace whose files cannot be read exits 2, as one that cannot be scored.
   - The guard against a workspace inside the clone also resolves symlinked ancestors that point into the clone, and it treats folder names that start with `..` correctly.
   - The initial commit ignores global signing and hooks. If `prepare` fails, it removes only what that run created. An existing `--dir` and its files are never deleted.
-  - `score` requires a valid `base_commit` in `meta.json`, so workspaces prepared by older versions must be prepared again. The tree of that commit must equal a fresh copy of the fixture, and the history must still start at it, so neither a new root commit nor an edited `meta.json` can move the scoring base. Unreadable Git state exits 2, as a workspace that cannot be scored.
+  - `meta.json` still records the prepared commit, for the agent's own `git diff`; scoring does not depend on it.
   - `prepare` refuses a `--dir` that already holds a `meta.json`, `prompt.txt` or `report.json`. Both commands, like `evaluate-agent.mjs`, reject unknown or repeated options, `--name=value` and empty values.
   - A score with no failures but a NOT RUN check is `INCOMPLETE` (exit code 3), not PASS.
   - The `web-extraction-regression` fixture README, which listed every seeded defect, now stays on the host (`host_only_files`, which must be plain file names) and is written for maintainers.
 - **Browser check.**
   - A missing Chromium download is NOT RUN instead of FAIL. Any other launch error, including missing system libraries (`npx playwright install-deps`), is still FAIL.
   - Clicks must change the page: the expected result is checked absent before and present after. `dynamic-js-widget` checks Alpha's own vote count, so a ticking clock can no longer satisfy it.
+  - Network: requests from every page and worker are blocked, and so are WebSockets, which used to connect, and service workers. A WebSocket attempt counts as a blocked request. A Playwright too old to intercept WebSockets (before 1.48) fails the check instead of claiming the page ran offline. WebRTC peer connections are not covered.
+  - Chromium runs in its OS sandbox. As root, or where the sandbox cannot start, it runs without one; the result then says `sandbox: false` and `manual-eval` prints a warning.
   - Timers: `clearTimeout` of an interval id clears it, as browsers do, and a `setTimeout` loop that keeps rescheduling after teardown fails.
   - The listener tracker follows the DOM. It counts each listener once and ignores removals of listeners that were never added. It does not count an add with an already aborted signal. It treats `once` listeners that fired and `signal` listeners whose signal aborted as removed. Each counted listener's helpers are detached when it is removed, fires or aborts, so re-adding it for good is still a leak.
+  - The tracker's counts are private to the check. The page sees only a frozen read-out, so its code cannot reset or replace them. Not covered: timers taken from another frame's window.
   - `web-extraction-regression` now asks for `window.orbitDemo.destroy()` and verifies its teardown in the browser.
 - **Evaluation harness.**
   - On timeout, interrupt (Ctrl-C, SIGTERM, SIGHUP) or any other exit, the harness kills the adapter's whole process tree. It used to wait for orphaned processes holding the pipes.
+  - A descendant that leaves the process group (`setsid`, a detached spawn) is not killed with the tree. The harness no longer waits for it to release the output pipes: two seconds after the adapter exits, it closes them and fails the case with that reason. The adapter writes its result into a private `mkdtemp` folder instead of a predictable path in the shared temporary folder.
   - It reports timeouts and signals. It rejects a `--timeout-ms` that is not a plain positive integer up to 2147483647 (larger values would make Node fire after 1 ms), and an option given without a value. Malformed `checks` or `tool_calls` entries (null, numbers, arrays) fail the case instead of crashing the run, and every FAIL names its reason.
 - **Smoke tests.**
   - Async tests are awaited, so a failing async test is reported as FAIL instead of PASS.
@@ -36,7 +40,9 @@ Fixes from a full review of the repository: three independent read-only reviews 
     - The signal handlers and the exit-time cleanup in `evaluate-agent.mjs` each kill the adapter tree, so removing either one alone is covered by the other. A harness crash is not simulated.
     - The cleanup after a failed fixture copy in `manual-eval prepare` and the "adapter could not start" reason are not exercised, because neither failure can be triggered reliably.
     - Dropping the check that every reported check is valid is equivalent to an existing error.
-- **Committed `node_modules` link.** A symlink named `node_modules` was committed by mistake during this release's review rounds. It replaced an installed `node_modules` on checkout and broke `npm run validate:all` outside CI. It is removed, and `.gitignore` now ignores `/node_modules` as any kind of entry.
+    - The browser check's sandbox fallback (when the sandbox cannot start) and its refusal of a Playwright without WebSocket interception depend on the machine, so they are not exercised.
+  - Tests that could leave folders inside the clone or in the temporary folder if the code they guard regressed now clean up after themselves.
+- **Committed `node_modules` link.** A symlink named `node_modules` was committed by mistake during this release's review rounds. It replaced an installed `node_modules` on checkout and broke `npm run validate:all` outside CI. It is removed, and `.gitignore` now ignores `node_modules` at any depth and as any kind of entry.
 - **Hook and sync script.** `block-dangerous-commands.mjs` and `sync-plugin-agents.mjs` compared paths without resolving symlinks. Run through a symlinked or junction checkout, the hook silently did nothing and `--check` passed without checking. They now compare real paths.
 - **Agent frontmatter.** `frontend-documentation-maintainer` had invalid YAML: an unquoted colon in its description. It is now quoted.
 - **Plugin coordinator.** It no longer promises reviewers it cannot launch. Unbundled specialists (dependency/license, privacy, release, run diagnostics) are recorded as NOT RUN and need human acceptance; the removed model evaluator is no longer mentioned.
@@ -58,19 +64,24 @@ Fixes from a full review of the repository: three independent read-only reviews 
   - Agent frontmatter is parsed as YAML, so tools given as a list are understood. A byte-order mark no longer hides it, nested agent folders are checked, and an agent file without frontmatter is a finding.
   - Scoped write tools such as `Edit(src/**)`, `MultiEdit` and `Write(*)` count as write access. Only an unscoped `disallowedTools` entry removes a tool.
   - An agent whose `tools` is missing, empty or `*` is blocked, because it inherits Edit and Write. `Task` is checked like `Agent`.
-  - The gate is never weaker than the main-branch gate: its secret, code-evaluation and shell rules are kept verbatim next to the new ones, and a test checks each main-branch rule. The gate applies its code rules to its own file too.
-  - Code rules stay fail-closed on the raw text. In any file that loads `child_process`, calls, member calls, bracket access, destructuring and aliases of `exec`/`execSync` are blocked like `shell: true`. So are:
-    - a `shell` option other than `false` (quoted key, unquoted key, shorthand or property assignment);
-    - spawning a shell binary by name or path;
-    - `eval` in direct, optional (`?.`), indirect, aliased (including aliases of `globalThis.eval`), method (`.call`/`.apply`/`.bind`) or `globalThis` form;
-    - the `Function` constructor, also when parenthesised;
-    - string timer callbacks, `node:vm`, Worker code strings (`eval` keys with any value but `false`), and static or dynamic `data:` imports in any case;
-    - computed `['shell']` keys and `process.env.SHELL`/`ComSpec` as the spawned program;
-    - any quoted `child_process` specifier, which also covers `createRequire`.
+  - For secrets, code evaluation and shell use, the gate is never weaker than the main-branch gate. The main-branch rules are kept; `[F]` stands in for `F` so that the gate's own file does not match itself, which it is scanned for like any other file. A test checks each main-branch rule. A file that starts with a UTF-16 byte-order mark is also scanned as UTF-8, so two leading bytes cannot hide text that the main-branch gate would see; an odd-length file after such a mark no longer crashes the gate. The agent rules differ on purpose: an unscoped `disallowedTools` entry removes a tool, and YAML comments are comments.
+  - An agent whose frontmatter `name` differs from its file name, or whose `tools`/`disallowedTools` is not a string or a list of strings, is a finding.
+  - Code rules stay fail-closed on the raw text, plus an extra reading without block comments, so a comment between an option key and its colon does not split them. Rather than recognise every way of calling something, they flag the names themselves. In Node code:
+    - `eval` and the `Function` constructor wherever they are named: called, aliased, in an array, quoted, through `globalThis` or `Reflect`. `eval: false` (a Worker option) and longer names such as `manual-eval` do not match.
+    - String callbacks of `setTimeout`, `setInterval` and `setImmediate`, any quoted `node:vm` specifier, and static or dynamic `data:` imports in any letter case.
+    - A `shell` option other than `false`: quoted or unquoted key, computed key, shorthand, assignment, or the quoted name anywhere else (`Reflect.set`).
+    - In any file that loads `child_process` (any quoted specifier, which also covers `createRequire`):
+      - `exec`/`execSync` in any form, including member access such as `require(...).execSync`;
+      - a string naming a shell, as a path or `.exe` in any letter case, or as a bare name in lower case (also as an argument of `env`);
+      - `process.env.SHELL`/`ComSpec` as the spawned program.
 
-    Not detected: names computed at runtime from strings, and the constructor reached through another function's `.constructor`.
+    Not detected:
+    - names computed at runtime from strings;
+    - the constructor reached through `.constructor`;
+    - a bare shell name in another letter case (`'Bash'` is also a Claude Code tool name);
+    - running another program (`node -e`, a script file) whose arguments carry code.
 
-    These are documented heuristics, not a parser. A literal-masking tokenizer tried during this release was dropped, because ordinary syntax could steer it into hiding code. Its own patterns are written so that they do not match themselves.
+    These are documented heuristics, not a parser. A literal-masking tokenizer tried during this release was dropped, because ordinary syntax could steer it into hiding code.
   - The code rules cover all Node code (JavaScript and TypeScript), including hooks and the `.mjs` helpers under `tests/`, but not the browser files of the fixtures.
   - New token formats: OpenAI project, service-account and admin keys (which may contain `_` and `-`), GitHub fine-grained tokens, Slack, Google, npm and PGP private keys. Unprefixed `sk-` names with hyphens, such as CSS classes, are not reported; the main-branch alphanumeric `sk-` rule still applies.
   - UTF-16 files are scanned. Symlinks, files over 2 MB and binaries without a binary extension are findings rather than silently skipped. Ignored folder names (`node_modules`, `.git`, `evaluation-results`, `__pycache__`) are skipped only as real directories at the repository root, so a symlink with one of these names is reported. A smoke test fails on any committed symlink or ignored folder.
