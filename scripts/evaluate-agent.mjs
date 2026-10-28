@@ -86,17 +86,22 @@ function killTree(child) {
   else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
 }
 // The adapter runs in its own process group, so Ctrl-C reaches only the harness: forward it to the tree.
-let activeChild = null;
+let activeChild = null, activeResultDir = null;
 for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) {
   process.on(signal, () => { if (activeChild) killTree(activeChild); process.exit(code); });
 }
-// Also on any other exit, such as an uncaught exception (SIGKILL cannot be handled).
-process.on('exit', () => { if (activeChild) killTree(activeChild); });
+// Also on any other exit, such as an uncaught exception (SIGKILL cannot be handled). The private result
+// folder of a case that did not finish is removed too.
+process.on('exit', () => {
+  if (activeChild) killTree(activeChild);
+  if (activeResultDir) { try { fs.rmSync(activeResultDir, { recursive: true, force: true }); } catch {} }
+});
 function runAdapter(testCase) {
   return new Promise((resolve) => {
     // A private folder, so another user of a shared temp folder cannot plant or read the result.
     const resultDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-'));
     const resultFile = path.join(resultDir, 'result.json');
+    activeResultDir = resultDir;
     const started = Date.now();
     const child = spawn(adapter, [], {
       cwd: root, shell: true, windowsHide: true, detached: process.platform !== 'win32',
@@ -132,6 +137,7 @@ function runAdapter(testCase) {
       try { result = JSON.parse(fs.readFileSync(resultFile, 'utf8')); }
       catch (error) { parseError = `adapter did not write valid result JSON: ${error.message}`; }
       try { fs.rmSync(resultDir, { recursive: true, force: true }); } catch {}
+      activeResultDir = null;
       resolve({ ...proc, timedOut, escaped, elapsedMs, stdout: stdout.slice(-12000), stderr: stderr.slice(-12000), result, parseError });
     }
   });

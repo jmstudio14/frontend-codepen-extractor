@@ -799,10 +799,14 @@ test('browser check reports NOT RUN, not FAIL, when the Chromium download is mis
   const fixture = listFixtures(root).find((item) => item.name === 'broken-html-card');
   const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'no-browsers-'));
   try {
-    const run = withWorkspace(fixture, null, (dir) => spawnSync(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), dir, path.join(fixture.dir, 'fixture.json')], { cwd: root, encoding: 'utf8', timeout: 60000, env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: empty } }));
+    // Playwright leaves its temporary folders behind after a failed launch; the check must remove them.
+    const tmp = path.join(empty, 'tmp');
+    fs.mkdirSync(tmp);
+    const run = withWorkspace(fixture, null, (dir) => spawnSync(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), dir, path.join(fixture.dir, 'fixture.json')], { cwd: root, encoding: 'utf8', timeout: 60000, env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: empty, TMPDIR: tmp, TMP: tmp, TEMP: tmp } }));
     const result = JSON.parse(run.stdout.trim().split(/\r?\n/).pop() || '{}');
     assert.equal(run.status, 0);
     assert.equal(result.status, 'NOT RUN');
+    assert.deepEqual(fs.readdirSync(tmp), [], 'no temporary folder is left behind');
   } finally { fs.rmSync(empty, { recursive: true, force: true }); }
 });
 
@@ -834,7 +838,9 @@ test('browser check blocks WebSockets and counts them as network requests', asyn
     const url = `ws://127.0.0.1:${server.address().port}/socket`;
     fs.writeFileSync(path.join(dir, 'index.html'), `<!doctype html><title>Socket</title><main>Socket page</main><script>new WebSocket(${JSON.stringify(url)});</script>\n`);
     fs.writeFileSync(path.join(dir, 'fixture.json'), JSON.stringify({ browser: { visible: 'main', max_blocked_requests: 0 } }));
-    const child = spawnChild(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), dir, path.join(dir, 'fixture.json')], { cwd: root });
+    const tmp = path.join(dir, 'tmp');
+    fs.mkdirSync(tmp);
+    const child = spawnChild(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), dir, path.join(dir, 'fixture.json')], { cwd: root, env: { ...process.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp } });
     let stdout = '';
     child.stdout.on('data', (chunk) => { stdout += chunk; });
     await new Promise((resolve) => child.on('close', resolve));
@@ -844,6 +850,7 @@ test('browser check blocks WebSockets and counts them as network requests', asyn
     assert.ok(result.blocked_requests.includes(url), JSON.stringify(result.blocked_requests));
     assert.ok(result.failures.some((failure) => /network request\(s\) attempted/.test(failure)), JSON.stringify(result.failures));
     assert.deepEqual(connections, [], 'the page must not reach the local listener');
+    assert.deepEqual(fs.readdirSync(tmp), [], 'Chromium leaves no temporary folder behind');
   } finally {
     server.close();
     fs.rmSync(dir, { recursive: true, force: true });
@@ -1019,7 +1026,10 @@ const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { 
 fs.writeFileSync(${JSON.stringify(pids)}, process.pid + ' ' + child.pid);
 setTimeout(() => {}, 120000);
 `);
-      const harness = spawn(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `node "${adapter}"`, '--case', 'dynamic-js-widget', '--output', path.join(dir, 'r.json')], { cwd: root, stdio: 'ignore' });
+      // A private temporary folder shows whether the harness removed its result folder on the way out.
+      const tmp = path.join(dir, 'tmp');
+      fs.mkdirSync(tmp);
+      const harness = spawn(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `node "${adapter}"`, '--case', 'dynamic-js-widget', '--output', path.join(dir, 'r.json')], { cwd: root, stdio: 'ignore', env: { ...process.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp } });
       const deadline = Date.now() + 20000;
       while (!fs.existsSync(pids) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100));
       assert.ok(fs.existsSync(pids), 'adapter did not start');
@@ -1028,6 +1038,7 @@ setTimeout(() => {}, 120000);
       assert.equal(await exited, code, signal);
       await new Promise((resolve) => setTimeout(resolve, 300));
       for (const pid of fs.readFileSync(pids, 'utf8').trim().split(' ').map(Number)) assert.equal(alive(pid), false, `process ${pid} survived ${signal}`);
+      assert.deepEqual(fs.readdirSync(tmp), [], `the result folder is removed after ${signal}`);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   }
 });

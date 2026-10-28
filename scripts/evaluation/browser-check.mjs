@@ -7,6 +7,7 @@
  * Prints one JSON line {status, failures, blocked_requests, screenshots, sandbox, warnings} and exits 1 on FAIL.
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { createRequire } from 'node:module';
@@ -24,6 +25,13 @@ if (!workspace || !manifestPath || !fs.existsSync(path.join(workspace, 'index.ht
   process.exit(2);
 }
 const config = JSON.parse(fs.readFileSync(manifestPath, 'utf8')).browser ?? {};
+
+// Playwright and Chromium keep their profile and artifacts in the temporary folder, and a failed launch
+// leaves them behind. They get a private folder instead, removed on every exit, signals included.
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-check-'));
+for (const name of ['TMPDIR', 'TMP', 'TEMP']) process.env[name] = scratch;
+process.on('exit', () => { try { fs.rmSync(scratch, { recursive: true, force: true }); } catch {} });
+for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) process.on(signal, () => process.exit(code));
 
 let chromium;
 try {
