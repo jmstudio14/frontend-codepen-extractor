@@ -20,6 +20,7 @@ See `tests/agent-cases/documentation-maintainer.json`. Scenarios define what to 
 
 ## Live evaluation
 - Review a synthetic release diff and identify stale docs without inventing facts
+
 Live evaluation is NOT RUN until the agent is run manually in Claude Code on a scenario and its output is reviewed (no API key is used).
 
 ## Rollback

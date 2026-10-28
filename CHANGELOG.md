@@ -1,40 +1,147 @@
 # Changelog
 
+## 2.15.0
+
+Fixes from a full review of the repository: three independent read-only reviews of the scripts and tests, of agent and skill consistency, and of the documentation.
+
+### Fixed
+- **Windows.**
+  - Validation no longer fails on Windows checkouts with `core.autocrlf=true`. `.gitattributes` keeps LF everywhere, and the plugin sync and the validators compare text after normalising line endings, so older CRLF clones pass too.
+  - `validate-agent.ps1` now reaches its exit codes; `Write-Error` under `Stop` used to end it early. It runs the same four validators as `npm run validate:all`, and `-Quiet` no longer turns stderr into errors in Windows PowerShell 5.1.
+  - The Windows path guard in the smoke tests now matches real paths such as `C:\Users\...`.
+  - Manual scoring treats a CRLF line ending as a line ending, not trailing whitespace, so Windows edits are not failed for it; real trailing spaces still fail.
+- **Manual measurement integrity.**
+  - `manual-eval prepare` creates the workspace in a new private folder (`mkdtemp`) in the system temporary folder and refuses one inside the clone. Inside the clone, Claude Code loaded this repository's `CLAUDE.md` and the reference solutions were a few folders away. It warns when a `CLAUDE.md` sits in any folder above the workspace, refuses a temporary folder inside the clone before creating anything, and reports a `--dir` it cannot create without a stack trace.
+  - Scoring compares the files on disk, byte for byte, with a fresh copy of the fixture. It never reads the workspace's Git repository, which the agent controls, so neither index flags such as `skip-worktree`, nor a rewritten history, nor an edited `meta.json` can hide a change. Config that Git would execute, such as `core.fsmonitor`, never runs on the host. Committed, staged, untracked and ignored changes and deleted files all count. A symlink, an empty folder or another special entry is an unexpected file, even at an editable path, because the checks would follow a link out of the workspace. A workspace whose files cannot be read exits 2, as one that cannot be scored.
+  - Scoring first takes a private snapshot of the workspace's regular files and runs the comparison and every check on that snapshot only, so the workspace changing during scoring does not change the result. The browser check loads only files inside the snapshot; a script kept in `.git`, or any file elsewhere on disk, is refused and fails the check.
+  - **What scoring trusts:** that nothing started by the agent is still running as your user. Such a process could write into the snapshot or swap the screenshots folder while scoring runs; no check can prevent that, because it has the same rights as the scorer. Before scoring, end the agent's session and make sure none of its processes remain (for example with `ps -u "$USER"`), or score as another user or in a container.
+  - The report and the screenshots are never written through a symlink. An existing `report.json`, `--output` or `screenshots` that is not a regular file or folder is refused (exit 2) before any check runs; the screenshots folder is checked again right before each write; and on Linux and macOS the files are opened without following links (Windows has no such flag, so there only the checks apply). `prepare` likewise refuses a dangling link named `meta.json` or `prompt.txt`.
+  - An interrupt (Ctrl-C, SIGTERM, SIGHUP) stops scoring at once and removes the snapshot.
+  - `score` reads the case from `meta.json`, which sits outside the workspace but where the agent could reach it. The report names the case, and the review list asks you to confirm it is the case you prepared.
+  - The guard against a workspace inside the clone also resolves symlinked ancestors that point into the clone, and it treats folder names that start with `..` correctly.
+  - The initial commit ignores global signing and hooks. If `prepare` fails, it removes only what that run created. An existing `--dir` and its files are never deleted.
+  - `meta.json` still records the prepared commit, for the agent's own `git diff`; scoring does not depend on it. An invalid `meta.json` exits 2, and so does a `--output` whose folder does not exist or that is itself a folder, checked before any check runs.
+  - `prepare` refuses a `--dir` that already holds a `meta.json`, `prompt.txt` or `report.json`. Both commands, like `evaluate-agent.mjs`, reject unknown or repeated options, `--name=value` and empty values.
+  - A score with no failures but a NOT RUN check is `INCOMPLETE` (exit code 3), not PASS.
+  - The `web-extraction-regression` fixture README, which listed every seeded defect, now stays on the host (`host_only_files`, which must be plain file names) and is written for maintainers.
+- **Browser check.**
+  - A missing Chromium download is NOT RUN instead of FAIL. Any other launch error, including missing system libraries (`npx playwright install-deps`), is still FAIL.
+  - Clicks must change the page: the expected result is checked absent before and present after. `dynamic-js-widget` checks Alpha's own vote count, so a ticking clock can no longer satisfy it.
+  - Network: requests from every page and worker are blocked, and so are WebSockets, which used to connect, and service workers. A WebSocket attempt counts as a blocked request. A Playwright too old to intercept WebSockets (before 1.48) fails the check instead of claiming the page ran offline. WebRTC peer connections are not covered.
+  - Chromium runs in its OS sandbox. As root, or where the sandbox cannot start, it runs without one; the result then says `sandbox: false` and `manual-eval` prints a warning.
+  - Listeners left on `window` and `document` after teardown are counted by the browser itself, through the DevTools protocol, so page code cannot hide one, whether it redefines built-ins, adds the listener through another frame, sets an `on*` property or fakes an `abort` event. An in-page listener tracker used during this release could be fooled in several such ways and was replaced.
+  - Timers have no such report, so wrappers installed before any page code runs count them. The wrappers call only built-ins captured beforehand, through the captured `Reflect.apply`, keep their counts in objects without a prototype, and expose a frozen read-out that returns a string. `clearTimeout` of an interval id clears it, as browsers do. A timeout loop that keeps rescheduling after teardown fails: every timeout is tracked until it fires or is cleared, string callbacks included, and the check waits 2.2 seconds after teardown, so a loop with a period up to about two seconds (the fixtures' clock ticks every second) is caught. One-shot timeouts that fire, however many, are fine. `requestAnimationFrame` and `requestIdleCallback` loops fail.
+  - The teardown expressions in the fixtures call `destroy()` unguarded, so a workspace without the required API fails instead of passing silently. A teardown that throws is a failure with its reason.
+  - Not covered:
+    - timers taken from another frame's window;
+    - listeners on elements below `document`, and observers such as `ResizeObserver` or `matchMedia` listeners;
+    - a single timeout set before teardown that fires later.
+  - Playwright and Chromium get a private temporary folder that the check removes on every exit, signals included. Playwright leaves its profile and artifact folders behind after a failed launch, so every NOT RUN for a missing browser used to leave two folders in the system temporary folder.
+  - CI does not install Playwright, so the browser tests report NOT RUN there; they run only where Playwright and Chromium are installed.
+  - `web-extraction-regression` now asks for `window.orbitDemo.destroy()` and verifies its teardown in the browser; a workspace without it fails.
+- **Evaluation harness.**
+  - On timeout or interrupt (Ctrl-C, SIGTERM, SIGHUP), the harness kills the adapter's whole process group; it used to wait for orphaned processes holding the pipes. After the adapter exits, anything still running in its group is killed too, and the case fails with that reason, because a background job could change the repository or a later case. A harness killed with SIGKILL cannot clean up.
+  - A descendant that leaves the process group (`setsid`, a detached spawn) cannot be found that way. If it holds the output pipes, the harness stops waiting two seconds after the adapter exits, closes them and fails the case with that reason. If it also closes its output, it is not detected. On Windows, `taskkill /T` covers the tree only while the adapter is running. The adapter writes its result into a private `mkdtemp` folder instead of a predictable path in the shared temporary folder; the folder is removed even when the harness is interrupted.
+  - `--help` exits 0. A suite that cannot be read, has no `cases` list, or has a case without a string `id`, `category` and `prompt` exits 2 instead of crashing.
+  - It reports timeouts and signals. It rejects a `--timeout-ms` that is not a plain positive integer up to 2147483647 (larger values would make Node fire after 1 ms), and an option given without a value. Malformed `checks` or `tool_calls` (a list with null, numbers or arrays in it, or not a list at all) and a non-list `objective.failed_checks` fail the case instead of crashing the run, and every FAIL names its reason.
+- **Smoke tests.**
+  - Async tests are awaited, so a failing async test is reported as FAIL instead of PASS.
+  - Browser tests that cannot run are reported as NOT RUN and counted separately, not as PASS.
+  - A malformed fixture manifest no longer stops the whole suite, and tests that cannot create symlinks report NOT RUN.
+  - Single-change mutation runs confirmed that reverting a fix fails a named test, with these exceptions:
+    - The signal handlers and the exit-time cleanup in `evaluate-agent.mjs` each kill the adapter tree, so removing either one alone is covered by the other. A harness crash is not simulated.
+    - The cleanup after a failed fixture copy in `manual-eval prepare` and the "adapter could not start" reason are not exercised, because neither failure can be triggered reliably.
+    - Dropping the check that every reported check is valid is equivalent to an existing error.
+    - The browser check's sandbox fallback (when the sandbox cannot start) and its refusal of a Playwright without WebSocket interception depend on the machine, so they are not exercised.
+    - Killing only the adapter, not its group, at the timeout is covered by the later clean-up of anything left in the group, which kills the rest of the tree two seconds afterwards. Only the delay differs, and a timing assertion would be unreliable on slow runners.
+  - Tests that could leave folders inside the clone or in the temporary folder if the code they guard regressed now clean up after themselves. The suite stops with a clear message when the temporary folder is inside the clone, which the manual evaluation refuses by design.
+- **Committed `node_modules` link.** A symlink named `node_modules` was committed by mistake during this release's review rounds. It replaced an installed `node_modules` on checkout and broke `npm run validate:all` outside CI. It is removed, and `.gitignore` now ignores `node_modules` at any depth and as any kind of entry.
+- **Hook and sync script.** `block-dangerous-commands.mjs` and `sync-plugin-agents.mjs` compared paths without resolving symlinks. Run through a symlinked or junction checkout, the hook silently did nothing and `--check` passed without checking. They now compare real paths.
+- **Agent frontmatter.** `frontend-documentation-maintainer` had invalid YAML: an unquoted colon in its description. It is now quoted.
+- **Plugin coordinator.** It no longer promises reviewers it cannot launch. Unbundled specialists (dependency/license, privacy, release, run diagnostics) are recorded as NOT RUN and need human acceptance; the removed model evaluator is no longer mentioned.
+- **Plugin docs and links.**
+  - The plugin README counts seven specialists and a coordinator.
+  - Plugin agents link to the measurement protocol by URL, because `docs/` is not shipped with the plugin.
+- **Documentation.**
+  - The README no longer shows a literal `\n\n`.
+  - INSTALL uses the plugin's real display name and validates with `npm ci` plus `npm run validate:all`.
+  - The measurement protocol installs Playwright after `npm ci`, which used to delete it.
+  - Update commands use the qualified plugin name.
+  - The planner guide lists `approved_by: null` and the `npm ci` prerequisite.
+  - Agent docs no longer merge the "NOT RUN" sentence into the last bullet, and the QA and security docs separate allowed tools from prohibitions.
+  - The build loop no longer says the auditor PR is open.
+  - CHANGELOG 2.14.0 is grouped and no longer describes removed tooling as added. The 2.13.0 entry now counts seven specialists plus the coordinator.
+
+### Changed
+- **Security gate.**
+  - Agent frontmatter is parsed as YAML, so tools given as a list are understood. A byte-order mark no longer hides it, nested agent folders are checked, and an agent file without frontmatter is a finding.
+  - Scoped write tools such as `Edit(src/**)`, `MultiEdit` and `Write(*)` count as write access. Only an unscoped `disallowedTools` entry removes a tool.
+  - An agent whose `tools` is missing, empty or `*` is blocked, because it inherits Edit and Write. `Task` is checked like `Agent`.
+  - For secrets, code evaluation and shell use, the gate is never weaker than the main-branch gate. The main-branch rules are kept; `[F]` stands in for `F` so that the gate's own file does not match itself, which it is scanned for like any other file. Tests check each main-branch secret, code-evaluation and shell rule. A file that starts with a UTF-16 byte-order mark is also scanned as UTF-8, so two leading bytes cannot hide text that the main-branch gate would see; an odd-length file after such a mark no longer crashes the gate. The agent rules differ on purpose: an unscoped `disallowedTools` entry removes a tool, and YAML comments are comments.
+  - An agent whose frontmatter `name` differs from its file name, or whose `tools`/`disallowedTools` is not a string or a list of strings, is a finding. The only option is `--root <existing folder>`; anything else, such as `--root=x`, a typo or a bare path, exits 2 instead of scanning this repository.
+  - Code rules stay fail-closed on the raw text, plus extra readings: without comments, so a comment between an option key and its colon, or a `// }` inside import braces, does not split what belongs together; and with every string escape decoded (`\u`, `\x`, legacy octal, line continuations and single-character escapes such as `\c`), because an escaped name is the same name to Node. An option counts as off only when it is a plain `false` that ends the value, so `false || true` is caught. Rather than recognise every way of calling something, they flag the names themselves. In Node code:
+    - `eval` and the `Function` constructor wherever they are named: called, aliased, in an array, quoted, through `globalThis` or `Reflect`. `eval: false` (a Worker option) and longer names such as `manual-eval` do not match.
+    - String callbacks of `setTimeout`, `setInterval` and `setImmediate`, any quoted `node:vm` specifier, and static or dynamic `data:` imports in any letter case.
+    - A `shell` option other than `false`: quoted or unquoted key, computed key, shorthand, assignment, or the quoted name anywhere else (`Reflect.set`).
+    - In any file that loads `child_process` (any quoted specifier, which also covers `createRequire`):
+      - `exec`/`execSync` in any form, including member access such as `require(...).execSync`;
+      - a string naming a shell (`sh`, `bash`, `zsh`, `dash`, `ash`, `ksh`, `mksh`, `csh`, `tcsh`, `fish`, `yash`, `busybox`, `nu`, `elvish`, `xonsh`, `cmd`, `powershell`, `pwsh` and others), as a path or `.exe` in any letter case, or as a bare name in lower case (also as an argument of `env`);
+      - the `SHELL` and `ComSpec` variables by any route, and any `.shell` member such as `os.userInfo().shell`.
+
+    Not detected:
+    - names computed at runtime from strings;
+    - the constructor reached through `.constructor`;
+    - a bare shell name in another letter case (`'Bash'` is also a Claude Code tool name);
+    - running another program (`node -e`, a script file) whose arguments carry code.
+
+    These are documented heuristics, not a parser. A literal-masking tokenizer tried during this release was dropped, because ordinary syntax could steer it into hiding code.
+  - The code rules cover all Node code (JavaScript and TypeScript, JSX and TSX, and files without an extension whose first line runs `node`), including hooks and the `.mjs` helpers under `tests/`, but not the browser files of the fixtures.
+  - New token formats: OpenAI project, service-account and admin keys (which may contain `_` and `-`), GitHub fine-grained tokens, Slack, Google, npm and PGP private keys. Unprefixed `sk-` names with hyphens, such as CSS classes, are not reported; the main-branch alphanumeric `sk-` rule still applies.
+  - UTF-16 files are scanned. Symlinks, files over 2 MB and binaries without a binary extension are findings rather than silently skipped. Ignored folder names (`node_modules`, `.git`, `evaluation-results`, `__pycache__`) are skipped only as real directories at the repository root, so a symlink with one of these names is reported. A smoke test fails on any committed symlink or ignored folder.
+- **Skill copies.** The plugin validator compares the three skill copies file by file, including `css-tricks-reference.md`, and takes the expected version from `package.json`.
+- **Agent cases.** Every review agent must have evaluation cases; `frontend-code-auditor` now has them. Case files and fixture manifests are parsed, and errors are reported instead of crashing.
+- **Build queue.**
+  - `evaluation/agent-build-queue.json` lists the files each agent delivered, numbers the agents without gaps, and drops the superseded `planned_files`.
+  - The policy keys `live_evaluation_may_be_skipped_if_unconfigured` and `skipped_live_evaluation_counts_as_pass` are renamed `live_evaluation_may_be_not_run` and `not_run_live_evaluation_counts_as_pass`. Nothing reads them.
+- **CI.** CI also runs on Windows, including the PowerShell wrapper in PowerShell 7 and Windows PowerShell 5.1.
+- **Skill and Copilot prompts.** `SKILL.md` steps are numbered without duplicates. The Copilot prompt covers CodeMyUI, progressive search, multilanguage tasks and the custom agent, and the developer agent lists CodeMyUI as a source type.
+
 ## 2.14.0
 
-- Released the changes below as 2.14.0, so `claude plugin update` delivers them. The plugin had changed after 2.13.0 (coordinator delegates, license) without a version bump.
-- Corrected stale text: install docs no longer ask for authenticated Git access, the QA/security agent docs and the build loop describe manual key-free evaluation, and the package description no longer mentions runtime evaluation.
-- Recorded the merged state of all agents in `evaluation/agent-build-queue.json`.
-- Aligned the required Node.js version to 22 (the version CI uses) in `package.json` engines, the README and INSTALL.
-- Removed the remaining stale text found on re-check: the planner, QA and security agents no longer say live scenarios need an explicitly configured runtime, the auditor doc no longer mentions an authenticated model, the plugin README and `validate-agent.ps1` ask for Node.js 22+, and the auditor entry in the build queue is `merged`. A smoke test now fails if any queue entry is left `in_pr`. The stale-wording test also covers untracked files, the Node 18 badge, `engines` and the package description, and fails if `git grep` itself errors; the version test also checks `package-lock.json`. The README layout now lists the `tests/` case files.
-- Completed the README repository layout, and added a smoke test that keeps package, marketplace, plugin, README badge and CHANGELOG versions identical.
-- Added the MIT License (`LICENSE`, copyright jmstudio14) and declared it in `package.json`, the plugin manifest and the README.
-- The repository is public: updated README, INSTALL, the plugin README and the marketplace description, which still described it as private and required Git credentials to install.
-- Added a **Test report** issue form (`.github/ISSUE_TEMPLATE/test-report.yml`) and `docs/testing-guide.md`, so anyone testing the agent can report results in a comparable format: scenario, result, failures, false claims, cost, environment and evidence, plus a required confirmation that secrets were removed.
-- Removed every evaluation path that needs a paid API key, by owner decision:
-  - the Claude Agent SDK adapter;
-  - the live planner evaluator;
-  - the DeepEval judge, which needed `OPENAI_API_KEY`;
-  - the repeat/baseline tooling for paid runs;
-  - the `live-agent-evaluation` and `runtime-selection-pending` CI jobs.
-- Removed the runtime compatibility assessment and the SDK import smoke tests, whose only purpose was choosing an SDK for paid evaluation. CI now runs a single `validate` job, and none of it needs an API key.
-- Added `scripts/evaluation/manual-eval.mjs` (`npm run evaluate:manual`). `prepare` creates a fixture workspace and prints the exact prompt to run in Claude Code with a normal subscription. `score` runs the syntax, fixture, browser, whitespace and edited-files checks and writes `report.json`. Tests cover a FAIL on each untouched fixture and a PASS on each reference solution.
-- Removed the `agent-model-evaluator` agent, its doc and its cases. It compared runtimes and models for paid evaluation. It is also gone from the coordinator's delegates and the build queue.
-- Agent docs, case files and the build loop now say that live evaluation is a manual Claude Code run with no API key, instead of waiting for configured credentials.
-- Rewrote `docs/agent-evaluation.md` and `docs/measurement-protocol.md` for the manual mode. A smoke test now fails if any file references a paid API key again.
-- Added three executable evaluation fixtures (`dynamic-js-widget`, `broken-html-card`, `external-deps-gallery`) with objective assertion scripts, `fixture.json` manifests and three matching suite cases. Reference solutions in `tests/fixture-solutions/` prove that every assertion can be met.
-- The Claude Agent SDK adapter now selects the fixture, allowed files, assertions and prompt from the manifest instead of hard-coding one fixture. Manifests and assertion scripts are not copied into the agent workspace.
-- Added `scripts/evaluation/browser-check.mjs`, an optional Playwright check with the network blocked. It covers page errors, visibility, overflow at 360px, accessible names, interactions, literal text and teardown of timers and listeners, and saves screenshots. Without Playwright it records NOT RUN.
-- Host-check failures now fail the evaluation case. Previously a failing fixture assertion still let the case pass.
-- `run-repeated.mjs --case` accepts a comma-separated list.
-- Added `docs/measurement-protocol.md` for the first measured live evaluation.
-- Added `package-lock.json`, which pins the `yaml` devDependency with its integrity hash. CI now installs with `npm ci --ignore-scripts`, and `npm ci --ignore-scripts` is the first local validation step.
-- The architect-plan YAML test now fails with an actionable message when `yaml` is not installed, instead of a module-resolution stack trace.
-- Ignored `node_modules/`.
+Released so that `claude plugin update` delivers the plugin changes made after 2.13.0 (coordinator delegates, license), which had shipped without a version bump.
+
+### Added
+- MIT License (`LICENSE`, copyright jmstudio14), declared in `package.json`, the plugin manifest and the README.
+- A **Test report** issue form (`.github/ISSUE_TEMPLATE/test-report.yml`) and `docs/testing-guide.md`, so anyone testing the agent can report scenario, result, failures, false claims, cost, environment and evidence in a comparable format, with a required confirmation that secrets were removed.
+- `scripts/evaluation/manual-eval.mjs` (`npm run evaluate:manual`) for measuring the real agent without an API key. `prepare` creates a fixture workspace and prints the exact prompt to run in Claude Code with a normal subscription; `score` runs the syntax, fixture, browser, whitespace and edited-files checks and writes `report.json`. Tests cover a FAIL on each untouched fixture and a PASS on each reference solution.
+- Three executable evaluation fixtures (`dynamic-js-widget`, `broken-html-card`, `external-deps-gallery`) with assertion scripts, `fixture.json` manifests and matching suite cases. Reference solutions in `tests/fixture-solutions/` prove that every assertion can be met.
+- `scripts/evaluation/browser-check.mjs`, an optional Playwright check with the network blocked: page errors, visibility, overflow at 360px, accessible names, interactions, literal text, teardown of timers and listeners, and screenshots. Without Playwright it records NOT RUN.
+- `docs/measurement-protocol.md`, the step-by-step manual measurement procedure.
+- `package-lock.json`, pinning the `yaml` devDependency with its integrity hash. CI installs with `npm ci --ignore-scripts`, which is also the first local validation step.
+- Smoke tests that keep the package, lockfile, marketplace, plugin, README badge and CHANGELOG versions identical; that fail if any file references a paid API key or keeps stale setup wording (including untracked files, and failing if `git grep` itself errors); and that fail if a build-queue entry is left `in_pr`.
+
+### Changed
+- `docs/agent-evaluation.md` describes the manual mode. Agent docs, case files and the build loop say that live evaluation is a manual Claude Code run with no API key.
+- The package description no longer mentions runtime evaluation.
+- The repository is public: README, INSTALL, the plugin README and the marketplace description no longer describe it as private or ask for Git credentials.
+- The required Node.js version is 22 (the version CI uses) in `package.json` engines, the README, INSTALL, the plugin README and `validate-agent.ps1`.
+- `evaluation/agent-build-queue.json` records every agent as merged.
+- The README repository layout lists `docs/`, `evaluation/`, the `tests/` case files, fixtures and solutions, `.github/ISSUE_TEMPLATE/` and `LICENSE`.
+
+### Removed
+- Every evaluation path that needs a paid API key, by owner decision: the Claude Agent SDK adapter, the live planner evaluator, the DeepEval judge (which needed `OPENAI_API_KEY`), the repeat and baseline tooling for paid runs, and the `live-agent-evaluation` and `runtime-selection-pending` CI jobs. CI now runs a single `validate` job that needs no API key.
+- The runtime compatibility assessment and the SDK import smoke tests, whose only purpose was choosing an SDK for paid evaluation.
+- The `agent-model-evaluator` agent, its doc and its cases, including its place among the coordinator's delegates and in the build queue.
+
+### Fixed
+- Host-check failures now fail the evaluation case; previously a failing fixture assertion still let the case pass.
+- The architect-plan YAML test fails with an actionable message when `yaml` is not installed, instead of a module-resolution stack trace.
+- Stale text that said live evaluation needs a configured runtime, credentials or an authenticated model.
+- `node_modules/` is ignored.
 
 ## 2.13.0
 
-- Bundled eight specialist agents in the Claude Code plugin: `frontend-architect-planner`, `frontend-qa-test-engineer`, `frontend-security-reviewer`, `frontend-extractor-validation-agent`, `frontend-performance-optimizer`, `frontend-documentation-maintainer`, `frontend-code-auditor`, and `agent-ecosystem-coordinator`. Plugin users get them without cloning the repository.
+- Bundled seven specialist agents and the coordinator in the Claude Code plugin: `frontend-architect-planner`, `frontend-qa-test-engineer`, `frontend-security-reviewer`, `frontend-extractor-validation-agent`, `frontend-performance-optimizer`, `frontend-documentation-maintainer`, `frontend-code-auditor`, and `agent-ecosystem-coordinator`. Plugin users get them without cloning the repository.
 - `scripts/sync-plugin-agents.mjs` generates the plugin copies from `.claude/agents`. Specialists are copied verbatim. The plugin coordinator uses plugin-scoped delegate names (`frontend-codepen-extractor:<name>`), lists only bundled delegates, and is invoked with `claude --agent frontend-codepen-extractor:agent-ecosystem-coordinator`. The plugin validator rejects copies that drift.
 - The coordinator's delivery gate now runs the target project's own validation and security checks, which are `npm run validate:all` and `npm run security` in this repository, and records NOT RUN when none exist.
 - The security gate now also checks plugin agents: write tools, and delegates that are missing or writable.

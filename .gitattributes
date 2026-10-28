@@ -1,0 +1,10 @@
+# Keep LF in every checkout, including Windows with core.autocrlf=true.
+# The validators compare generated files byte for byte, so mixed line endings would fail them.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary

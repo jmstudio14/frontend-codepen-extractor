@@ -1,18 +1,22 @@
 # Evaluation fixture: leaky animation card
 
-This is an intentionally flawed prototype for manual agent evaluation. Do not ship it unchanged.
+Maintainer notes for the `web-extraction-regression` case. This file stays on the host (`host_only_files` in `fixture.json`), so the agent never sees the defect list below.
 
-## Defects the agent should identify
+## Seeded defects
 
 - Global `*`, `body`, and element selectors leak into the host page.
-- Fixed-width layout is likely to overflow narrow viewports.
+- Fixed-width layout overflows a 360px viewport.
 - Button and canvas lack accessible name/description relationships.
-- Global window listener is never removed.
-- Recursive `requestAnimationFrame` loop is never cancelled.
-- Animation does not respect reduced-motion preferences.
-- External CDN library is referenced without a pinned version or dependency review.
-- `innerHTML` is used to interpolate a label (the fixture currently uses a static value, but refactoring should not preserve this unsafe pattern for dynamic data).
+- The global `resize` listener is never removed.
+- The recursive `requestAnimationFrame` loop is never cancelled.
+- The animation ignores reduced-motion preferences.
+- An external CDN library is referenced without a pinned version or dependency review.
+- `innerHTML` interpolates a label (static today, but the pattern is unsafe for dynamic data).
 
-## Evaluation task
+## How it is scored
 
-Ask Claude Code to convert this fixture into the target project's existing framework. Evaluate it with the checklist in `.claude/skills/frontend-codepen-extractor/references/quality-checklist.md`. The expected output depends on the target project; this fixture intentionally has no single generated component implementation.
+- `scripts/evaluation/check-web-fixture.mjs` checks animation and listener cleanup, reduced motion, safe text, scoped CSS and accessibility attributes.
+- The browser check (`browser` in `fixture.json`) checks visibility, 360px overflow and the button's accessible name. It then calls `window.orbitDemo.destroy()`, which the prompt asks the agent to expose, and verifies that no animation frame or window/document listener survives.
+- `tests/fixture-solutions/leaky-animation-prototype/` is a reference solution that passes every check.
+
+Run it with `node scripts/evaluation/manual-eval.mjs prepare web-extraction-regression` (see `docs/measurement-protocol.md`).

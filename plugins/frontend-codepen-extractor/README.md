@@ -41,7 +41,7 @@ Or explicitly invoke the agent:
 
 ## Bundled specialist agents
 
-The plugin also ships eight read-only review agents and a coordinator:
+The plugin also ships seven read-only specialist agents and a coordinator:
 
 | Agent | Role |
 | --- | --- |

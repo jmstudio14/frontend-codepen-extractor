@@ -10,7 +10,15 @@ permissions:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows catches line-ending and path issues that contributors on Windows would hit locally.
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -36,4 +44,12 @@ jobs:
       - name: Run smoke tests
         run: node scripts/test-agent.mjs
       - name: Run evaluation harness fixture
-        run: node scripts/evaluate-agent.mjs --adapter "node tests/fixtures/evaluation-adapter.mjs" --output "$RUNNER_TEMP/agent-evaluation-smoke.json"
+        run: node scripts/evaluate-agent.mjs --adapter "node tests/fixtures/evaluation-adapter.mjs" --output "${RUNNER_TEMP}/agent-evaluation-smoke.json"
+      - name: Run the PowerShell wrapper
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/validate-agent.ps1 -Quiet
+      - name: Run the PowerShell wrapper in Windows PowerShell 5.1
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./scripts/validate-agent.ps1 -Quiet

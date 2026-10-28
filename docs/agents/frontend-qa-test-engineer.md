@@ -9,11 +9,13 @@ Invoke `frontend-qa-test-engineer` as a separate read-only specialist after prov
 ## Output and gate
 The report uses `schema_version: 1`, an explicit status, evidence-linked findings, per-check results, assumptions, limitations, and `human_review_required: true`. PASS only means the checks actually performed passed. Missing evidence and unrun checks must be called out.
 
-## Permissions and non-goals
+## Allowed tools
 - Read
 - Grep
 - Glob
 - Bash for approved test commands
+
+## Must not
 - Modify product source to make tests pass
 - Claim browser coverage without executing a browser
 
@@ -30,6 +32,7 @@ Scenario definitions live in `tests/agent-cases/qa-test-engineer.json`. They are
 - Plan tests for a multi-file extractor change
 - Detect a missing regression test
 - Report a browser test that was not run
+
 A live evaluation has not been performed merely by adding these cases. Live evaluation is NOT RUN until the agent is run manually in Claude Code on a scenario and its output is reviewed (no API key is used). Do not expose credentials or record secrets in artifacts.
 
 ## Rollback

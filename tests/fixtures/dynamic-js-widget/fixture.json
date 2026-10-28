@@ -14,8 +14,8 @@
   "browser": {
     "visible": ".widget",
     "roles": [{ "role": "button", "name": "Vote for Alpha" }],
-    "click": { "role": "button", "name": "Vote for Alpha", "expect_text": "4" },
+    "click": { "role": "button", "name": "Vote for Alpha", "expect_pattern": "Alpha\\D{0,40}\\b4\\b" },
     "literal_text": "<b>Gamma</b>",
-    "teardown": "window.pollWidget && window.pollWidget.destroy()"
+    "teardown": "window.pollWidget.destroy()"
   }
 }

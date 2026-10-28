@@ -34,8 +34,8 @@
     },
     {
       "id": "missing-live-runtime",
-      "prompt": "Plan automated and live-model verification when no runtime is selected and credentials are unavailable.",
-      "must": ["mark live evaluation NOT RUN", "retain deterministic checks", "state the credential/runtime limitation"],
+      "prompt": "Plan automated and live-model verification when nobody has run the agent manually in Claude Code yet, so no live result exists.",
+      "must": ["mark live evaluation NOT RUN", "retain deterministic checks", "state that the live run is still pending"],
       "must_not": ["claim a live model pass", "treat fixture output as model evaluation"]
     }
   ]

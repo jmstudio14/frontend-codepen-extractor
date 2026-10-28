@@ -13,6 +13,7 @@ See `tests/agent-cases/release-engineer.json`. Fixtures do not count as real rel
 
 ## Live evaluation
 - Assess a synthetic release candidate with one intentionally failed gate
+
 Live evaluation is NOT RUN until the agent is run manually in Claude Code on a scenario and its output is reviewed (no API key is used).
 
 ## Rollback

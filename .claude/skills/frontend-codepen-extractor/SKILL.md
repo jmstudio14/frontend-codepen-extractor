@@ -42,7 +42,7 @@ Inspect Git status, repository structure, and intended target app/package before
 ### 1. Search progressively and evaluate candidates
 Read `references/progressive-search.md` whenever a component or example must be discovered. When CodeMyUI is a candidate or requested source, also follow `references/codemyui-ingestion.md` to verify the canonical page, trace source links, classify source availability, and distinguish extraction from reconstruction. Search exact names first across relevant predefined sources (CodePen, UIverse.io, CodeMyUI, and CSS-Tricks for technical patterns). If Stage 1 does not yield a convincing match and usable source, you MUST continue automatically to external web search, GitHub, author pages, and other reputable galleries before reporting failure; do not ask permission for this normal search step or stop after the predefined sources. Evaluate candidates for identity, visual and behavior match, source quality, project fit, provenance, and licensing. Track observed, inferred, and unknown facts; never present a screenshot or search snippet as proof of source code. Continue searching when the best candidate is weak or materially incomplete, then report uncertainty honestly.
 
-### 1. Acquire and diagnose source
+### 2. Acquire and diagnose source
 Use the applicable ingestion guide. For CodePen, inspect accessible panels, preprocessors/settings, external resources, globals, assets, interactions, states, keyboard behavior, motion, and breakpoints.
 
 For CodeMyUI, follow `references/codemyui-ingestion.md`; verify the exact example and any linked original demo/repository, inventory accessible code/assets/dependencies, and check license and attribution. If only a demo or preview is available, reconstruct only what the evidence supports and disclose that it is a reconstruction.
@@ -53,7 +53,7 @@ If source is unavailable, request pasted code, an export, or relevant files. A U
 
 Create an inventory separating observed, inferred, and unknown. Map behavior as trigger → state change → visible result → failure/empty behavior → cleanup.
 
-### 2. Audit destination and plan
+### 3. Audit destination and plan
 Inspect package manifests/lockfile, framework/runtime versions, entry points, routing, design system, styling, asset handling, scripts, tests, and nearby components.
 
 - Detect the target language, framework/runtime, version, package or service boundary from manifests, lockfiles, configuration, source layout, tests, and CI; use multiple signals, not file extension alone.
@@ -63,7 +63,7 @@ Inspect package manifests/lockfile, framework/runtime versions, entry points, ro
 - For nontrivial work, outline target files, components, state, dependencies, assets, behavior, tests, and assumptions.
 - Ask only when an unresolved choice materially affects architecture, behavior, licensing, security, or destructive operations.
 
-### 3. Reconstruct and integrate
+### 4. Reconstruct and integrate
 - Preserve intended UI and interactions, not incidental demo scaffolding.
 - Create project-native structure: components, styles, assets, tests, and config only as justified.
 - Use focused reusable components; avoid premature abstraction and unrelated rewrites.
@@ -75,7 +75,7 @@ Inspect package manifests/lockfile, framework/runtime versions, entry points, ro
 - Guard browser APIs in SSR/prerender contexts.
 - Never use eval, new Function, or unsafe innerHTML for untrusted content.
 
-### 4. Dependencies, assets, and attribution
+### 5. Dependencies, assets, and attribution
 Read `references/dependency-policy.md`, `references/uiverse-ingestion.md`, and `references/css-tricks-reference.md` when relevant.
 - Detect package manager and dependency versions from actual files.
 - Classify dependencies: present, required, replaceable, prototype-only, or unknown.
@@ -86,7 +86,7 @@ Read `references/dependency-policy.md`, `references/uiverse-ingestion.md`, and `
 - Preserve UIverse author credit, license notices, and source link when known and required; do not strip attribution or claim authorship. When CSS-Tricks research informs the implementation, link/cite the article and write original code rather than copying article text or substantial code
 - Never bypass authentication, paywalls, access controls, or site restrictions. Cross-check current browser support and syntax against up-to-date authoritative documentation when CSS-Tricks material may be dated.
 
-### 5. Verify and repair
+### 6. Verify and repair
 Use `references/quality-checklist.md` and `references/reconstruction-playbook.md` for web-component work. For general code, use `references/multilanguage-engineering.md` and the repository's own verification commands.
 - Run applicable targeted tests, lint, typecheck, full tests, and production build.
 - Inspect imports, routes, asset paths, console/runtime errors, and final diff.
@@ -95,7 +95,7 @@ Use `references/quality-checklist.md` and `references/reconstruction-playbook.md
 - Diagnose failures, make focused fixes, and rerun. Do not conceal or loop endlessly on failures.
 - Report PASS / FAIL / NOT RUN with exact commands/evidence. Build success alone does not prove visual parity, accessibility, security, or production readiness.
 
-### 6. Output modes
+### 7. Output modes
 Honor the user's request:
 - **Extract only:** recover/organize source, no integration.
 - **Reconstruct:** create standalone project from source.
@@ -106,7 +106,7 @@ Honor the user's request:
 
 For standalone generation, choose stack only from user preference or source evidence. If no project exists and no stack is specified, ask or propose a minimal stack and document the assumption before major work. Never silently scaffold a heavyweight framework.
 
-### 7. Required completion report
+### 8. Required completion report
 Use:
 1. **Implemented** — components, behavior, architecture, refactoring.
 2. **Files changed** — every created/modified file and purpose.

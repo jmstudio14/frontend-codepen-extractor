@@ -4,7 +4,7 @@
 
 Build the missing specialist agents one at a time, with a reviewable plan for each agent. This is a **human-approved build loop**, not an autonomous loop that can create files, merge PRs, or deploy without review.
 
-The existing developer agent and the proposed independent auditor are not recreated by this queue. The auditor PR (#4) is currently open; work depending on its files must remain based on that branch until the PR is merged.
+The developer agent and the independent auditor (merged in PR #4) are not recreated by this queue. All eleven queued agents are merged; the queue now records what each one delivered.
 
 ## Non-negotiable rules
 

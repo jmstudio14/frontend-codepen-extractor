@@ -8,7 +8,7 @@ Ask Claude Code to delegate to `frontend-architect-planner`, providing the origi
 
 ## Approval gate
 
-The YAML output must include `human_approval.status: PENDING` and `required_before_implementation: true`. Review the scope, file list, dependencies, tests, risks, and rollback. Only after explicit human approval may a separate implementation workflow begin. Approval of a plan is not approval to merge or deploy.
+The YAML output must include `human_approval.status: PENDING`, `human_approval.required_before_implementation: true` and `human_approval.approved_by: null`; the validator rejects any other approval state. Review the scope, file list, dependencies, tests, risks, and rollback. Only after explicit human approval may a separate implementation workflow begin. Approval of a plan is not approval to merge or deploy.
 
 ## Statuses
 
@@ -24,7 +24,7 @@ The `schema_version: 1` YAML contract includes repository evidence, traceable re
 
 Static validation uses the pinned `yaml` parser to parse actual YAML, rejects duplicate keys and malformed documents, and checks required fields and the mandatory approval state. Contract tests cover valid and invalid plan documents, profile frontmatter, and scenario definitions. Deterministic evaluation cases cover missing requirements, unsupported assumptions, dependency approval, and the mandatory human gate. These checks validate the contract and scenarios, not the reasoning quality of a live model.
 
-Run:
+Run, after `npm ci --ignore-scripts` (the checks need the pinned `yaml` package):
 
 ```sh
 node scripts/validate-agent.mjs
@@ -32,7 +32,7 @@ node scripts/test-agent.mjs
 npm run evaluate:fixture
 ```
 
-To evaluate the planner itself, invoke `frontend-architect-planner` in Claude Code on one of the scenarios in `tests/architect-planner-cases.json`, save its YAML answer, and validate it with `node scripts/evaluation/validate-architect-plan.mjs <plan.yaml>`. This needs no API key. A schema-valid plan still requires human review of the required and forbidden behavior; schema validity is not proof of good reasoning. Until such a run is reviewed, the planner's live quality is NOT RUN.
+To evaluate the planner itself, invoke `frontend-architect-planner` in Claude Code on one of the scenarios in `tests/architect-planner-cases.json`, save its YAML answer, and validate it with `node scripts/evaluation/validate-architect-plan.mjs <plan.yaml>` (also after `npm ci --ignore-scripts`). This needs no API key. A schema-valid plan still requires human review of the required and forbidden behavior; schema validity is not proof of good reasoning. Until such a run is reviewed, the planner's live quality is NOT RUN.
 
 ## Limitations
 

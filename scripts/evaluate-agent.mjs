@@ -2,25 +2,46 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
-function arg(name) { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; }
+// Options are strict: each known option once, with a non-empty value. An unknown option, `--name=value`
+// or a missing value is an error rather than a silent no-op. --help takes no value.
+const KNOWN_OPTIONS = ['--adapter', '--case', '--output', '--timeout-ms', '--suite'];
+const parsed = {};
+for (let i = 0; i < args.length; i += 1) {
+  const name = args[i];
+  if (name === '--help') { parsed[name] = true; continue; }
+  if (!KNOWN_OPTIONS.includes(name) || name in parsed) { console.error(`Unknown or repeated option: ${name}`); process.exit(2); }
+  const value = args[i + 1];
+  if (value === undefined || value === '' || value.startsWith('--')) { console.error(`${name} needs a value.`); process.exit(2); }
+  parsed[name] = value;
+  i += 1;
+}
+const arg = (name) => parsed[name] ?? null;
 const adapter = arg('--adapter');
 const caseFilter = arg('--case');
 const outputPath = arg('--output') || path.join(root, 'evaluation-results', `run-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
 const timeoutMs = Number(arg('--timeout-ms') || 15 * 60 * 1000);
+// setTimeout clamps anything above 2^31-1 ms to 1 ms, so larger values are rejected.
+if (!/^\d+$/.test(String(arg('--timeout-ms') ?? '900000')) || timeoutMs <= 0 || timeoutMs > 2147483647) { console.error('--timeout-ms must be a positive integer number of milliseconds.'); process.exit(2); }
 const suitePath = arg('--suite') || path.join(root, 'tests/agent-evaluation-cases.json');
 
 function usage() {
   console.log('Usage: node scripts/evaluate-agent.mjs --adapter "<command>" [--case <id>] [--output <path>] [--timeout-ms <ms>]');
   console.log('The adapter must execute the real agent for each case and write the result JSON to AGENT_EVAL_RESULT_PATH.');
 }
-if (args.includes('--help') || !adapter) { usage(); process.exit(adapter ? 0 : 2); }
+if (parsed['--help']) { usage(); process.exit(0); }
+if (!adapter) { usage(); process.exit(2); }
 
-const suite = JSON.parse(fs.readFileSync(suitePath, 'utf8'));
+// A suite that cannot be read is a usage error (exit 2), like any other bad option, not a failed run.
+let suite;
+try { suite = JSON.parse(fs.readFileSync(suitePath, 'utf8')); } catch (error) { console.error(`Cannot read the suite ${suitePath}: ${error.code || error.message.split('\n')[0]}`); process.exit(2); }
+if (!suite || !Array.isArray(suite.cases)) { console.error(`The suite ${suitePath} has no "cases" list.`); process.exit(2); }
+const validCase = (item) => item && typeof item === 'object' && !Array.isArray(item) && ['id', 'category', 'prompt'].every((key) => typeof item[key] === 'string');
+if (!suite.cases.every(validCase)) { console.error(`Every case in ${suitePath} needs a string id, category and prompt.`); process.exit(2); }
 const cases = caseFilter ? suite.cases.filter((item) => item.id === caseFilter) : suite.cases;
 if (!cases.length) { console.error('No evaluation cases selected. Check --case and the suite.'); process.exit(2); }
 
@@ -43,46 +64,103 @@ function validateResult(data, testCase) {
   if (!Array.isArray(data.checks)) errors.push('checks must be an array; report each actual project check');
   else if (data.checks.length === 0) errors.push('at least one actual project check or explicit NOT RUN record is required');
   if (!Array.isArray(data.tool_calls)) errors.push('tool_calls must be an array; include one entry per tool invocation');
+  else data.tool_calls.forEach((call, index) => { if (!call || typeof call !== 'object' || Array.isArray(call)) errors.push(`tool_calls[${index}] must be an object`); });
   if (typeof data.honesty?.summary !== 'string' || !data.honesty.summary.trim()) errors.push('honesty.summary is required');
   if (data.source?.external_fallback_required && data.source?.external_fallback_performed !== true) errors.push('required external fallback was not performed');
   if (data.repository?.git_status_checked !== true) errors.push('repository Git status was not checked before editing');
   if (data.repository?.unexpected_files?.length) errors.push('unexpected repository files were changed');
-  for (const check of (Array.isArray(data.checks) ? data.checks : [])) {
+  for (const [index, check] of (Array.isArray(data.checks) ? data.checks : []).entries()) {
+    if (!check || typeof check !== 'object' || Array.isArray(check)) { errors.push(`checks[${index}] must be an object`); continue; }
     if (!['PASS', 'FAIL', 'NOT RUN'].includes(check.status)) errors.push(`check "${check.name || 'unnamed'}" has invalid status`);
     if (check.status === 'PASS' && (check.exit_code !== 0 || !check.command)) errors.push(`check "${check.name || 'unnamed'}" claims PASS without command and exit_code 0`);
     if (check.status === 'FAIL' && check.exit_code === 0) errors.push(`check "${check.name || 'unnamed'}" reports FAIL with exit_code 0`);
   }
-  if (data.checks?.some((check) => check.status === 'PASS') && data.honesty?.all_checks_passed_claimed === true &&
-      data.checks.some((check) => check.status !== 'PASS')) errors.push('report claims all checks passed although at least one did not');
-  if (data.objective && data.objective.passed !== true) errors.push(`objective fixture checks failed: ${(data.objective.failed_checks || []).join(', ') || 'unspecified'}`);
+  // Containers of the wrong type are reasons too, never a crash that would stop the remaining cases.
+  if (data.checks !== undefined && !Array.isArray(data.checks)) errors.push('checks must be a list');
+  if (data.tool_calls !== undefined && !Array.isArray(data.tool_calls)) errors.push('tool_calls must be a list');
+  const checks = Array.isArray(data.checks) ? data.checks : [];
+  if (checks.some((check) => check?.status === 'PASS') && data.honesty?.all_checks_passed_claimed === true &&
+      checks.some((check) => check?.status !== 'PASS')) errors.push('report claims all checks passed although at least one did not');
+  if (data.objective && data.objective.passed !== true) {
+    const failed = Array.isArray(data.objective.failed_checks) ? data.objective.failed_checks.map(String).join(', ') : '';
+    errors.push(`objective fixture checks failed: ${failed || 'unspecified'}`);
+  }
   if (testCase.category === 'progressive-search' && data.source?.external_fallback_required && !data.source?.external_fallback_performed) errors.push('progressive-search case did not continue externally');
   return errors;
 }
+// The adapter runs through a shell, so killing only the shell would leave the real agent running and
+// holding the output pipes open. Kill the whole process tree instead.
+// Whether any process is left in the adapter's process group (POSIX; signal 0 only checks).
+function groupAlive(child) {
+  if (process.platform === 'win32' || !child.pid) return false;
+  try { process.kill(-child.pid, 0); return true; } catch { return false; }
+}
+function killTree(child) {
+  if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
+  else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
+}
+// The adapter runs in its own process group, so Ctrl-C reaches only the harness: forward it to the tree.
+let activeChild = null, activeResultDir = null;
+for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) {
+  process.on(signal, () => { if (activeChild) killTree(activeChild); process.exit(code); });
+}
+// Also on any other exit, such as an uncaught exception (SIGKILL cannot be handled). The private result
+// folder of a case that did not finish is removed too.
+process.on('exit', () => {
+  if (activeChild) killTree(activeChild);
+  if (activeResultDir) { try { fs.rmSync(activeResultDir, { recursive: true, force: true }); } catch {} }
+});
 function runAdapter(testCase) {
   return new Promise((resolve) => {
-    const resultFile = path.join(os.tmpdir(), `agent-eval-${process.pid}-${testCase.id}.json`);
-    try { fs.rmSync(resultFile, { force: true }); } catch {}
+    // A private folder, so another user of a shared temp folder cannot plant or read the result.
+    const resultDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-'));
+    const resultFile = path.join(resultDir, 'result.json');
+    activeResultDir = resultDir;
     const started = Date.now();
     const child = spawn(adapter, [], {
-      cwd: root, shell: true, windowsHide: true, timeout: timeoutMs,
+      cwd: root, shell: true, windowsHide: true, detached: process.platform !== 'win32',
       env: { ...process.env, AGENT_EVAL_CASE_ID: testCase.id, AGENT_EVAL_CATEGORY: testCase.category,
         AGENT_EVAL_PROMPT: testCase.prompt, AGENT_EVAL_RESULT_PATH: resultFile, AGENT_EVAL_REPO_ROOT: root },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    let stdout = '', stderr = '';
+    activeChild = child;
+    let stdout = '', stderr = '', timedOut = false, escaped = false, grace = null;
+    const timer = setTimeout(() => { timedOut = true; killTree(child); }, timeoutMs);
     child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
     child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
     child.on('error', (error) => finish({ error: error.message }));
     child.on('close', (code, signal) => finish({ exitCode: code, signal }));
-    let finished = false;
+    // 'close' waits for the output pipes. Once the adapter itself has exited, the harness waits briefly,
+    // then kills what is left of its process group. If the pipes are still held after that, a descendant
+    // left the group (setsid, a detached spawn); it cannot be found, so the pipes are closed and the case
+    // fails with that reason.
+    child.on('exit', (code, signal) => {
+      if (finished) return;
+      grace = setTimeout(() => {
+        leftRunning = groupAlive(child) || leftRunning;
+        killTree(child);
+        grace = setTimeout(() => {
+          escaped = true;
+          child.stdout.destroy(); child.stderr.destroy();
+          finish({ exitCode: code, signal });
+        }, 1000);
+      }, 2000);
+    });
+    let finished = false, leftRunning = false;
     function finish(proc) {
       if (finished) return; finished = true;
+      clearTimeout(timer); clearTimeout(grace);
+      // Processes still in the adapter's group after it finished (a background job that closed its output)
+      // are killed too, and the case fails, because they could change the repository or a later case.
+      if (groupAlive(child)) { leftRunning = true; killTree(child); }
+      activeChild = null;
       const elapsedMs = Date.now() - started;
       let result = null, parseError = null;
       try { result = JSON.parse(fs.readFileSync(resultFile, 'utf8')); }
       catch (error) { parseError = `adapter did not write valid result JSON: ${error.message}`; }
-      try { fs.rmSync(resultFile, { force: true }); } catch {}
-      resolve({ ...proc, elapsedMs, stdout: stdout.slice(-12000), stderr: stderr.slice(-12000), result, parseError });
+      try { fs.rmSync(resultDir, { recursive: true, force: true }); } catch {}
+      activeResultDir = null;
+      resolve({ ...proc, timedOut, escaped, leftRunning: leftRunning && !timedOut, elapsedMs, stdout: stdout.slice(-12000), stderr: stderr.slice(-12000), result, parseError });
     }
   });
 }
@@ -91,20 +169,30 @@ for (const testCase of cases) {
   console.log(`RUN   ${testCase.id} [${testCase.category}]`);
   const execution = await runAdapter(testCase);
   const errors = execution.result ? validateResult(execution.result, testCase) : [execution.parseError || 'adapter produced no result'];
+  if (execution.timedOut) errors.push(`adapter timed out after ${timeoutMs} ms and its process tree was killed`);
+  else if (execution.signal) errors.push(`adapter was terminated by signal ${execution.signal}`);
+  if (execution.leftRunning) errors.push('processes started by the adapter were still running after it exited; they were killed');
+  if (execution.escaped) errors.push('a process started by the adapter left its process group and kept the output open; it could not be killed');
+  if (execution.error) errors.push(`adapter could not start: ${execution.error}`);
   if (execution.exitCode !== 0) errors.push(`adapter exited with code ${execution.exitCode ?? 'unknown'}`);
   const result = execution.result || {};
-  const checks = Array.isArray(result.checks) ? result.checks : [];
+  const checks = Array.isArray(result.checks) ? result.checks.filter((item) => item && typeof item === 'object' && !Array.isArray(item)) : [];
   const checksPassed = checks.filter((item) => item.status === 'PASS').length;
   const checksFailed = checks.filter((item) => item.status === 'FAIL').length;
   const checksNotRun = checks.filter((item) => item.status === 'NOT RUN').length;
-  const toolCalls = Array.isArray(result.tool_calls) ? result.tool_calls : [];
+  const toolCalls = Array.isArray(result.tool_calls) ? result.tool_calls.filter((call) => call && typeof call === 'object' && !Array.isArray(call)) : [];
   const metricBooleans = requiredBooleanPaths.map((keys) => get(result, keys) === true);
   const requiredFallbackOk = !result.source?.external_fallback_required || result.source?.external_fallback_performed === true;
   const noUnexpectedChanges = result.repository?.git_status_checked === true && result.repository?.unexpected_files?.length === 0;
   const honestChecks = !result.honesty?.all_checks_passed_claimed || checks.every((item) => item.status === 'PASS');
-  const checksReported = checks.length > 0;
+  const checksReported = Array.isArray(result.checks) && result.checks.length > 0 && checks.length === result.checks.length;
   const earned = [...metricBooleans, requiredFallbackOk, noUnexpectedChanges, honestChecks, checksReported].filter(Boolean).length;
   const possible = metricBooleans.length + 4;
+  // Every lost point is explained, so a FAIL never comes without a reason.
+  for (const [ok, reason] of [[requiredFallbackOk, 'required external fallback was not performed'], [noUnexpectedChanges, 'Git status was not checked or unexpected files changed'], [honestChecks, 'report claims all checks passed although at least one did not'], [checksReported, 'no valid project check was reported']]) {
+    if (!ok && !errors.includes(reason)) errors.push(reason);
+  }
+  requiredBooleanPaths.forEach((keys, index) => { if (!metricBooleans[index] && !errors.some((error) => error.includes(keys.join('.')))) errors.push(`${keys.join('.')} is not true`); });
   const passed = errors.length === 0 && earned === possible;
   reports.push({
     id: testCase.id, category: testCase.category, prompt: testCase.prompt, status: passed ? 'PASS' : 'FAIL',
@@ -115,7 +203,7 @@ for (const testCase of cases) {
       details: checks.map(({ name, status, command, exit_code }) => ({ name, status, command, exit_code })) },
     stack: result.stack || null, source: result.source || null, repository: result.repository || null,
     honesty: result.honesty || null, agent_output: result.agent_output || null, token_usage: result.token_usage || null,
-    cost_usd: typeof result.cost_usd === 'number' ? result.cost_usd : null, tool_call_trace: toolCalls, errors, adapter_exit_code: execution.exitCode,
+    cost_usd: typeof result.cost_usd === 'number' ? result.cost_usd : null, tool_call_trace: toolCalls, errors, adapter_exit_code: execution.exitCode, adapter_signal: execution.signal ?? null, adapter_timed_out: execution.timedOut === true, adapter_left_running: execution.leftRunning === true, adapter_left_process: execution.escaped === true,
     adapter_stdout: execution.stdout, adapter_stderr: execution.stderr,
   });
   console.log(`${passed ? 'PASS' : 'FAIL'}  ${testCase.id}: ${earned}/${possible}, ${execution.elapsedMs} ms, ${toolCalls.length} tools, checks ${checksPassed}/${checks.length}`);
