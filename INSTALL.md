@@ -144,7 +144,7 @@ claude plugin validate .\plugins\frontend-codepen-extractor
 claude plugin validate .
 ```
 
-`npm ci --ignore-scripts` installs the pinned validation dependency without running install scripts. `npm run validate:all` runs the structural validators, the smoke tests and the security gate. The last two commands check the plugin directory and the marketplace catalog with Claude Code's own validator. GitHub Actions runs `validate:all`'s checks and the evaluation fixture on Ubuntu and Windows for every push and pull request; it does not run `claude plugin validate`.
+`npm ci --ignore-scripts` installs the pinned validation dependency without running install scripts. `npm run validate:all` runs the structural validators, the smoke tests and the security gate. The last two commands check the plugin directory and the marketplace catalog with Claude Code's own validator. GitHub Actions runs `validate:all`'s checks and the evaluation fixture on Ubuntu and Windows for every push and pull request; it does not run `claude plugin validate`. CI does not install Playwright either, so the browser smoke tests report NOT RUN there and only run on a machine with Playwright and Chromium installed.
 
 ## Install for Codex, GitHub Copilot, Cursor, Gemini CLI and other agents
 

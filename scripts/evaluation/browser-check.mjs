@@ -37,19 +37,31 @@ try {
 // Tracks timers and window/document listeners so teardown can be verified. A listener counts once per
 // (target, type, callback, capture), as in the DOM, and removing one that was never added changes nothing.
 // The counts live in this closure; the page sees only a frozen, non-writable read-out, so its own code
-// cannot reset them. Not covered: timers taken from another frame's window (iframe.contentWindow).
+// cannot reset them. Not covered: timers taken from another frame's window (iframe.contentWindow),
+// on* handler properties (window.onresize = ...) and listeners on elements below document.
 const trackerScript = () => {
   const state = { intervals: new Set(), rafCalls: 0, timeoutCalls: 0, listeners: new Set() };
+  // Timeouts still pending, by the order they were set in, so that one set after teardown began and still
+  // pending at the end (a self-rescheduling loop with any period shorter than the wait) is caught.
+  const pending = new Map();
   const snapshot = () => ({ intervals: state.intervals.size, raf: state.rafCalls, timeouts: state.timeoutCalls, listeners: state.listeners.size });
-  Object.defineProperty(window, '__lifecycle', { value: Object.freeze({ snapshot }), writable: false, configurable: false, enumerable: false });
+  const pendingTimeoutsSetAfter = (mark) => [...pending.values()].filter((order) => order > mark).length;
+  Object.defineProperty(window, '__lifecycle', { value: Object.freeze({ snapshot, pendingTimeoutsSetAfter }), writable: false, configurable: false, enumerable: false });
   const setI = window.setInterval.bind(window), clearI = window.clearInterval.bind(window), raf = window.requestAnimationFrame.bind(window);
   const setT = window.setTimeout.bind(window), clearT = window.clearTimeout.bind(window);
   window.setInterval = (...a) => { const id = setI(...a); state.intervals.add(id); return id; };
   // Browsers share one id pool: clearTimeout also clears an interval, and clearInterval a timeout.
-  window.clearInterval = (id) => { state.intervals.delete(id); return clearI(id); };
-  window.clearTimeout = (id) => { state.intervals.delete(id); return clearT(id); };
-  // Counted so a self-rescheduling timeout loop that survives teardown is detected.
-  window.setTimeout = (...a) => { state.timeoutCalls += 1; return setT(...a); };
+  window.clearInterval = (id) => { state.intervals.delete(id); pending.delete(id); return clearI(id); };
+  window.clearTimeout = (id) => { state.intervals.delete(id); pending.delete(id); return clearT(id); };
+  // Counted and tracked until it fires or is cleared, so a timeout loop that survives teardown is detected.
+  window.setTimeout = (callback, ...rest) => {
+    const order = ++state.timeoutCalls;
+    let id;
+    const run = typeof callback === 'function' ? (...a) => { pending.delete(id); return callback(...a); } : callback;
+    id = setT(run, ...rest);
+    pending.set(id, order);
+    return id;
+  };
   window.requestAnimationFrame = (cb) => { state.rafCalls += 1; return raf(cb); };
   const callbackIds = new WeakMap();
   let nextId = 0;
@@ -164,14 +176,19 @@ try {
   await shot('after');
 
   if (config.teardown) {
-    await page.evaluate(config.teardown);
-    const before = await page.evaluate(() => window.__lifecycle.snapshot());
-    await page.waitForTimeout(1200);
-    const state = await page.evaluate(() => window.__lifecycle.snapshot());
-    if (state.intervals) failures.push(`${state.intervals} interval(s) still active after teardown`);
-    if (state.raf > before.raf + 1) failures.push('requestAnimationFrame still running after teardown');
-    if (state.timeouts > before.timeouts + 1) failures.push('setTimeout still rescheduling after teardown');
-    if (state.listeners > 0) failures.push(`${state.listeners} window/document listener(s) not removed by teardown`);
+    // A teardown that throws is a failure with its reason, not a crash without a result.
+    const tornDown = await page.evaluate(config.teardown).then(() => true, (error) => { failures.push('teardown failed: ' + error.message.split('\n')[0].slice(0, 200)); return false; });
+    if (tornDown) {
+      const before = await page.evaluate(() => window.__lifecycle.snapshot());
+      // More than twice the fixtures' one-second clock, so a loop with that period reschedules in the window.
+      await page.waitForTimeout(2200);
+      const state = await page.evaluate(() => window.__lifecycle.snapshot());
+      const rescheduled = await page.evaluate((mark) => window.__lifecycle.pendingTimeoutsSetAfter(mark), before.timeouts);
+      if (state.intervals) failures.push(`${state.intervals} interval(s) still active after teardown`);
+      if (state.raf > before.raf + 1) failures.push('requestAnimationFrame still running after teardown');
+      if (state.timeouts > before.timeouts + 1 || rescheduled) failures.push('setTimeout still rescheduling after teardown');
+      if (state.listeners > 0) failures.push(`${state.listeners} window/document listener(s) not removed by teardown`);
+    }
   }
   if (typeof config.max_blocked_requests === 'number' && blocked.length > config.max_blocked_requests) failures.push(`${blocked.length} network request(s) attempted; page must work offline`);
   for (const error of errors) failures.push('page error: ' + error.slice(0, 200));

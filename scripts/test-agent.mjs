@@ -360,6 +360,16 @@ test('security gate reports files too large to scan and string callbacks of ever
   }
 });
 
+test('security gate refuses a --root without an existing folder instead of scanning this repository', () => {
+  const gate = path.join(root, 'scripts/security-gate.mjs');
+  for (const argv of [['--root'], ['--root', '--x'], ['--root', path.join(os.tmpdir(), `missing-root-${process.pid}-${Date.now()}`)]]) {
+    const run = spawnSync(process.execPath, [gate, ...argv], { encoding: 'utf8', timeout: 30000 });
+    assert.equal(run.status, 2, argv.join(' '));
+    assert.match(run.stderr, /--root needs an existing folder/);
+    assert.doesNotMatch(run.stdout, /files scanned/);
+  }
+});
+
 test('security gate rejects agent tools entries that are not strings', () => {
   for (const tools of ['[Read, {Edit: 1}]', '{Edit: true}', '[Read, [Write]]']) {
     const run = runGate({ '.claude/agents/reviewer.md': `---\nname: reviewer\ndescription: Reviews\ntools: ${tools}\n---\nBody\n` });
@@ -698,6 +708,10 @@ const BROWSER_MUTANTS = [
   ['dynamic-js-widget', 'widget.js', [["document.addEventListener('click', onClick);", "document.addEventListener('click', onClick, { once: true });\n  document.addEventListener('click', onClick, { once: true });\n  document.removeEventListener('click', onClick);\n  document.addEventListener('click', onClick);"], ["document.removeEventListener('click', onClick);\n      root.remove();", 'root.remove();']], /listener\(s\) not removed by teardown/],
   // A self-rescheduling timeout loop that destroy() does not stop.
   ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "clearInterval(timer);\n      (function tick() { setTimeout(tick, 100); })();"]], /setTimeout still rescheduling after teardown/],
+  // The same loop with the fixture clock's one-second period, which a fixed tolerance used to miss.
+  ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "clearInterval(timer);\n      (function tick() { setTimeout(tick, 1000); })();"]], /setTimeout still rescheduling after teardown/],
+  // A teardown that throws is reported with its reason.
+  ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "clearInterval(timer);\n      throw new Error('broken teardown');"]], /teardown failed: .*broken teardown/],
   // Page code that leaks an interval and then tries to reset or replace the tracker's counts.
   ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "try { window.__lifecycle.intervals.clear(); } catch {}\n      try { window.__lifecycle = { snapshot: () => ({ intervals: 0, raf: 0, timeouts: 0, listeners: 0 }) }; } catch {}\n      try { delete window.__lifecycle; } catch {}"]], /interval\(s\) still active after teardown/],
   // Removing with a different capture flag does not remove the listener, as in the DOM.
@@ -743,6 +757,19 @@ test('browser check accepts clearTimeout on an interval id, as browsers do', () 
     const text = fs.readFileSync(file, 'utf8');
     assert.ok(text.includes('clearInterval(timer);'));
     fs.writeFileSync(file, text.replace('clearInterval(timer);', 'clearTimeout(timer);'));
+    return browserCheck(dir, fixture).result;
+  });
+  if (result.status === 'NOT RUN') throw new NotRun(result.reason);
+  assert.equal(result.status, 'PASS', JSON.stringify(result.failures));
+});
+
+test('browser check accepts a one-shot timeout that teardown schedules and that fires', () => {
+  const fixture = listFixtures(root).find((item) => item.name === 'dynamic-js-widget');
+  const result = withWorkspace(fixture, path.join(root, 'tests/fixture-solutions/dynamic-js-widget'), (dir) => {
+    const file = path.join(dir, 'widget.js');
+    const text = fs.readFileSync(file, 'utf8');
+    assert.ok(text.includes('clearInterval(timer);'));
+    fs.writeFileSync(file, text.replace('clearInterval(timer);', 'clearInterval(timer);\n      setTimeout(() => {}, 0);'));
     return browserCheck(dir, fixture).result;
   });
   if (result.status === 'NOT RUN') throw new NotRun(result.reason);
@@ -1027,6 +1054,22 @@ test('evaluation harness rejects a --timeout-ms that is not a usable positive in
     const atBound = spawnSync(process.execPath, [harness, ...output, '--adapter', 'node -e 0', '--case', 'dynamic-js-widget', '--timeout-ms', '2147483647'], { cwd: root, encoding: 'utf8', timeout: 60000 });
     assert.equal(atBound.status, 1, atBound.stderr);
   } finally { fs.rmSync(out, { recursive: true, force: true }); }
+});
+
+test('evaluation harness treats --help as success and an unreadable suite as a usage error', () => {
+  const harness = path.join(root, 'scripts/evaluate-agent.mjs');
+  assert.equal(spawnSync(process.execPath, [harness, '--help'], { cwd: root, encoding: 'utf8' }).status, 0);
+  assert.equal(spawnSync(process.execPath, [harness], { cwd: root, encoding: 'utf8' }).status, 2, 'no adapter');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-suite-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'bad.json'), '{not json');
+    fs.writeFileSync(path.join(dir, 'empty.json'), '{}');
+    for (const suite of [path.join(dir, 'missing.json'), path.join(dir, 'bad.json'), path.join(dir, 'empty.json')]) {
+      const run = spawnSync(process.execPath, [harness, '--adapter', 'node -e 0', '--suite', suite, '--output', path.join(dir, 'report.json')], { cwd: root, encoding: 'utf8' });
+      assert.equal(run.status, 2, suite + run.stderr);
+      assert.doesNotMatch(run.stderr, /at .*evaluate-agent\.mjs/, 'no stack trace');
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('evaluation harness names the reason when a required metric is false', () => {
@@ -1360,6 +1403,18 @@ test('manual evaluation explains a --dir it cannot use instead of crashing', () 
     const dangling = prepare('--dir', path.join(base, 'dangling'));
     assert.equal(dangling.status, 2, dangling.stderr);
     assert.match(dangling.stderr, /Cannot create/);
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual evaluation checks the --output folder before scoring', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-output-'));
+  try {
+    const dir = path.join(base, 'run');
+    assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 }).status, 0);
+    const run = spawnSync(process.execPath, [manualEval, 'score', path.join(dir, 'workspace'), '--output', path.join(base, 'missing', 'report.json')], { encoding: 'utf8', timeout: 60000 });
+    assert.equal(run.status, 2, run.stdout + run.stderr);
+    assert.match(run.stderr, /folder for --output does not exist/);
+    assert.doesNotMatch(run.stdout, /Fixture quality assertions/, 'no check ran');
   } finally { fs.rmSync(base, { recursive: true, force: true }); }
 });
 

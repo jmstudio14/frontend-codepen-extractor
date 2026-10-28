@@ -161,6 +161,11 @@ function prepare(caseId) {
 
 function score(workspaceArg) {
   const workspace = path.resolve(workspaceArg);
+  // Checked before any check runs, so a typo in --output does not throw away a finished scoring run.
+  if (option('--output')) {
+    const folder = path.dirname(path.resolve(option('--output')));
+    if (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) { console.error(`The folder for --output does not exist: ${folder}`); process.exit(2); }
+  }
   const metaPath = path.join(path.dirname(workspace), 'meta.json');
   if (!fs.existsSync(metaPath)) { console.error(`No meta.json next to ${workspace}; prepare the workspace with manual-eval.mjs prepare.`); process.exit(2); }
   let meta;

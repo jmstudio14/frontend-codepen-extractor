@@ -33,9 +33,13 @@ function usage() {
   console.log('Usage: node scripts/evaluate-agent.mjs --adapter "<command>" [--case <id>] [--output <path>] [--timeout-ms <ms>]');
   console.log('The adapter must execute the real agent for each case and write the result JSON to AGENT_EVAL_RESULT_PATH.');
 }
-if (args.includes('--help') || !adapter) { usage(); process.exit(adapter ? 0 : 2); }
+if (parsed['--help']) { usage(); process.exit(0); }
+if (!adapter) { usage(); process.exit(2); }
 
-const suite = JSON.parse(fs.readFileSync(suitePath, 'utf8'));
+// A suite that cannot be read is a usage error (exit 2), like any other bad option, not a failed run.
+let suite;
+try { suite = JSON.parse(fs.readFileSync(suitePath, 'utf8')); } catch (error) { console.error(`Cannot read the suite ${suitePath}: ${error.code || error.message.split('\n')[0]}`); process.exit(2); }
+if (!suite || !Array.isArray(suite.cases)) { console.error(`The suite ${suitePath} has no "cases" list.`); process.exit(2); }
 const cases = caseFilter ? suite.cases.filter((item) => item.id === caseFilter) : suite.cases;
 if (!cases.length) { console.error('No evaluation cases selected. Check --case and the suite.'); process.exit(2); }
 

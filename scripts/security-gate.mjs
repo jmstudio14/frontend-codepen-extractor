@@ -10,6 +10,11 @@ import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 const rootArg = args.indexOf('--root') >= 0 ? args[args.indexOf('--root') + 1] : null;
+// Without this check, `--root` with no value would silently scan this repository instead.
+if (args.includes('--root') && (!rootArg || rootArg.startsWith('--') || !fs.existsSync(rootArg) || !fs.statSync(rootArg).isDirectory())) {
+  console.error('--root needs an existing folder.');
+  process.exit(2);
+}
 const root = path.resolve(rootArg || path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 // Skipped only at the repository root; a folder with one of these names deeper in the tree is scanned.
 const SKIP_DIRS = new Set(['.git', 'node_modules', 'evaluation-results', '__pycache__']);

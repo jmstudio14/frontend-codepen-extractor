@@ -264,7 +264,7 @@ claude plugin validate .\plugins\frontend-codepen-extractor
 claude plugin validate .
 ```
 
-GitHub Actions runs structural validation, the security gate, smoke tests and the deterministic evaluation fixture on Ubuntu and Windows. None of it needs an API key or calls a model. Measuring the real agent is done in the manual mode, with Claude Code and your normal subscription (see the [measurement protocol](docs/measurement-protocol.md)). Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
+GitHub Actions runs structural validation, the security gate, smoke tests and the deterministic evaluation fixture on Ubuntu and Windows. None of it needs an API key or calls a model. CI does not install Playwright, so the smoke tests that drive Chromium report NOT RUN there; run `npm run validate:all` locally with Playwright installed to exercise them (see the [testing guide](docs/testing-guide.md)). Measuring the real agent is done in the manual mode, with Claude Code and your normal subscription (see the [measurement protocol](docs/measurement-protocol.md)). Passing checks does not prove runtime correctness, accessibility, or visual fidelity for every prototype.
 
 ### Delivery review with the coordinator
 
