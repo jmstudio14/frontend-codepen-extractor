@@ -365,6 +365,11 @@ test('security gate catches quoted shell keys, shell paths, exec aliases, the Fu
     assert.equal(run.status, 1, source);
     assert.match(run.stderr, rule, source);
   }
+  // A shell path kept in a variable is still a shell once the file loads child_process; without it, a path is text.
+  const viaVariable = runGate({ 'scripts/a.mjs': `import { spawn } from ${cp};\nconst bin = '/usr/bin/ba` + `sh';\nspawn(bin, ['-c', 'ls']);\n` });
+  assert.equal(viaVariable.status, 1);
+  assert.match(viaVariable.stderr, /unapproved-shell-spawn: scripts\/a\.mjs line 2/);
+  assert.equal(runGate({ 'scripts/a.mjs': `const bin = '/usr/bin/ba` + `sh';\nconsole.log(bin);\n` }).status, 0);
   const ts = runGate({ 'src/run.ts': `import { ex` + `ecSync } from ${cp};\nex` + `ecSync('ls');\n` });
   assert.match(ts.stderr, /unapproved-shell-exec: src\/run\.ts/, 'TypeScript files are Node code too');
   // Plain words in strings, comments and regex literals are not calls.
