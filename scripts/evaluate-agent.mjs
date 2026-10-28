@@ -7,14 +7,20 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
-// An option given without a value (end of the list, or followed by another option) is an error.
-function arg(name) {
-  const i = args.indexOf(name);
-  if (i < 0) return null;
+// Options are strict: each known option once, with a non-empty value. An unknown option, `--name=value`
+// or a missing value is an error rather than a silent no-op. --help takes no value.
+const KNOWN_OPTIONS = ['--adapter', '--case', '--output', '--timeout-ms', '--suite'];
+const parsed = {};
+for (let i = 0; i < args.length; i += 1) {
+  const name = args[i];
+  if (name === '--help') { parsed[name] = true; continue; }
+  if (!KNOWN_OPTIONS.includes(name) || name in parsed) { console.error(`Unknown or repeated option: ${name}`); process.exit(2); }
   const value = args[i + 1];
-  if (value === undefined || value.startsWith('--')) { console.error(`${name} needs a value.`); process.exit(2); }
-  return value;
+  if (value === undefined || value === '' || value.startsWith('--')) { console.error(`${name} needs a value.`); process.exit(2); }
+  parsed[name] = value;
+  i += 1;
 }
+const arg = (name) => parsed[name] ?? null;
 const adapter = arg('--adapter');
 const caseFilter = arg('--case');
 const outputPath = arg('--output') || path.join(root, 'evaluation-results', `run-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);

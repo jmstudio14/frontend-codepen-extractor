@@ -16,13 +16,18 @@ import { buildPrompt, findFixture, hostOnlyFiles } from './fixtures.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const [command, target, ...rest] = process.argv.slice(2);
-const option = (name) => {
-  const i = rest.indexOf(name);
-  if (i < 0) return null;
-  if (rest[i + 1] === undefined || rest[i + 1].startsWith('--')) { console.error(`${name} needs a value.`); process.exit(2); }
-  return rest[i + 1];
-};
 const usage = () => { console.error('Usage: manual-eval.mjs prepare <case-id> [--dir <path>] | score <workspace> [--output <report.json>]'); process.exit(2); };
+// Options are strict: only the ones a command takes, each once, with a non-empty value. An unknown
+// option, `--name=value` or an empty value is an error rather than a silent no-op.
+const ALLOWED_OPTIONS = { prepare: ['--dir'], score: ['--output'] };
+const options = {};
+for (let i = 0; i < rest.length; i += 2) {
+  const name = rest[i], value = rest[i + 1];
+  if (!(ALLOWED_OPTIONS[command] ?? []).includes(name) || name in options) { console.error(`Unknown or repeated option for ${command}: ${name}`); usage(); }
+  if (value === undefined || value === '' || value.startsWith('--')) { console.error(`${name} needs a value.`); process.exit(2); }
+  options[name] = value;
+}
+const option = (name) => options[name] ?? null;
 const run = (cmd, args, cwd) => {
   const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', timeout: 60000 });
   return { command: [cmd, ...args].join(' '), exit_code: r.status ?? 1, stdout: r.stdout || '', stderr: r.stderr || '', error: r.error?.message || null };
@@ -43,6 +48,19 @@ function resolveThroughExisting(target) {
   try { return path.join(fs.realpathSync(existing), ...rest); } catch { return path.resolve(target); }
 }
 const COMMIT_ID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
+// The fixture's source files as the agent receives them: host-only files, .git and node_modules excluded.
+const copyFixture = (fixture, destination) => fs.cpSync(fixture.dir, destination, { recursive: true, filter: (src) => !['.git', 'node_modules', ...hostOnlyFiles(fixture.manifest)].includes(path.basename(src)) });
+// The Git tree of a fresh copy of the fixture. The prepared commit must have exactly this tree, which the
+// agent cannot change, so a rewritten history or an edited meta.json cannot move the scoring base.
+function fixtureTree(fixture) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-tree-'));
+  try {
+    copyFixture(fixture, path.join(dir, 'tree'));
+    for (const args of [['init', '-q'], ['add', '.']]) if (git(args, path.join(dir, 'tree')).exit_code) return null;
+    const tree = git(['write-tree'], path.join(dir, 'tree'));
+    return tree.exit_code ? null : tree.stdout.trim();
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
 
 function prepare(caseId) {
   const suite = JSON.parse(fs.readFileSync(path.join(root, 'tests/agent-evaluation-cases.json'), 'utf8'));
@@ -65,12 +83,14 @@ function prepare(caseId) {
   }
   const workspace = path.join(base, 'workspace');
   if (fs.existsSync(workspace)) { console.error(`Workspace already exists: ${workspace}`); process.exit(2); }
-  const hidden = hostOnlyFiles(fixture.manifest);
+  // Never overwrite the files of an earlier run (or anyone's files with these names) in an existing --dir.
+  const existing = ['meta.json', 'prompt.txt', 'report.json'].filter((name) => fs.existsSync(path.join(base, name)));
+  if (existing.length) { console.error(`${base} already contains ${existing.join(', ')}; choose an empty or new --dir.`); process.exit(2); }
   // On failure, remove only what this run created: the first new folder, or else just the workspace.
   let createdRoot;
   try { createdRoot = fs.mkdirSync(base, { recursive: true }); }
   catch (error) { console.error(`Cannot create ${base}: ${error.code || error.message}. Choose another --dir.`); process.exit(2); }
-  try { fs.cpSync(fixture.dir, workspace, { recursive: true, filter: (src) => !['.git', 'node_modules', ...hidden].includes(path.basename(src)) }); }
+  try { copyFixture(fixture, workspace); }
   catch (error) {
     fs.rmSync(privateTemp ?? createdRoot ?? workspace, { recursive: true, force: true });
     console.error(`Could not copy the fixture into ${workspace}: ${error.code || error.message}`);
@@ -115,10 +135,13 @@ function score(workspaceArg) {
   const baseCommit = meta.base_commit;
   const diff = git(['diff', '--name-only', baseCommit, '--'], workspace), untracked = git(['ls-files', '--others'], workspace);
   // Untracked files are listed without the exclude rules, so .gitignore or .git/info/exclude cannot hide them.
-  if (diff.exit_code || untracked.exit_code) { console.error('Could not read the workspace Git state.'); process.exit(1); }
+  if (diff.exit_code || untracked.exit_code) { console.error('Could not read the workspace Git state; it cannot be scored.'); process.exit(2); }
   // The history must still start at the prepared commit; a rewritten or replaced history is not scored.
   const roots = git(['rev-list', '--max-parents=0', 'HEAD'], workspace);
   const historyIntact = roots.stdout.split(/\r?\n/).includes(baseCommit);
+  const expectedTree = fixtureTree(fixture);
+  const baseTree = git(['rev-parse', `${baseCommit}^{tree}`], workspace).stdout.trim();
+  const baseMatchesFixture = Boolean(expectedTree) && baseTree === expectedTree;
   const changed = [...new Set([...diff.stdout.split(/\r?\n/), ...untracked.stdout.split(/\r?\n/)].filter(Boolean))].sort();
   const unexpected = changed.filter((file) => !manifest.editable_files.includes(file));
   const checks = [];
@@ -134,6 +157,7 @@ function score(workspaceArg) {
   checks.push({ name: 'Browser check (Playwright, network blocked)', command: browserRun.command, status: browser?.status || 'FAIL', exit_code: browserRun.exit_code, output_excerpt: browser ? JSON.stringify(browser) : [browserRun.stdout, browserRun.stderr].join('\n').slice(-2500) });
   // CRLF line endings (common on Windows) are not trailing whitespace; real trailing spaces still fail.
   add('Git diff whitespace', git(['-c', 'core.whitespace=cr-at-eol', 'diff', '--check', baseCommit, '--'], workspace));
+  if (!baseMatchesFixture) checks.push({ name: 'Prepared commit matches the fixture', command: `git rev-parse ${baseCommit}^{tree}`, status: 'FAIL', exit_code: 1, output_excerpt: `expected tree ${expectedTree ?? '(could not be computed)'}, found ${baseTree || '(none)'}` });
   if (!historyIntact) checks.push({ name: 'Workspace history starts at the prepared commit', command: 'git rev-list --max-parents=0 HEAD', status: 'FAIL', exit_code: 1, output_excerpt: roots.stdout.trim() });
   if (unexpected.length) checks.push({ name: 'Only editable files changed', command: `git diff --name-only ${baseCommit}`, status: 'FAIL', exit_code: 1, output_excerpt: unexpected.join('\n') });
 

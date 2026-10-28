@@ -18,8 +18,9 @@ const SHELL_ALLOWLIST = new Set(['scripts/evaluate-agent.mjs']);
 const WRITE_ALLOWED_AGENT_NAMES = new Set(['frontend-codepen-extractor']);
 const SECRET_RULES = [
   ['anthropic-api-key', /sk-ant-[A-Za-z0-9_-]{16,}/],
-  // Real keys contain digits; requiring one keeps long hyphenated names such as CSS classes from matching.
-  ['openai-api-key', /\bsk-(?!ant-)(?:proj-|svcacct-|admin-)?(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Z])(?=[A-Za-z0-9_-]*[a-z])[A-Za-z0-9_-]{32,}/],
+  // The main-branch rule (32+ alphanumerics, any case) plus the project, service-account and admin key
+  // formats, which may contain `_` and `-`. Unprefixed names with hyphens, such as CSS classes, do not match.
+  ['openai-api-key', /\bsk-(?:proj-)?[A-Za-z0-9]{32,}|\bsk-(?:proj-|svcacct-|admin-)[A-Za-z0-9_-]{32,}/],
   ['aws-access-key', /\bAKIA[0-9A-Z]{16}\b/],
   ['github-token', /\bgh[pousr]_[A-Za-z0-9]{36,}\b/],
   ['github-fine-grained-token', /\bgithub_pat_[A-Za-z0-9_]{50,}/],
@@ -77,7 +78,8 @@ const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 //
 // child_process exec/execSync always run through a shell. In a file that loads child_process, calls,
 // member calls, bracket access, destructuring and aliases of exec/execSync are flagged.
-const LOADS_CHILD_PROCESS = /(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)['"`](?:node:)?child_process['"`]/;
+// Any quoted child_process specifier counts as loading it, which also covers createRequire.
+const LOADS_CHILD_PROCESS = /['"`](?:node:)?child_process['"`]/;
 const SHELL_EXEC_FORMS = [
   /(?<![\w$.])(?:exec|execSync)\s*\(/,
   /\.\s*(?:exec|execSync)\s*\(/,
@@ -97,25 +99,32 @@ const SHELL_OPTION_FORMS = [
   /[{,]\s*shell\s*[,}]/,
   /\.\s*shell\s*=(?!=)(?!\s*false\b)/,
   /\[\s*['"`]shell['"`]\s*\]\s*=(?!=)(?!\s*false\b)/,
+  /\[\s*['"`]shell['"`]\s*\]\s*:(?!\s*false\b)/,
+  // The main-branch rule, kept verbatim so this gate is never weaker than it.
+  /\bshell\s*:\s*true\b/,
 ];
 // Spawning a shell binary directly, by bare name or by path; in a file that loads child_process, any string
 // that is a path to a shell also counts, because it may reach spawn through a variable.
 const SHELL_PATH_LITERAL = /['"`](?:[^'"`\s]*[\\/])(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?['"`]/i;
-const SHELL_BINARY = /\b(?:spawn|spawnSync|execFile|execFileSync|fork)\s*\(\s*['"`](?:[^'"`]*[\\/])?(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?['"`]/i;
-// Code built from text: eval (direct, indirect, aliased or via globalThis), the Function constructor,
-// string timer callbacks, node:vm, Worker code strings (`eval: true`) and data: URL imports.
+const SHELL_BINARY = /\b(?:spawn|spawnSync|execFile|execFileSync|fork)\s*\(\s*(?:['"`](?:[^'"`]*[\\/])?(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?['"`]|process\.env\.(?:SHELL|ComSpec|COMSPEC)\b)/i;
+// Code built from text: the global code evaluator in direct, optional, indirect, aliased, method or
+// globalThis form; the code-from-string constructor (with or without new, or parenthesised); string timer
+// callbacks; node:vm; Worker code strings; and data: URL imports. The first entry is the main-branch rule,
+// kept verbatim so this gate is never weaker than it. These patterns are written so that this file, which
+// is scanned like any other, does not match its own definitions.
 const DYNAMIC_CODE_FORMS = [
-  /(?<![\w$])eval\s*\(/,
+  /\beval\s*\(|\bnew\s+Function\s*\(/,
+  /(?<![\w$])eval\s*(?:\?\.\s*)?\(/,
   /\(\s*0\s*,\s*eval\s*\)/,
   /[=:(,]\s*eval\s*[;,)\n]/,
-  /(?<![\w$])(?:new\s+)?Function\s*\(/,
+  /[=:(,]\s*(?:globalThis|window|self|global)\s*\.\s*eval\b(?!\s*\()/,
+  /\beval\s*\.\s*(?:call|apply|bind)\b/,
+  /(?<![\w$])(?:new\s+)?\(?\s*Function\s*\)?\s*\(/,
   /\bset(?:Timeout|Interval|Immediate)\s*\(\s*['"`]/,
   /(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)['"`](?:node:)?vm['"`]/,
-  /\beval\s*:\s*true\b/,
-  /\bimport\s*\(\s*['"`]data:/,
+  /['"`]?\beval['"`]?\s*:(?!\s*false\b)/,
+  /\bimport\s*\(?\s*['"`]data:/i,
 ];
-// The gate's own pattern definitions would match themselves; it is reviewed with every change instead.
-const CODE_RULE_EXEMPT = new Set(['scripts/security-gate.mjs']);
 // Node code anywhere, except browser .js files in the fixtures and their solutions (seeded defects).
 const isNodeCode = (rel) => /\.(?:mjs|cjs|mts|cts)$/.test(rel) || (/\.(?:js|ts)$/.test(rel) && !/^tests\/(?:fixtures|fixture-solutions)\//.test(rel));
 
@@ -130,7 +139,7 @@ for (const { rel, full } of files) {
     const match = re.exec(text);
     if (match) finding(rule, rel, `line ${lineOf(text, match.index)} (value not printed)`);
   }
-  if (isNodeCode(rel) && !CODE_RULE_EXEMPT.has(rel)) {
+  if (isNodeCode(rel)) {
     const dynamic = firstIndex(text, DYNAMIC_CODE_FORMS);
     if (dynamic >= 0) finding('dynamic-code-execution', rel, `line ${lineOf(text, dynamic)}`);
     if (!SHELL_ALLOWLIST.has(rel)) {

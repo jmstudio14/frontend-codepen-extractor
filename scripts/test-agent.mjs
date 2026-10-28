@@ -420,6 +420,61 @@ test('security gate reports a root symlink named like a skipped folder', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('security gate is never weaker than the main-branch gate', () => {
+  // The main-branch rules, copied here so the comparison does not depend on a fetched branch.
+  const ev = 'ev' + 'al';
+  const baseline = {
+    'dynamic-code-execution': new RegExp(`\\b${ev}\\s*\\(|\\bnew\\s+Func` + `tion\\s*\\(`),
+    'unapproved-shell-true': new RegExp('\\bsh' + 'ell\\s*:\\s*true\\b'),
+    'openai-api-key': /\bsk-(?:proj-)?[A-Za-z0-9]{32,}/,
+  };
+  const key = (body) => 'sk' + '-' + body;
+  const samples = [
+    `const $${ev} = globalThis.${ev};\n$${ev}(code);\n`,
+    `page.$${ev}('sel', (node) => node.textContent);\n`,
+    `const f = new Func` + `tion('return 1');\n`,
+    `spawn('ls', [], { sh` + `ell: true });\n`,
+    `value = '${key('0123456789abcdef0123456789abcdef')}';\n`,
+    `value = '${key('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCD')}';\n`,
+    `value = '${key('abcdefghijklmnopqrstuvwxyzabcdefghijkl')}';\n`,
+  ];
+  for (const source of samples) {
+    const run = runGate({ 'scripts/a.mjs': source });
+    for (const [rule, re] of Object.entries(baseline)) {
+      if (re.test(source)) assert.match(run.stderr, new RegExp(rule), `main blocks this as ${rule}: ${source}`);
+    }
+  }
+});
+
+test('security gate applies its code rules to its own file too', () => {
+  const run = runGate({ 'scripts/security-gate.mjs': 'ev' + 'al(process.env.X);\n' });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /dynamic-code-execution: scripts\/security-gate\.mjs/);
+});
+
+test('security gate catches optional, method and computed forms of code evaluation and shell use', () => {
+  const ev = 'ev' + 'al';
+  const sh = 'sh' + 'ell';
+  const cp = "'node:child_" + "process'";
+  for (const [source, rule] of [
+    [`${ev}?.(code);\n`, /dynamic-code-execution/],
+    [`${ev}.call(null, code);\n`, /dynamic-code-execution/],
+    [`import 'da` + `ta:text/javascript,console.log(1)';\n`, /dynamic-code-execution/],
+    [`await import('DA` + `TA:text/javascript,1');\n`, /dynamic-code-execution/],
+    [`new Worker(src, { '${ev}': true });\n`, /dynamic-code-execution/],
+    [`new Worker(src, { ${ev}: !0 });\n`, /dynamic-code-execution/],
+    [`const f = new (Func` + `tion)('return 1');\n`, /dynamic-code-execution/],
+    [`import { spawn } from ${cp};\nspawn('ls', [], { ['${sh}']: true });\n`, /unapproved-shell-true/],
+    [`import { createRequire } from 'node:module';\nconst cp = createRequire(import.meta.url)('child_` + `process');\ncp.ex` + `ecSync('ls');\n`, /unapproved-shell-exec/],
+    [`import { spawn } from ${cp};\nspawn(process.env.SH` + `ELL, ['-c', 'id']);\n`, /unapproved-shell-spawn/],
+  ]) {
+    const run = runGate({ 'scripts/a.mjs': source });
+    assert.equal(run.status, 1, source);
+    assert.match(run.stderr, rule, source);
+  }
+  assert.equal(runGate({ 'scripts/a.mjs': `new Worker(src, { ${ev}: false });\n` }).status, 0);
+});
+
 test('security gate scans folders named like skipped ones below the root, and more key formats', () => {
   for (const folder of ['node_modules', 'evaluation-results', '.git']) {
     const run = runGate({ [`.claude/agents/${folder}/frontend-security-reviewer.md`]: '---\nname: frontend-security-reviewer\ntools: Read, Edit\n---\n' });
@@ -556,6 +611,14 @@ const BROWSER_MUTANTS = [
   ['leaky-animation-prototype', 'prototype.js', [['cancelAnimationFrame(frame);', '']], /requestAnimationFrame still running after teardown/],
   ['leaky-animation-prototype', 'prototype.js', [["window.removeEventListener('resize', onResize);", '']], /listener\(s\) not removed by teardown/],
   ['dynamic-js-widget', 'widget.js', [['clearInterval(timer);', '']], /interval\(s\) still active after teardown/],
+  // A signal listener that is removed and added again without the signal survives the abort.
+  ['dynamic-js-widget', 'widget.js', [["document.addEventListener('click', onClick);", "const first = new AbortController();\n  document.addEventListener('click', onClick, { signal: first.signal });\n  document.removeEventListener('click', onClick);\n  document.addEventListener('click', onClick);"], ["document.removeEventListener('click', onClick);\n      root.remove();", 'first.abort();\n      root.remove();']], /listener\(s\) not removed by teardown/],
+  // A once listener with a signal that is aborted, then added again for good, is still a leak.
+  ['dynamic-js-widget', 'widget.js', [["document.addEventListener('click', onClick);", "const first = new AbortController();\n  document.addEventListener('click', onClick, { once: true, signal: first.signal });\n  first.abort();\n  document.addEventListener('click', onClick);"], ["document.removeEventListener('click', onClick);\n      root.remove();", 'root.remove();']], /listener\(s\) not removed by teardown/],
+  // Adding the same once listener twice registers it once; removing it and adding it plain is a leak.
+  ['dynamic-js-widget', 'widget.js', [["document.addEventListener('click', onClick);", "document.addEventListener('click', onClick, { once: true });\n  document.addEventListener('click', onClick, { once: true });\n  document.removeEventListener('click', onClick);\n  document.addEventListener('click', onClick);"], ["document.removeEventListener('click', onClick);\n      root.remove();", 'root.remove();']], /listener\(s\) not removed by teardown/],
+  // A self-rescheduling timeout loop that destroy() does not stop.
+  ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "clearInterval(timer);\n      (function tick() { setTimeout(tick, 100); })();"]], /setTimeout still rescheduling after teardown/],
   // Removing with a different capture flag does not remove the listener, as in the DOM.
   ['dynamic-js-widget', 'widget.js', [["document.removeEventListener('click', onClick);", "document.removeEventListener('click', onClick, true);"]], /listener\(s\) not removed by teardown/],
   // A once listener that is removed and then added again for good is still a leak.
@@ -586,6 +649,19 @@ test('browser check accepts a once listener that fired and an add with an alread
       ["document.removeEventListener('click', onClick);", ''],
     ]) { assert.ok(text.includes(from), from); text = text.replace(from, to); }
     fs.writeFileSync(path.join(dir, 'widget.js'), text);
+    return browserCheck(dir, fixture).result;
+  });
+  if (result.status === 'NOT RUN') throw new NotRun(result.reason);
+  assert.equal(result.status, 'PASS', JSON.stringify(result.failures));
+});
+
+test('browser check accepts clearTimeout on an interval id, as browsers do', () => {
+  const fixture = listFixtures(root).find((item) => item.name === 'dynamic-js-widget');
+  const result = withWorkspace(fixture, path.join(root, 'tests/fixture-solutions/dynamic-js-widget'), (dir) => {
+    const file = path.join(dir, 'widget.js');
+    const text = fs.readFileSync(file, 'utf8');
+    assert.ok(text.includes('clearInterval(timer);'));
+    fs.writeFileSync(file, text.replace('clearInterval(timer);', 'clearTimeout(timer);'));
     return browserCheck(dir, fixture).result;
   });
   if (result.status === 'NOT RUN') throw new NotRun(result.reason);
@@ -727,7 +803,23 @@ setTimeout(() => {}, 120000);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('evaluation harness stops the adapter tree on Ctrl-C (SIGINT) and SIGTERM', async () => {
+test('evaluation harness reports an adapter killed by a signal', () => {
+  if (process.platform === 'win32') throw new NotRun('POSIX signals');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-killed-'));
+  try {
+    const adapter = path.join(dir, 'die.mjs');
+    fs.writeFileSync(adapter, "process.kill(process.pid, 'SIGKILL');\n");
+    const reportPath = path.join(dir, 'report.json');
+    // exec replaces the shell, so the signal reaches the harness as the adapter's own termination.
+    const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `exec node "${adapter}"`, '--case', 'dynamic-js-widget', '--output', reportPath], { cwd: root, encoding: 'utf8', timeout: 60000 });
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+    assert.equal(report.cases[0].adapter_signal, 'SIGKILL');
+    assert.ok(report.cases[0].errors.includes('adapter was terminated by signal SIGKILL'), JSON.stringify(report.cases[0].errors));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('evaluation harness stops the adapter tree on Ctrl-C (SIGINT), SIGTERM and SIGHUP', async () => {
   if (process.platform === 'win32') throw new NotRun('POSIX signals; Windows has no catchable SIGTERM');
   const { spawn } = await import('node:child_process');
   // Signal 0 checks existence; where /proc exists, a zombie (exited, not yet reaped) counts as stopped.
@@ -735,7 +827,7 @@ test('evaluation harness stops the adapter tree on Ctrl-C (SIGINT) and SIGTERM',
     try { process.kill(pid, 0); } catch { return false; }
     try { return !fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(' ')[2].startsWith('Z'); } catch { return true; }
   };
-  for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+  for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-signal-'));
     try {
       const adapter = path.join(dir, 'hang.mjs');
@@ -761,7 +853,7 @@ setTimeout(() => {}, 120000);
 
 test('evaluation harness rejects a --timeout-ms that is not a usable positive integer', () => {
   const harness = path.join(root, 'scripts/evaluate-agent.mjs');
-  for (const value of ['abc', '0', '-5', '1e3', '0x10', ' 100', '1.5', '3000000000']) {
+  for (const value of ['abc', '0', '-5', '1e3', '0x10', ' 100', '1.5', '2147483648', '3000000000', '']) {
     const run = spawnSync(process.execPath, [harness, '--adapter', 'node -e 0', '--timeout-ms', value], { cwd: root, encoding: 'utf8' });
     assert.equal(run.status, 2, `--timeout-ms ${value} must be rejected`);
   }
@@ -770,6 +862,15 @@ test('evaluation harness rejects a --timeout-ms that is not a usable positive in
     assert.equal(run.status, 2, `${argv.join(' ')} must be rejected`);
     assert.match(run.stderr, /--timeout-ms needs a value/);
   }
+  for (const argv of [['--adapter', 'node -e 0', '--timeout-ms=5'], ['--adapter', 'node -e 0', '--cases', 'x'], ['--adapter', 'node -e 0', '--case', 'a', '--case', 'b']]) {
+    const run = spawnSync(process.execPath, [harness, ...argv], { cwd: root, encoding: 'utf8' });
+    assert.equal(run.status, 2, `${argv.join(' ')} must be rejected`);
+    assert.match(run.stderr, /Unknown or repeated option/);
+  }
+  // The documented upper bound itself is accepted (the run then fails on its cases, not on parsing).
+  const atBound = spawnSync(process.execPath, [harness, '--adapter', 'node -e 0', '--case', 'dynamic-js-widget', '--timeout-ms', '2147483647', '--output', path.join(os.tmpdir(), `bound-${process.pid}.json`)], { cwd: root, encoding: 'utf8', timeout: 60000 });
+  fs.rmSync(path.join(os.tmpdir(), `bound-${process.pid}.json`), { force: true });
+  assert.equal(atBound.status, 1, atBound.stderr);
 });
 
 test('evaluation harness names the reason when a required metric is false', () => {
@@ -1055,6 +1156,65 @@ test('manual evaluation explains a --dir it cannot use instead of crashing', () 
     assert.equal(dangling.status, 2, dangling.stderr);
     assert.match(dangling.stderr, /Cannot create/);
   } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual evaluation binds the scoring base to the fixture, so a new root and an edited meta.json fail', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-rebase-'));
+  try {
+    const dir = path.join(base, 'run');
+    assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 }).status, 0);
+    const workspace = path.join(dir, 'workspace');
+    fs.cpSync(path.join(root, 'tests/fixture-solutions/broken-html-card'), workspace, { recursive: true });
+    fs.writeFileSync(path.join(workspace, 'notallowed.txt'), 'x\n');
+    for (const args of [['checkout', '-q', '--orphan', 'fresh'], ['add', '-A'], ['-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '-m', 'new root']]) assert.equal(spawnSync('git', args, { cwd: workspace }).status, 0, args.join(' '));
+    const newRoot = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: workspace, encoding: 'utf8' }).stdout.trim();
+    const metaPath = path.join(dir, 'meta.json');
+    fs.writeFileSync(metaPath, JSON.stringify({ ...JSON.parse(fs.readFileSync(metaPath, 'utf8')), base_commit: newRoot }));
+    const run = spawnSync(process.execPath, [manualEval, 'score', workspace], { encoding: 'utf8', timeout: 120000 });
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    assert.ok(JSON.parse(fs.readFileSync(path.join(dir, 'report.json'), 'utf8')).objective.failed_checks.includes('Prepared commit matches the fixture'));
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual evaluation refuses unknown, repeated, empty or attached option values', () => {
+  for (const argv of [['prepare', 'broken-html-card', '--dir', ''], ['prepare', 'broken-html-card', '--dir=x'], ['prepare', 'broken-html-card', '--output', 'x'], ['prepare', 'broken-html-card', '--dir', '--output', 'x'], ['score', 'ws', '--dir', 'x']]) {
+    const run = spawnSync(process.execPath, [manualEval, ...argv], { encoding: 'utf8' });
+    assert.equal(run.status, 2, argv.join(' '));
+  }
+});
+
+test('manual evaluation never overwrites the files of an earlier run in an existing --dir', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-reuse-'));
+  try {
+    for (const name of ['meta.json', 'prompt.txt', 'report.json']) {
+      const dir = path.join(base, name.replace('.', '-'));
+      fs.mkdirSync(dir);
+      fs.writeFileSync(path.join(dir, name), 'USERDATA\n');
+      const run = spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 });
+      assert.equal(run.status, 2, name);
+      assert.equal(fs.readFileSync(path.join(dir, name), 'utf8'), 'USERDATA\n');
+    }
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual evaluation warns about a CLAUDE.md inside the chosen --dir itself', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-claude-in-dir-'));
+  try {
+    fs.writeFileSync(path.join(base, 'CLAUDE.md'), '# would also be loaded\n');
+    const run = spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', base], { encoding: 'utf8', timeout: 60000 });
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    assert.match(run.stderr, /WARNING: Claude Code will also load/);
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('a failed default prepare leaves no private temporary folder behind', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-tmpfail-'));
+  try {
+    const env = { ...process.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp, PATH: path.dirname(process.execPath), Path: path.dirname(process.execPath) };
+    const run = spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card'], { encoding: 'utf8', timeout: 60000, env });
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    assert.deepEqual(fs.readdirSync(tmp), []);
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
 test('manual evaluation still scores changes the agent committed', () => {
