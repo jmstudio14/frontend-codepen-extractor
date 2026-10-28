@@ -1184,6 +1184,21 @@ test('manual evaluation binds the scoring base to the fixture, so a new root and
   } finally { fs.rmSync(base, { recursive: true, force: true }); }
 });
 
+test('manual evaluation cannot score a workspace whose Git state it cannot read (exit 2, no report)', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-gitstate-'));
+  try {
+    const dir = path.join(base, 'run');
+    assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 }).status, 0);
+    // A well-formed id of a commit that does not exist, so git diff against it fails.
+    const metaPath = path.join(dir, 'meta.json');
+    fs.writeFileSync(metaPath, JSON.stringify({ ...JSON.parse(fs.readFileSync(metaPath, 'utf8')), base_commit: '0'.repeat(40) }));
+    const run = spawnSync(process.execPath, [manualEval, 'score', path.join(dir, 'workspace')], { encoding: 'utf8', timeout: 120000 });
+    assert.equal(run.status, 2, run.stdout + run.stderr);
+    assert.match(run.stderr, /cannot be scored/);
+    assert.equal(fs.existsSync(path.join(dir, 'report.json')), false);
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
 test('manual evaluation refuses unknown, repeated, empty or attached option values', () => {
   for (const argv of [['prepare', 'broken-html-card', '--dir', ''], ['prepare', 'broken-html-card', '--dir=x'], ['prepare', 'broken-html-card', '--output', 'x'], ['prepare', 'broken-html-card', '--dir', '--output', 'x'], ['score', 'ws', '--dir', 'x']]) {
     const run = spawnSync(process.execPath, [manualEval, ...argv], { encoding: 'utf8' });
