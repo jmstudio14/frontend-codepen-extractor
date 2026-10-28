@@ -18,6 +18,16 @@ const queue = [];
 function test(name, fn) { queue.push({ name, fn }); }
 // A test that could not exercise its subject (for example, no browser available) reports NOT RUN, not PASS.
 class NotRun extends Error {}
+// The manual evaluation refuses to work inside the clone, by design, so a temporary folder inside it would
+// make many tests fail for that reason alone. Say so once instead.
+{
+  const real = (dir) => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
+  const rel = path.relative(real(root), real(os.tmpdir()));
+  if (rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))) {
+    console.error(`The temporary folder (${os.tmpdir()}) is inside this repository; set TMPDIR (TMP and TEMP on Windows) to a folder outside it and run the smoke tests again.`);
+    process.exit(2);
+  }
+}
 
 for (const [command, expected] of [
   ['git reset --hard HEAD', 'git-hard-reset'],
@@ -362,11 +372,62 @@ test('security gate reports files too large to scan and string callbacks of ever
 
 test('security gate refuses a --root without an existing folder instead of scanning this repository', () => {
   const gate = path.join(root, 'scripts/security-gate.mjs');
-  for (const argv of [['--root'], ['--root', '--x'], ['--root', path.join(os.tmpdir(), `missing-root-${process.pid}-${Date.now()}`)]]) {
-    const run = spawnSync(process.execPath, [gate, ...argv], { encoding: 'utf8', timeout: 30000 });
-    assert.equal(run.status, 2, argv.join(' '));
-    assert.match(run.stderr, /--root needs an existing folder/);
-    assert.doesNotMatch(run.stdout, /files scanned/);
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-options-'));
+  try {
+    // A missing value or folder, `--root=x`, a typo, a bare path or an extra argument: none may fall back to
+    // scanning this repository.
+    for (const argv of [['--root'], ['--root', '--x'], ['--root', path.join(folder, 'missing')], [`--root=${folder}`], ['--rot', folder], [folder], ['--root', folder, 'extra']]) {
+      const run = spawnSync(process.execPath, [gate, ...argv], { encoding: 'utf8', timeout: 30000 });
+      assert.equal(run.status, 2, argv.join(' '));
+      assert.match(run.stderr, /--root needs an existing folder|Usage: security-gate\.mjs/);
+      assert.doesNotMatch(run.stdout, /files scanned/);
+    }
+  } finally { fs.rmSync(folder, { recursive: true, force: true }); }
+});
+
+test('security gate reads escaped names, every shell source, more shells and extensionless node scripts', () => {
+  const cp = "'node:child_" + "process'";
+  const bs = String.fromCharCode(92);
+  // Written with escapes, these are the same names to Node; the gate on main missed all of them.
+  for (const [source, rule] of [
+    [`${bs}u0065val("6*7");\n`, /dynamic-code-execution/],
+    [`new ${bs}u0046unction("return 1")();\n`, /dynamic-code-execution/],
+    [`import { spawnSync } from ${cp};\nspawnSync('ls', [], { s${bs}u0068ell: true });\n`, /unapproved-shell-true/],
+    [`import cp from "node:child_${bs}u0070rocess";\ncp.${bs}u0065xecSync('id');\n`, /unapproved-shell-exec/],
+    [`import { spawnSync } from ${cp};\nspawnSync('ls', [], { ['s${bs}x68ell']: true });\n`, /unapproved-shell-true/],
+    [`${bs}u{65}val('1');\n`, /dynamic-code-execution/],
+    // The login shell by any route, and shells beyond the common ones.
+    [`import { spawnSync } from ${cp};\nconst { ${'SHE' + 'LL'} } = process.env;\nspawnSync(${'SHE' + 'LL'}, ['-c', 'id']);\n`, /unapproved-shell-spawn/],
+    [`import os from 'node:os';\nimport { spawnSync } from ${cp};\nspawnSync(os.userInfo().${'s' + 'hell'}, ['-c', 'id']);\n`, /unapproved-shell-spawn/],
+    [`import { spawn } from ${cp};\nspawn('/bin/as` + `h', ['-c', 'id']);\n`, /unapproved-shell-spawn/],
+    [`import { spawn } from ${cp};\nspawn('tcs` + `h', ['-c', 'id']);\n`, /unapproved-shell-spawn/],
+  ]) {
+    const run = runGate({ 'scripts/a.mjs': source });
+    assert.equal(run.status, 1, source);
+    assert.match(run.stderr, rule, source);
+  }
+  // A node script without an extension is Node code too.
+  const tool = runGate({ 'bin/tool': `#!/usr/bin/env node\nrequire(${cp}).spawnSync('ls', [], { ${'s' + 'hell'}: true });\n` });
+  assert.match(tool.stderr, /unapproved-shell-true: bin\/tool/);
+  assert.equal(runGate({ 'bin/run': '#!/bin/sh\necho ok\n' }).status, 0, 'a shell script is not Node code');
+  // Escapes that spell nothing flagged are fine.
+  assert.equal(runGate({ 'scripts/a.mjs': `const nbsp = '${bs}u00a0';\nconst tab = '${bs}x09';\n` }).status, 0);
+});
+
+test('security gate keeps every main-branch secret rule', () => {
+  // Built at run time, so this file holds no real-looking key; each value matches only its own rule.
+  const samples = {
+    'anthropic-api-key': 'sk-' + 'ant-' + 'a1B2c3D4e5F6g7H8i9J0',
+    'openai-api-key': 'sk-' + 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6',
+    'aws-access-key': 'AK' + 'IA' + 'ABCDEFGHIJKLMNOP',
+    'github-token': 'gh' + 'p_' + 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8',
+    'private-key': '-----BEGIN ' + 'RSA PRIVATE ' + 'KEY-----',
+  };
+  for (const [rule, value] of Object.entries(samples)) {
+    const run = runGate({ 'notes.md': `value=${value}\n` });
+    assert.equal(run.status, 1, rule);
+    assert.match(run.stderr, new RegExp(`${rule}: notes\\.md`), rule);
+    assert.ok(!(run.stdout + run.stderr).includes(value), `${rule} value must not be printed`);
   }
 });
 
@@ -447,10 +508,10 @@ test('security gate catches quoted shell keys, shell paths, exec aliases, the co
     assert.match(run.stderr, rule, source);
   }
   // A shell path kept in a variable is still a shell once the file loads child_process; without it, a path is text.
-  const viaVariable = runGate({ 'scripts/a.mjs': `import { spawn } from ${cp};\nconst bin = '/usr/bin/b` + `ash';\nspawn(bin, ['-c', 'ls']);\n` });
+  const viaVariable = runGate({ 'scripts/a.mjs': `import { spawn } from ${cp};\nconst bin = '/usr/bin/bas` + `h';\nspawn(bin, ['-c', 'ls']);\n` });
   assert.equal(viaVariable.status, 1);
   assert.match(viaVariable.stderr, /unapproved-shell-spawn: scripts\/a\.mjs line 2/);
-  assert.equal(runGate({ 'scripts/a.mjs': `const bin = '/usr/bin/b` + `ash';\nconsole.log(bin);\n` }).status, 0);
+  assert.equal(runGate({ 'scripts/a.mjs': `const bin = '/usr/bin/bas` + `h';\nconsole.log(bin);\n` }).status, 0);
   const ts = runGate({ 'src/run.ts': `import { ex` + `ecSync } from ${cp};\nex` + `ecSync('ls');\n` });
   assert.match(ts.stderr, /unapproved-shell-exec: src\/run\.ts/, 'TypeScript files are Node code too');
   // Plain words in strings, comments and regex literals are not calls.
@@ -482,7 +543,7 @@ test('security gate cannot be steered into hiding code by templates, division or
     [`await import('da` + `ta:text/javascript,console.log(1)');\n`, /dynamic-code-execution/],
     [`import { spawn } from ${cp};\nconst o = {};\no.${sh} = true;\nspawn('ls', [], o);\n`, /unapproved-shell-true/],
     [`import * as cp from ${cp};\nconst t = \`\${cp.ex` + `ec('ls')}\`;\n`, /unapproved-shell-exec/],
-    [`import { spawn } from ${cp};\nconst b = '/bin/b` + `ash';\nspawn(b, ['-c', 'id']);\n`, /unapproved-shell-spawn/],
+    [`import { spawn } from ${cp};\nconst b = '/bin/bas` + `h';\nspawn(b, ['-c', 'id']);\n`, /unapproved-shell-spawn/],
   ]) {
     const run = runGate({ 'scripts/a.mjs': source });
     assert.equal(run.status, 1, source);
@@ -714,6 +775,10 @@ const BROWSER_MUTANTS = [
   ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "clearInterval(timer);\n      (function tick() { setTimeout(tick, 1500); })();"]], /setTimeout still rescheduling after teardown/],
   // A teardown that throws is reported with its reason.
   ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "clearInterval(timer);\n      throw new Error('broken teardown');"]], /teardown failed: .*broken teardown/],
+  // Page code that leaks an interval and redefines the built-ins a tracker might read its counts through.
+  ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "for (const proto of [Set.prototype, Map.prototype]) Object.defineProperty(proto, 'size', { get() { return 0; }, configurable: true });\n      Array.prototype.filter = function () { return []; };\n      Reflect.apply = () => 0;\n      Object.prototype.toJSON = function () { return {}; };"]], /interval\(s\) still active after teardown/],
+  // A window listener added through EventTarget.prototype directly, never removed.
+  ['dynamic-js-widget', 'widget.js', [["document.addEventListener('click', onClick);", "document.addEventListener('click', onClick);\n  EventTarget.prototype.addEventListener.call(window, 'resize', onClick);"]], /listener\(s\) not removed by teardown/],
   // Page code that leaks an interval and then tries to reset or replace the tracker's counts.
   ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "try { window.__lifecycle.intervals.clear(); } catch {}\n      try { window.__lifecycle = { snapshot: () => ({ intervals: 0, raf: 0, timeouts: 0, listeners: 0 }) }; } catch {}\n      try { delete window.__lifecycle; } catch {}"]], /interval\(s\) still active after teardown/],
   // Removing with a different capture flag does not remove the listener, as in the DOM.
@@ -776,6 +841,22 @@ test('browser check accepts a one-shot timeout that teardown schedules and that 
   });
   if (result.status === 'NOT RUN') throw new NotRun(result.reason);
   assert.equal(result.status, 'PASS', JSON.stringify(result.failures));
+});
+
+test('browser check accepts one-shot timeouts that run after teardown and fire or are cleared', () => {
+  const fixture = listFixtures(root).find((item) => item.name === 'dynamic-js-widget');
+  // Both are set after teardown began (one fires, one is cleared), so only exact pending tracking passes them.
+  for (const extra of ['setTimeout(() => setTimeout(() => {}, 50), 400);', 'setTimeout(() => { const later = setTimeout(() => {}, 5000); clearTimeout(later); }, 400);']) {
+    const result = withWorkspace(fixture, path.join(root, 'tests/fixture-solutions/dynamic-js-widget'), (dir) => {
+      const file = path.join(dir, 'widget.js');
+      const text = fs.readFileSync(file, 'utf8');
+      assert.ok(text.includes('clearInterval(timer);'));
+      fs.writeFileSync(file, text.replace('clearInterval(timer);', `clearInterval(timer);\n      ${extra}`));
+      return browserCheck(dir, fixture).result;
+    });
+    if (result.status === 'NOT RUN') throw new NotRun(result.reason);
+    assert.equal(result.status, 'PASS', `${extra} ${JSON.stringify(result.failures)}`);
+  }
 });
 
 test('browser check accepts correct teardown through an AbortController signal', () => {
@@ -938,13 +1019,23 @@ fs.writeFileSync(process.env.AGENT_EVAL_RESULT_PATH, JSON.stringify({
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+// Signal 0 checks existence; where /proc exists, a zombie (exited, not yet reaped) counts as stopped.
+function processAlive(pid) {
+  try { process.kill(pid, 0); } catch { return false; }
+  try { return !fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(' ')[2].startsWith('Z'); } catch { return true; }
+}
+const killQuietly = (pids) => { for (const pid of pids) { try { process.kill(pid, 'SIGKILL'); } catch {} } };
+
 test('evaluation harness kills a hung adapter with its child processes at the timeout', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-timeout-'));
+  const pidsFile = path.join(dir, 'pids.txt');
   try {
     const adapter = path.join(dir, 'hang.mjs');
     // The grandchild inherits the output pipes, as a real agent started by a shell would.
-    fs.writeFileSync(adapter, `import { spawn } from 'node:child_process';
-spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: 'inherit' });
+    fs.writeFileSync(adapter, `import fs from 'node:fs';
+import { spawn } from 'node:child_process';
+const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: 'inherit' });
+fs.writeFileSync(${JSON.stringify(pidsFile)}, process.pid + ' ' + child.pid);
 setTimeout(() => {}, 120000);
 `);
     const reportPath = path.join(dir, 'report.json');
@@ -955,7 +1046,47 @@ setTimeout(() => {}, 120000);
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     assert.equal(report.cases[0].adapter_timed_out, true);
     assert.ok(report.cases[0].errors.some((error) => /timed out after 1500 ms/.test(error)));
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    // Killed, not just abandoned: neither the adapter nor its grandchild is still running.
+    for (const pid of fs.readFileSync(pidsFile, 'utf8').trim().split(' ').map(Number)) assert.equal(processAlive(pid), false, `process ${pid} survived the timeout`);
+  } finally {
+    if (fs.existsSync(pidsFile)) killQuietly(fs.readFileSync(pidsFile, 'utf8').trim().split(' ').map(Number));
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('evaluation harness kills and reports processes the adapter left running in its group', () => {
+  if (process.platform === 'win32') throw new NotRun('process groups');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-eval-leftover-'));
+  const pidFile = path.join(dir, 'leftover.pid');
+  try {
+    // Either the background process closes its output (the case would otherwise pass with it still
+    // running) or it keeps the pipes open; both stay in the adapter's process group.
+    for (const [name, stdio] of [['quiet', 'ignore'], ['holding', 'inherit']]) {
+      const background = path.join(dir, `${name}.mjs`);
+      fs.writeFileSync(background, `import fs from 'node:fs';
+import { spawn } from 'node:child_process';
+const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: '${stdio}' });
+child.unref();
+fs.writeFileSync(${JSON.stringify(pidFile)}, String(child.pid));
+`);
+      const reportPath = path.join(dir, `report-${name}.json`);
+      const started = Date.now();
+      const run = spawnSync(process.execPath, [path.join(root, 'scripts/evaluate-agent.mjs'), '--adapter', `node tests/fixtures/evaluation-adapter.mjs && node "${background}"`, '--case', 'python-native-change', '--output', reportPath], { cwd: root, encoding: 'utf8', timeout: 60000 });
+      assert.ok(Date.now() - started < 20000, `${name}: the harness must not wait for the background process`);
+      assert.equal(run.status, 1, name + run.stdout + run.stderr);
+      const result = JSON.parse(fs.readFileSync(reportPath, 'utf8')).cases[0];
+      assert.equal(result.adapter_left_running, true, name);
+      assert.equal(result.adapter_left_process, false, `${name}: it never left the group`);
+      assert.ok(result.errors.some((error) => /still running after it exited; they were killed/.test(error)), JSON.stringify(result.errors));
+      const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+      const deadline = Date.now() + 5000;
+      while (processAlive(pid) && Date.now() < deadline) spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 100)']);
+      assert.equal(processAlive(pid), false, `${name}: process ${pid} was not killed`);
+    }
+  } finally {
+    if (fs.existsSync(pidFile)) killQuietly([Number(fs.readFileSync(pidFile, 'utf8'))]);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('evaluation harness does not hang on a descendant that left the process group', () => {
@@ -1077,7 +1208,9 @@ test('evaluation harness treats --help as success and an unreadable suite as a u
   try {
     fs.writeFileSync(path.join(dir, 'bad.json'), '{not json');
     fs.writeFileSync(path.join(dir, 'empty.json'), '{}');
-    for (const suite of [path.join(dir, 'missing.json'), path.join(dir, 'bad.json'), path.join(dir, 'empty.json')]) {
+    fs.writeFileSync(path.join(dir, 'null-case.json'), '{"cases":[null]}');
+    fs.writeFileSync(path.join(dir, 'partial-case.json'), '{"cases":[{"id":"x"}]}');
+    for (const suite of ['missing', 'bad', 'empty', 'null-case', 'partial-case'].map((name) => path.join(dir, `${name}.json`))) {
       const run = spawnSync(process.execPath, [harness, '--adapter', 'node -e 0', '--suite', suite, '--output', path.join(dir, 'report.json')], { cwd: root, encoding: 'utf8' });
       assert.equal(run.status, 2, suite + run.stderr);
       assert.doesNotMatch(run.stderr, /at .*evaluate-agent\.mjs/, 'no stack trace');
@@ -1220,6 +1353,13 @@ test('manual evaluation refuses tricky paths into the repository but accepts sib
     assert.equal(fs.existsSync(insideTemp), false, 'a refused default leaves no folder behind');
     try { fs.symlinkSync(root, path.join(base, 'link'), 'junction'); } catch (error) { throw new NotRun(`cannot create a link here (${error.code})`); }
     assert.equal(refused(path.join(base, 'link', newName, 'deeper')).status, 2, 'a symlinked ancestor pointing into the clone is refused');
+    // A sibling whose name only starts with the clone's name is outside it and is accepted.
+    const sibling = `${root}-sibling-${process.pid}-${Date.now()}`;
+    try {
+      const accepted = refused(path.join(sibling, 'run'));
+      if (accepted.status !== 0 && /EACCES|EPERM|EROFS/.test(accepted.stderr)) throw new NotRun('cannot create a folder next to the clone');
+      assert.equal(accepted.status, 0, accepted.stderr);
+    } finally { fs.rmSync(sibling, { recursive: true, force: true }); }
   } finally {
     // If the guard ever regresses, do not leave its output inside the clone.
     cleanInsideClone(hadResults, path.join(root, dottedName), path.join(root, newName), insideTemp);
@@ -1298,6 +1438,11 @@ test('manual scoring reads the files on disk and never the workspace Git, which 
     let linkCreated = true;
     try { fs.symlinkSync(path.join(linked.workspace, 'card.css'), path.join(linked.workspace, 'extra.css')); } catch { linkCreated = false; }
     if (linkCreated) assert.deepEqual(score(linked).report.repository.unexpected_files, ['extra.css']);
+    // Not even at an editable path: the checks would otherwise follow it out of the workspace.
+    const editableLink = fresh('editable-link');
+    let editableCreated = true;
+    try { fs.rmSync(path.join(editableLink.workspace, 'card.css')); fs.symlinkSync(path.join(solution, 'card.css'), path.join(editableLink.workspace, 'card.css')); } catch { editableCreated = false; }
+    if (editableCreated) assert.ok(score(editableLink).report.repository.unexpected_files.includes('card.css'));
   } finally { fs.rmSync(base, { recursive: true, force: true }); }
 });
 
@@ -1419,6 +1564,50 @@ test('manual evaluation explains a --dir it cannot use instead of crashing', () 
   } finally { fs.rmSync(base, { recursive: true, force: true }); }
 });
 
+test('manual scoring checks a private snapshot, so the workspace cannot change between comparison and checks', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-snapshot-test-'));
+  try {
+    const dir = path.join(base, 'run');
+    assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 }).status, 0);
+    const workspace = path.join(dir, 'workspace');
+    fs.cpSync(path.join(root, 'tests/fixture-solutions/broken-html-card'), workspace, { recursive: true });
+    const tmp = path.join(base, 'tmp');
+    fs.mkdirSync(tmp);
+    const run = spawnSync(process.execPath, [manualEval, 'score', workspace], { encoding: 'utf8', timeout: 120000, env: { ...process.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp } });
+    const report = JSON.parse(fs.readFileSync(path.join(dir, 'report.json'), 'utf8'));
+    assert.deepEqual(report.objective.failed_checks, [], run.stdout + run.stderr);
+    // Every check read the snapshot, never the live workspace, and the snapshot is gone afterwards.
+    for (const check of report.checks) assert.ok(!check.command.includes(workspace), `${check.name} read the live workspace: ${check.command}`);
+    assert.ok(report.checks.some((check) => check.command.includes('manual-eval-snapshot-')), 'the checks name the snapshot');
+    assert.deepEqual(fs.readdirSync(tmp), [], 'the snapshot is removed');
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
+test('manual scoring never writes the report or screenshots through a symlink', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-nofollow-'));
+  try {
+    const victim = path.join(base, 'victim.txt');
+    fs.writeFileSync(victim, 'keep\n');
+    for (const name of ['report.json', 'screenshots']) {
+      const dir = path.join(base, name.replace('.', '-'));
+      assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 }).status, 0);
+      try { fs.symlinkSync(name === 'screenshots' ? base : victim, path.join(dir, name)); } catch (error) { throw new NotRun(`cannot create a symlink here (${error.code})`); }
+      const run = spawnSync(process.execPath, [manualEval, 'score', path.join(dir, 'workspace')], { encoding: 'utf8', timeout: 120000 });
+      assert.equal(run.status, 2, name + run.stdout + run.stderr);
+      assert.match(run.stderr, /refusing to write through it/);
+      assert.equal(fs.readFileSync(victim, 'utf8'), 'keep\n');
+      assert.deepEqual(fs.readdirSync(base).filter((entry) => entry.endsWith('.png')), []);
+    }
+    // A link placed inside a real screenshots folder is not followed either.
+    const dir = path.join(base, 'inside');
+    assert.equal(spawnSync(process.execPath, [manualEval, 'prepare', 'broken-html-card', '--dir', dir], { encoding: 'utf8', timeout: 60000 }).status, 0);
+    fs.mkdirSync(path.join(dir, 'screenshots'));
+    fs.symlinkSync(victim, path.join(dir, 'screenshots', 'before.png'));
+    spawnSync(process.execPath, [manualEval, 'score', path.join(dir, 'workspace')], { encoding: 'utf8', timeout: 120000 });
+    assert.equal(fs.readFileSync(victim, 'utf8'), 'keep\n');
+  } finally { fs.rmSync(base, { recursive: true, force: true }); }
+});
+
 test('manual evaluation checks the --output folder before scoring', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-output-'));
   try {
@@ -1428,6 +1617,12 @@ test('manual evaluation checks the --output folder before scoring', () => {
     assert.equal(run.status, 2, run.stdout + run.stderr);
     assert.match(run.stderr, /folder for --output does not exist/);
     assert.doesNotMatch(run.stdout, /Fixture quality assertions/, 'no check ran');
+    // An --output that is an existing folder is refused the same way, before any check runs.
+    fs.mkdirSync(path.join(base, 'outdir'));
+    const folder = spawnSync(process.execPath, [manualEval, 'score', path.join(dir, 'workspace'), '--output', path.join(base, 'outdir')], { encoding: 'utf8', timeout: 60000 });
+    assert.equal(folder.status, 2, folder.stdout + folder.stderr);
+    assert.match(folder.stderr, /not a regular file; refusing to write through it/);
+    assert.doesNotMatch(folder.stdout, /Fixture quality assertions/, 'no check ran');
   } finally { fs.rmSync(base, { recursive: true, force: true }); }
 });
 

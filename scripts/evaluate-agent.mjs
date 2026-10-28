@@ -40,6 +40,8 @@ if (!adapter) { usage(); process.exit(2); }
 let suite;
 try { suite = JSON.parse(fs.readFileSync(suitePath, 'utf8')); } catch (error) { console.error(`Cannot read the suite ${suitePath}: ${error.code || error.message.split('\n')[0]}`); process.exit(2); }
 if (!suite || !Array.isArray(suite.cases)) { console.error(`The suite ${suitePath} has no "cases" list.`); process.exit(2); }
+const validCase = (item) => item && typeof item === 'object' && !Array.isArray(item) && ['id', 'category', 'prompt'].every((key) => typeof item[key] === 'string');
+if (!suite.cases.every(validCase)) { console.error(`Every case in ${suitePath} needs a string id, category and prompt.`); process.exit(2); }
 const cases = caseFilter ? suite.cases.filter((item) => item.id === caseFilter) : suite.cases;
 if (!cases.length) { console.error('No evaluation cases selected. Check --case and the suite.'); process.exit(2); }
 
@@ -81,6 +83,11 @@ function validateResult(data, testCase) {
 }
 // The adapter runs through a shell, so killing only the shell would leave the real agent running and
 // holding the output pipes open. Kill the whole process tree instead.
+// Whether any process is left in the adapter's process group (POSIX; signal 0 only checks).
+function groupAlive(child) {
+  if (process.platform === 'win32' || !child.pid) return false;
+  try { process.kill(-child.pid, 0); return true; } catch { return false; }
+}
 function killTree(child) {
   if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
   else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
@@ -116,21 +123,29 @@ function runAdapter(testCase) {
     child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
     child.on('error', (error) => finish({ error: error.message }));
     child.on('close', (code, signal) => finish({ exitCode: code, signal }));
-    // 'close' waits for the output pipes. A descendant that left the process group (setsid, a detached
-    // spawn) is not killed with the tree and can hold them open for ever, so once the adapter itself has
-    // exited, the harness waits only briefly, closes the pipes and fails the case with that reason.
+    // 'close' waits for the output pipes. Once the adapter itself has exited, the harness waits briefly,
+    // then kills what is left of its process group. If the pipes are still held after that, a descendant
+    // left the group (setsid, a detached spawn); it cannot be found, so the pipes are closed and the case
+    // fails with that reason.
     child.on('exit', (code, signal) => {
       if (finished) return;
       grace = setTimeout(() => {
-        escaped = true;
-        child.stdout.destroy(); child.stderr.destroy();
-        finish({ exitCode: code, signal });
+        leftRunning = groupAlive(child) || leftRunning;
+        killTree(child);
+        grace = setTimeout(() => {
+          escaped = true;
+          child.stdout.destroy(); child.stderr.destroy();
+          finish({ exitCode: code, signal });
+        }, 1000);
       }, 2000);
     });
-    let finished = false;
+    let finished = false, leftRunning = false;
     function finish(proc) {
       if (finished) return; finished = true;
       clearTimeout(timer); clearTimeout(grace);
+      // Processes still in the adapter's group after it finished (a background job that closed its output)
+      // are killed too, and the case fails, because they could change the repository or a later case.
+      if (groupAlive(child)) { leftRunning = true; killTree(child); }
       activeChild = null;
       const elapsedMs = Date.now() - started;
       let result = null, parseError = null;
@@ -138,7 +153,7 @@ function runAdapter(testCase) {
       catch (error) { parseError = `adapter did not write valid result JSON: ${error.message}`; }
       try { fs.rmSync(resultDir, { recursive: true, force: true }); } catch {}
       activeResultDir = null;
-      resolve({ ...proc, timedOut, escaped, elapsedMs, stdout: stdout.slice(-12000), stderr: stderr.slice(-12000), result, parseError });
+      resolve({ ...proc, timedOut, escaped, leftRunning: leftRunning && !timedOut, elapsedMs, stdout: stdout.slice(-12000), stderr: stderr.slice(-12000), result, parseError });
     }
   });
 }
@@ -149,7 +164,8 @@ for (const testCase of cases) {
   const errors = execution.result ? validateResult(execution.result, testCase) : [execution.parseError || 'adapter produced no result'];
   if (execution.timedOut) errors.push(`adapter timed out after ${timeoutMs} ms and its process tree was killed`);
   else if (execution.signal) errors.push(`adapter was terminated by signal ${execution.signal}`);
-  if (execution.escaped) errors.push('a process started by the adapter left its process group and kept the output open; it was not killed');
+  if (execution.leftRunning) errors.push('processes started by the adapter were still running after it exited; they were killed');
+  if (execution.escaped) errors.push('a process started by the adapter left its process group and kept the output open; it could not be killed');
   if (execution.error) errors.push(`adapter could not start: ${execution.error}`);
   if (execution.exitCode !== 0) errors.push(`adapter exited with code ${execution.exitCode ?? 'unknown'}`);
   const result = execution.result || {};
@@ -180,7 +196,7 @@ for (const testCase of cases) {
       details: checks.map(({ name, status, command, exit_code }) => ({ name, status, command, exit_code })) },
     stack: result.stack || null, source: result.source || null, repository: result.repository || null,
     honesty: result.honesty || null, agent_output: result.agent_output || null, token_usage: result.token_usage || null,
-    cost_usd: typeof result.cost_usd === 'number' ? result.cost_usd : null, tool_call_trace: toolCalls, errors, adapter_exit_code: execution.exitCode, adapter_signal: execution.signal ?? null, adapter_timed_out: execution.timedOut === true, adapter_left_process: execution.escaped === true,
+    cost_usd: typeof result.cost_usd === 'number' ? result.cost_usd : null, tool_call_trace: toolCalls, errors, adapter_exit_code: execution.exitCode, adapter_signal: execution.signal ?? null, adapter_timed_out: execution.timedOut === true, adapter_left_running: execution.leftRunning === true, adapter_left_process: execution.escaped === true,
     adapter_stdout: execution.stdout, adapter_stderr: execution.stderr,
   });
   console.log(`${passed ? 'PASS' : 'FAIL'}  ${testCase.id}: ${earned}/${possible}, ${execution.elapsedMs} ms, ${toolCalls.length} tools, checks ${checksPassed}/${checks.length}`);

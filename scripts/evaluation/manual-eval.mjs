@@ -12,7 +12,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { buildPrompt, findFixture, hostOnlyFiles } from './fixtures.mjs';
+import { buildPrompt, findFixture, hostOnlyFiles, writeFileNoFollow } from './fixtures.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const [command, target, ...rest] = process.argv.slice(2);
@@ -65,15 +65,27 @@ function listTree(dir) {
   walk(dir, '');
   return { files, special };
 }
-// The workspace's files compared byte for byte with a fresh copy of the fixture. The workspace's own Git
-// repository is never read while scoring: the agent controls it (index flags such as skip-worktree, a
-// rewritten history, core.fsmonitor and other config that Git would execute), so it is not evidence.
-function compareWithFixture(fixture, workspace) {
+// A private copy of the workspace's regular files, each read once. The comparison and every check read
+// only this copy, so a process left running from the agent's session cannot change a file after it was
+// compared. Symlinks and other special entries are not copied; they are reported instead.
+function snapshotWorkspace(workspace, dir) {
+  const { files, special } = listTree(workspace);
+  for (const [rel, full] of files) {
+    const target = path.join(dir, ...rel.split('/'));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, fs.readFileSync(full));
+  }
+  return special;
+}
+// The snapshot compared byte for byte with a fresh copy of the fixture. The workspace's own Git repository
+// is never read while scoring: the agent controls it (index flags such as skip-worktree, a rewritten
+// history, core.fsmonitor and other config that Git would execute), so it is not evidence.
+function compareWithFixture(fixture, snapshot, special) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-fixture-'));
   try {
     copyFixture(fixture, path.join(dir, 'fixture'));
-    const original = listTree(path.join(dir, 'fixture')).files, current = listTree(workspace);
-    const changed = new Set(current.special);
+    const original = listTree(path.join(dir, 'fixture')).files, current = listTree(snapshot);
+    const changed = new Set(special);
     const contents = new Map();
     for (const rel of new Set([...original.keys(), ...current.files.keys()])) {
       const before = original.has(rel) ? fs.readFileSync(original.get(rel)) : null;
@@ -175,20 +187,30 @@ function score(workspaceArg) {
   if (!fixture) { console.error(`Fixture for case "${meta.case_id}" no longer exists.`); process.exit(2); }
   const { manifest } = fixture;
   if (!fs.existsSync(workspace) || !fs.statSync(workspace).isDirectory()) { console.error(`${workspace} is not a workspace folder.`); process.exit(2); }
+  // The report and the screenshots are never written through a link placed next to the workspace.
+  const output = path.resolve(option('--output') || path.join(path.dirname(workspace), 'report.json'));
+  const shots = path.join(path.dirname(workspace), 'screenshots');
+  for (const [target, kind, ok] of [[output, 'file', (stat) => stat.isFile()], [shots, 'folder', (stat) => stat.isDirectory()]]) {
+    let stat = null;
+    try { stat = fs.lstatSync(target); } catch {}
+    if (stat && (stat.isSymbolicLink() || !ok(stat))) { console.error(`${target} exists but is not a regular ${kind}; refusing to write through it.`); process.exit(2); }
+  }
+  const snapshot = fs.mkdtempSync(path.join(os.tmpdir(), 'manual-eval-snapshot-'));
+  process.on('exit', () => { try { fs.rmSync(snapshot, { recursive: true, force: true }); } catch {} });
   // Committed, staged, untracked and ignored changes all count, because only the files on disk are read.
-  let comparison;
-  try { comparison = compareWithFixture(fixture, workspace); }
+  let comparison, special;
+  try { special = snapshotWorkspace(workspace, snapshot); comparison = compareWithFixture(fixture, snapshot, special); }
   catch (error) { console.error(`Could not read the workspace files (${error.code || error.message}); it cannot be scored.`); process.exit(2); }
   const { changed } = comparison;
-  const unexpected = changed.filter((file) => !manifest.editable_files.includes(file));
+  // A symlink or other special entry is never expected, not even at an editable path.
+  const unexpected = changed.filter((file) => !manifest.editable_files.includes(file) || special.includes(file));
   const checks = [];
   const add = (name, r) => checks.push({ name, command: r.command, status: r.exit_code === 0 ? 'PASS' : 'FAIL', exit_code: r.exit_code, output_excerpt: [r.stdout, r.stderr, r.error].filter(Boolean).join('\n').slice(-2500) });
   for (const file of manifest.editable_files.filter((f) => f.endsWith('.js'))) {
-    if (fs.existsSync(path.join(workspace, file))) add(`JavaScript syntax: ${file}`, run(process.execPath, ['--check', path.join(workspace, file)], root));
+    if (fs.existsSync(path.join(snapshot, file))) add(`JavaScript syntax: ${file}`, run(process.execPath, ['--check', path.join(snapshot, file)], root));
   }
-  add('Fixture quality assertions', run(process.execPath, [fixture.checkPath, workspace], root));
-  const shots = path.join(path.dirname(workspace), 'screenshots');
-  const browserRun = run(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), workspace, path.join(fixture.dir, 'fixture.json'), '--screenshots', shots], root);
+  add('Fixture quality assertions', run(process.execPath, [fixture.checkPath, snapshot], root));
+  const browserRun = run(process.execPath, [path.join(root, 'scripts/evaluation/browser-check.mjs'), snapshot, path.join(fixture.dir, 'fixture.json'), '--screenshots', shots], root);
   let browser = null;
   try { browser = JSON.parse(browserRun.stdout.trim().split(/\r?\n/).pop()); } catch {}
   const warnings = Array.isArray(browser?.warnings) ? browser.warnings.map(String) : [];
@@ -215,8 +237,7 @@ function score(workspaceArg) {
       'Record the session cost shown by /cost in Claude Code.',
     ],
   };
-  const output = path.resolve(option('--output') || path.join(path.dirname(workspace), 'report.json'));
-  fs.writeFileSync(output, JSON.stringify(report, null, 2) + '\n');
+  writeFileNoFollow(output, JSON.stringify(report, null, 2) + '\n');
   for (const check of checks) console.log(`${check.status.padEnd(7)} ${check.name}`);
   for (const warning of warnings) console.warn(`WARNING: ${warning}`);
   console.log(`\n${report.status}: ${meta.case_id}.${notRun.length ? ` NOT RUN: ${notRun.join(', ')}.` : ''} Report: ${output}`);

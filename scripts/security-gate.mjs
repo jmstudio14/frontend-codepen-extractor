@@ -9,9 +9,14 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
-const rootArg = args.indexOf('--root') >= 0 ? args[args.indexOf('--root') + 1] : null;
-// Without this check, `--root` with no value would silently scan this repository instead.
-if (args.includes('--root') && (!rootArg || rootArg.startsWith('--') || !fs.existsSync(rootArg) || !fs.statSync(rootArg).isDirectory())) {
+// The only option is `--root <folder>`. Anything else (a typo, `--root=x`, a bare path) is an error rather
+// than a silent scan of this repository instead of the folder the caller meant.
+if (args.length && !(args.length === 2 && args[0] === '--root')) {
+  console.error('Usage: security-gate.mjs [--root <folder>]');
+  process.exit(2);
+}
+const rootArg = args.length ? args[1] : null;
+if (rootArg !== null && (rootArg.startsWith('--') || !fs.existsSync(rootArg) || !fs.statSync(rootArg).isDirectory())) {
   console.error('--root needs an existing folder.');
   process.exit(2);
 }
@@ -85,6 +90,12 @@ const primary = (full) => read(full)?.[0] ?? null;
 // Block comments removed, keeping line breaks, as an extra reading for the code rules: a comment between
 // an option key and its colon would otherwise separate them. It only adds matches, never removes the raw-text ones.
 const withoutBlockComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ''));
+// Unicode and hex escapes decoded, as one more reading: a name or string written with escapes is the
+// same name or string to Node, so it must be the same to the rules too.
+const withoutEscapes = (text) => text.replace(/\\u\{([0-9a-fA-F]{1,6})\}|\\u([0-9a-fA-F]{4})|\\x([0-9a-fA-F]{2})/g, (escape, braced, four, two) => {
+  const code = parseInt(braced ?? four ?? two, 16);
+  return code <= 0x10ffff ? String.fromCodePoint(code) : escape;
+});
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 
 // Code rules read the raw text. An earlier version masked comments and literals first, but a heuristic
@@ -127,9 +138,12 @@ const SHELL_OPTION_FORMS = [
 // that names a shell also counts, because it may reach spawn through a variable or as an argument of
 // another program (env sh -c ...). Paths and .exe names match in any letter case; bare names only in lower
 // case, because 'Bash' and 'PowerShell' are also Claude Code tool names.
-const SHELL_PATH_LITERAL = /['"`](?:[^'"`\s]*[\\/](?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?|(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)\.exe)['"`]/i;
-const SHELL_NAME_LITERAL = /['"`](?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)['"`]/;
-const SHELL_BINARY = /\b(?:spawn|spawnSync|execFile|execFileSync|fork)\s*\(\s*(?:['"`](?:[^'"`]*[\\/])?(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh)(?:\.exe)?['"`]|process\.env\.(?:SHELL|ComSpec|COMSPEC)\b)/i;
+const SHELL_PATH_LITERAL = /['"`](?:[^'"`\s]*[\\/](?:sh|ash|bash|zsh|dash|ksh|mksh|oksh|csh|tcsh|fish|yash|busybox|nu|elvish|xonsh|cmd|powershell|pwsh)(?:\.exe)?|(?:sh|ash|bash|zsh|dash|ksh|mksh|oksh|csh|tcsh|fish|yash|busybox|nu|elvish|xonsh|cmd|powershell|pwsh)\.exe)['"`]/i;
+// Also any name that holds the login shell, such as the SHELL and ComSpec variables by any route, and
+// any `.shell` member (os.userInfo().shell, options.shell).
+const SHELL_SOURCE = /\b(?:SHELL|ComSpec|COMSPEC)\b|\.\s*shell\b/;
+const SHELL_NAME_LITERAL = /['"`](?:sh|ash|bash|zsh|dash|ksh|mksh|oksh|csh|tcsh|fish|yash|busybox|nu|elvish|xonsh|cmd|powershell|pwsh)['"`]/;
+const SHELL_BINARY = /\b(?:spawn|spawnSync|execFile|execFileSync|fork)\s*\(\s*(?:['"`](?:[^'"`]*[\\/])?(?:sh|ash|bash|zsh|dash|ksh|mksh|oksh|csh|tcsh|fish|yash|busybox|nu|elvish|xonsh|cmd|powershell|pwsh)(?:\.exe)?['"`]|process\.env\.(?:SHELL|ComSpec|COMSPEC)\b)/i;
 // Code built from text: the global code evaluator and the code-from-string constructor named anywhere
 // (called, aliased, in an array, as a quoted key or property, through globalThis or Reflect), string timer
 // callbacks, any quoted node:vm specifier, Worker code strings and data: URL imports. `eval: false` (a
@@ -145,7 +159,8 @@ const DYNAMIC_CODE_FORMS = [
   /\bimport\s*\(?\s*['"`]data:/i,
 ];
 // Node code anywhere, except browser .js files in the fixtures and their solutions (seeded defects).
-const isNodeCode = (rel) => /\.(?:mjs|cjs|mts|cts)$/.test(rel) || (/\.(?:js|ts)$/.test(rel) && !/^tests\/(?:fixtures|fixture-solutions)\//.test(rel));
+// A script without an extension counts when its first line runs node.
+const isNodeCode = (rel, text) => /\.(?:mjs|cjs|mts|cts)$/.test(rel) || (/\.(?:js|ts)$/.test(rel) && !/^tests\/(?:fixtures|fixture-solutions)\//.test(rel)) || /^#![^\n]*\bnode\b/.test(text);
 
 for (const { rel, full } of files) {
   const texts = read(full);
@@ -164,13 +179,13 @@ for (const { rel, full } of files) {
   for (const text of texts) {
     for (const [rule, re] of SECRET_RULES) report(rule, text, re.exec(text)?.index ?? -1, ' (value not printed)');
   }
-  if (!isNodeCode(rel)) continue;
-  for (const text of texts.flatMap((raw) => [raw, withoutBlockComments(raw)])) {
+  if (!isNodeCode(rel, texts[0])) continue;
+  for (const text of texts.flatMap((raw) => [raw, withoutBlockComments(raw), withoutEscapes(raw), withoutEscapes(withoutBlockComments(raw))])) {
     report('dynamic-code-execution', text, firstIndex(text, DYNAMIC_CODE_FORMS));
     if (SHELL_ALLOWLIST.has(rel)) continue;
     report('unapproved-shell-true', text, firstIndex(text, SHELL_OPTION_FORMS), ' (shell option other than false)');
     report('unapproved-shell-exec', text, shellExecIndex(text), ' (child_process exec/execSync always uses a shell)');
-    const binary = SHELL_BINARY.exec(text) ?? (LOADS_CHILD_PROCESS.test(text) ? SHELL_PATH_LITERAL.exec(text) ?? SHELL_NAME_LITERAL.exec(text) : null);
+    const binary = SHELL_BINARY.exec(text) ?? (LOADS_CHILD_PROCESS.test(text) ? SHELL_PATH_LITERAL.exec(text) ?? SHELL_NAME_LITERAL.exec(text) ?? SHELL_SOURCE.exec(text) : null);
     report('unapproved-shell-spawn', text, binary?.index ?? -1, ' (spawns a shell directly)');
   }
 }
