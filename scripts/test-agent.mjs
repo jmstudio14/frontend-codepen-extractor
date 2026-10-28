@@ -394,6 +394,9 @@ test('security gate cannot be steered into hiding code by templates, division or
     [`globalThis.Func` + `tion('return 1')();\n`, /dynamic-code-execution/],
     [`(0, ${ev})(code);\n`, /dynamic-code-execution/],
     [`const e = ${ev};\ne(code);\n`, /dynamic-code-execution/],
+    // The evaluator taken from the global object under another name; only the call through the alias runs it.
+    [`const run = globalThis.${ev};\nrun(code);\n`, /dynamic-code-execution: scripts\/a\.mjs line 1/],
+    [`const api = { fn: window.${ev} };\napi.fn(code);\n`, /dynamic-code-execution: scripts\/a\.mjs line 1/],
     [`new Worker(code, { ${ev}: true });\n`, /dynamic-code-execution/],
     [`await import('da` + `ta:text/javascript,console.log(1)');\n`, /dynamic-code-execution/],
     [`import { spawn } from ${cp};\nconst o = {};\no.${sh} = true;\nspawn('ls', [], o);\n`, /unapproved-shell-true/],
