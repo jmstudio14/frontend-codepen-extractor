@@ -710,6 +710,8 @@ const BROWSER_MUTANTS = [
   ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "clearInterval(timer);\n      (function tick() { setTimeout(tick, 100); })();"]], /setTimeout still rescheduling after teardown/],
   // The same loop with the fixture clock's one-second period, which a fixed tolerance used to miss.
   ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "clearInterval(timer);\n      (function tick() { setTimeout(tick, 1000); })();"]], /setTimeout still rescheduling after teardown/],
+  // A period between one and two waits' worth of calls: only the pending-timeout tracking sees it.
+  ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "clearInterval(timer);\n      (function tick() { setTimeout(tick, 1500); })();"]], /setTimeout still rescheduling after teardown/],
   // A teardown that throws is reported with its reason.
   ['dynamic-js-widget', 'widget.js', [["clearInterval(timer);", "clearInterval(timer);\n      throw new Error('broken teardown');"]], /teardown failed: .*broken teardown/],
   // Page code that leaks an interval and then tries to reset or replace the tracker's counts.
